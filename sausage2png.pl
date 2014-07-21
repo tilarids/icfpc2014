@@ -11,7 +11,8 @@ my $j = <$f>;
 my @rows = @{decode_json(qq({"foo":$j}))->{foo}};
 
 my $width = scalar(@rows);
-my $height = 11;
+my $height = scalar(@{$rows[0]});
+print "Height = $height\n";
 
 my $png = new GD::Image($width, $height);
 
