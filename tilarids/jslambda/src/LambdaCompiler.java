@@ -181,6 +181,28 @@ public class LambdaCompiler {
 		return instrs;
 	}
 	
+	public List<I> processArgumentsExpression(ECMAScriptParser.ArgumentsExpressionContext ast) {
+		List<I> instrs = new ArrayList<I>();
+		if (ast.singleExpression() == null || !(ast.singleExpression() instanceof ECMAScriptParser.IdentifierExpressionContext)) {
+			throw new RuntimeException("expected function call");
+		}
+		int count = 0;
+		if (ast.arguments() != null && ast.arguments().argumentList() != null) {
+			count = ast.arguments().argumentList().singleExpression().size();
+			for (ECMAScriptParser.SingleExpressionContext expr : ast.arguments().argumentList().singleExpression()) {
+				instrs.addAll(processSingleExpression(expr));
+			}
+		}
+		instrs.addAll(processIdentifierExpression((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()));
+
+		I ap = new I(I.Type.AP);
+		ap.params.add(new IntParam(count));
+		instrs.add(ap);
+
+		
+		return instrs;
+	}
+	
 	public List<I> processSingleExpression(ECMAScriptParser.SingleExpressionContext ast) {
 		if (ast instanceof ECMAScriptParser.FunctionExpressionContext) {
 			return processFunctionExpression((ECMAScriptParser.FunctionExpressionContext)ast);
@@ -190,6 +212,8 @@ public class LambdaCompiler {
 			return processLiteralExpression((ECMAScriptParser.LiteralExpressionContext)ast);
 		} else if (ast instanceof ECMAScriptParser.IdentifierExpressionContext) {
 			return processIdentifierExpression((ECMAScriptParser.IdentifierExpressionContext)ast);
+		} else if (ast instanceof ECMAScriptParser.ArgumentsExpressionContext) {
+			return processArgumentsExpression((ECMAScriptParser.ArgumentsExpressionContext)ast);
 		} else {
 			throw new RuntimeException("unsupported expression" + ast.toStringTree(this.ruleNames));
 		}
@@ -253,7 +277,7 @@ public class LambdaCompiler {
 		    this.instructions.add(ldf);
 		}
 		I rap = new I(I.Type.RAP);
-		rap.params.add(new IntParam(1)); // todo: support correct params to init.
+		rap.params.add(new IntParam(this.topFrameDeclCount - 1)); // todo: support correct params to init.
 		
 		this.instructions.add(rap); // call init, it is the last function loaded.
 		this.instructions.add(new I(I.Type.RTN));
@@ -276,26 +300,9 @@ public class LambdaCompiler {
 	}
 
 	public static void main(String[] args) {
-//		  DUM  2        ; 2 top-level declarations
-//		  LDC  2        ; declare constant down
-//		  LDF  step     ; declare function step 
-//		  LDF  init     ; init function
-//		  RAP  2        ; load declarations into environment and run init
-//		  RTN           ; final return
-//		init:
-//		  LDC  42
-//		  LD   0 1      ; var step
-//		  CONS
-//		  RTN           ; return (42, step)
-//		step:
-//		  LD   0 0      ; var s
-//		  LDC  1 
-//		  ADD
-//		  LD   1 0      ; var down
-//		  CONS
-//		  RTN           ; return (s+1, down)
-
-    	String expression = "function step(state, world) { return [0, state]; }\n function init() {return [3, step];}\n ";
+    	String expression = "function get_xy(world, x, y) { return x; } " + 
+    						"function step(state, world) { return [get_xy(world, 1, 100), state]; }" + 
+    						"function init() {return [3, step];} ";
      
     	{
         	ECMAScriptParser dumb_parser = new Builder.Parser(expression).build();
