@@ -19,7 +19,7 @@ public class LambdaCompiler {
 	}
 
 	public static class I {  // instruction
-		public enum Type {ERROR, CONS, DUM, LDC, LDF, RAP, RTN, LD, ADD, AP};
+		public enum Type {ERROR, CONS, DUM, LDC, LDF, RAP, RTN, LD, ADD, AP, CAR, CDR};
 		public I (Type t) {
 			this.type = t;
 		}
@@ -193,11 +193,17 @@ public class LambdaCompiler {
 				instrs.addAll(processSingleExpression(expr));
 			}
 		}
-		instrs.addAll(processIdentifierExpression((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()));
-
-		I ap = new I(I.Type.AP);
-		ap.params.add(new IntParam(count));
-		instrs.add(ap);
+		String id_name = ((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()).Identifier().toString(); 
+		if (id_name.equals("car")) {
+			instrs.add(new I(I.Type.CAR));
+		} else if (id_name.equals("cdr")) {
+			instrs.add(new I(I.Type.CDR));
+		} else {
+			instrs.addAll(processIdentifierExpression((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()));
+			I ap = new I(I.Type.AP);
+			ap.params.add(new IntParam(count));
+			instrs.add(ap);
+		}
 
 		
 		return instrs;
@@ -230,6 +236,12 @@ public class LambdaCompiler {
 		instrs.add(new I(I.Type.RTN));
 		return instrs;
 	}
+
+	public List<I> processIfStatement(ECMAScriptParser.IfStatementContext ast) {
+//		List<I> instrs = new ArrayList<I>();
+		throw new RuntimeException("not implemented");
+//		return instrs;
+	}
 	
 	public List<I> processSourceElements(ECMAScriptParser.SourceElementsContext ast) {
 		List<I> instrs = new ArrayList<I>();
@@ -246,8 +258,10 @@ public class LambdaCompiler {
 				}
 			} else if (sourceElem.statement().returnStatement() != null) {
 				instrs.addAll(this.processReturnStatement(sourceElem.statement().returnStatement()));
+			} else if (sourceElem.statement().ifStatement() != null) {
+				instrs.addAll(this.processIfStatement(sourceElem.statement().ifStatement()));
 			} else {
-				throw new RuntimeException("unsupported statement");
+				throw new RuntimeException("unsupported statement" + ast.toStringTree(ruleNames));
 			}
 		}
 		return instrs;
@@ -300,9 +314,18 @@ public class LambdaCompiler {
 	}
 
 	public static void main(String[] args) {
-    	String expression = "function get_xy(world, x, y) { return x; } " + 
-    						"function step(state, world) { return [get_xy(world, 1, 100), state]; }" + 
-    						"function init() {return [3, step];} ";
+//    	String expression = "function foldl(func, acc, list) {" +
+//    						"  if (car(list)) { " +
+//    						"    return foldl(func, func(acc, car(list)), cdr(list)) " + 
+//    						"  } else {" + 
+//    						"    return acc " + 
+//    						"  } " +
+//    						"} " +
+//    						"function step(state, world) { return [1, state]; }" + 
+//    						"function init() {return [3, step];} ";
+    	String expression = "" +
+				"function step(state, world) { return [car(car(car(world))), state]; }" + 
+				"function init() {return [3, step];} ";
      
     	{
         	ECMAScriptParser dumb_parser = new Builder.Parser(expression).build();
