@@ -1,3 +1,7 @@
+import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.Map.Entry;
 
@@ -365,17 +369,8 @@ public class LambdaCompiler {
 		return builder.toString();
 	}
 
-	public static void main(String[] args) {
-    	String expression = "function foldl(func, acc, list) {" +
-    						"  if (atom(cdr(list))) { " +
-       						"    return acc " + 
-    						"  } else {" + 
-       						"    return foldl(func, func(acc, car(list)), cdr(list)) " + 
-    						"  } " +
-    						"} " +
-    						"function id(x, y) { return x; } " +
-    						"function step(state, world) { return [foldl(id, 0, car(car(world))), state]; }" + 
-    						"function init() {return [3, step];} ";
+	public static void main(String[] args) throws IOException {
+		String expression = new String(Files.readAllBytes(FileSystems.getDefault().getPath("src/input.js")));
 //    	String expression = "" +
 //				"function step(state, world) { if(0) {return [0, state];} else {return [1, state];} }" + 
 //				"function init() {return [3, step];} ";
