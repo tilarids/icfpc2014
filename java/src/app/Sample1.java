@@ -71,7 +71,7 @@ public class Sample1 extends VM {
             String row = rows[i1];
             Cons lst = null;
             for (int i = row.length() - 1; i >= 0; i--) {
-                lst = cons(convertMapCharacter(row.charAt(i)), lst);
+                lst = cons(CT.convertMapCharacter(row.charAt(i)), lst);
             }
             result = cons(lst, result);
         }
@@ -84,11 +84,9 @@ public class Sample1 extends VM {
     }
 
 
-    public enum CT {
-        SPACE, WALL, PILL, POWER, FRUIT, LAMBDA, GHOST;
-    }
 
-    private static CT convertMapCharacter(char c) {
+
+    /*private static CT convertMapCharacter(char c) {
         switch(c) {
             case ' ': return CT.SPACE;
             case '#': return CT.WALL;
@@ -100,7 +98,7 @@ public class Sample1 extends VM {
             default:
                 throw new IllegalArgumentException("Oh");
         }
-    }
+    }*/
 
     public static void main(String[] args) {
         String theMap = map1;
