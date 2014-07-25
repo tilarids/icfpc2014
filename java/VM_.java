@@ -6,7 +6,7 @@ import java.util.function.UnaryOperator;
 /**
  * Created by san on 7/25/14.
  */
-public class VM {
+public class VM_ {
 
     @Compiled
     class Queue {
