@@ -20,7 +20,7 @@ public class LambdaCompiler {
 
 	public static class I {  // instruction
 		public enum Type {ERROR, CONS, DUM, LDC, LDF, RAP, RTN, LD, ADD, AP, CAR, CDR, JOIN, SEL, 
-							TSEL};
+							TSEL, ATOM};
 		public I (Type t) {
 			this.type = t;
 		}
@@ -201,6 +201,8 @@ public class LambdaCompiler {
 			instrs.add(new I(I.Type.CAR));
 		} else if (id_name.equals("cdr")) {
 			instrs.add(new I(I.Type.CDR));
+		} else if (id_name.equals("atom")) {
+			instrs.add(new I(I.Type.ATOM));
 		} else {
 			instrs.addAll(processIdentifierExpression((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()));
 			I ap = new I(I.Type.AP);
@@ -208,7 +210,6 @@ public class LambdaCompiler {
 			instrs.add(ap);
 		}
 
-		
 		return instrs;
 	}
 	
@@ -365,19 +366,19 @@ public class LambdaCompiler {
 	}
 
 	public static void main(String[] args) {
-//    	String expression = "function foldl(func, acc, list) {" +
-//    						"  if (car(list)) { " +
-//    						"    return foldl(func, func(acc, car(list)), cdr(list)) " + 
-//    						"  } else {" + 
-//    						"    return acc " + 
-//    						"  } " +
-//    						"} " +
-//    						"function id(x) { return x; } " +
-//    						"function step(state, world) { return [foldl(id, 0, car(world)), state]; }" + 
-//    						"function init() {return [3, step];} ";
-    	String expression = "" +
-				"function step(state, world) { if(0) {return [0, state];} else {return [1, state];} }" + 
-				"function init() {return [3, step];} ";
+    	String expression = "function foldl(func, acc, list) {" +
+    						"  if (atom(cdr(list))) { " +
+       						"    return acc " + 
+    						"  } else {" + 
+       						"    return foldl(func, func(acc, car(list)), cdr(list)) " + 
+    						"  } " +
+    						"} " +
+    						"function id(x, y) { return x; } " +
+    						"function step(state, world) { return [foldl(id, 0, car(car(world))), state]; }" + 
+    						"function init() {return [3, step];} ";
+//    	String expression = "" +
+//				"function step(state, world) { if(0) {return [0, state];} else {return [1, state];} }" + 
+//				"function init() {return [3, step];} ";
      
     	{
         	ECMAScriptParser dumb_parser = new Builder.Parser(expression).build();
