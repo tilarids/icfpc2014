@@ -117,4 +117,22 @@ public class VM {
         return retval;
     }
 
+    /*Map operations*/
+
+    public static int map_height(Cons map){
+        return elements_counter(map, 0);
+    }
+
+    public static int map_width(Cons map){
+        return elements_counter(head(map), 0);
+    }
+
+    public static int elements_counter(Cons list, int counter){
+        if(list == null) return counter;
+        return elements_counter(tail(list), counter + 1);
+    }
+
+
+    /*End of map operations*/
+
 }
