@@ -19,7 +19,8 @@ public class LambdaCompiler {
 	}
 
 	public static class I {  // instruction
-		public enum Type {ERROR, CONS, DUM, LDC, LDF, RAP, RTN, LD, ADD, AP, CAR, CDR};
+		public enum Type {ERROR, CONS, DUM, LDC, LDF, RAP, RTN, LD, ADD, AP, CAR, CDR, JOIN, SEL, 
+							TSEL};
 		public I (Type t) {
 			this.type = t;
 		}
@@ -95,6 +96,8 @@ public class LambdaCompiler {
 			throw new RuntimeException("function body expected");
 		}
 
+		this.variablesStack.peek().put(func_name, topFrameDeclCount);
+
 		// prepare stack.
 		if (func.formalParameterList() != null) {
 			Map<String, Integer> variables = new HashMap<String, Integer>();
@@ -103,6 +106,7 @@ public class LambdaCompiler {
 			}
 			this.variablesStack.push(variables);
 		}
+
 
 		// parse the body.
 		List<I> function_body = new ArrayList<I>();
@@ -119,7 +123,6 @@ public class LambdaCompiler {
 		}
 		// save new function defintion.
 		functionMap.put(func_name, new Func(topFrameDeclCount, function_body.get(0)));
-		this.variablesStack.peek().put(func_name, topFrameDeclCount);
 		topFrameDeclCount += 1;
 		
 		return function_body;
@@ -238,9 +241,70 @@ public class LambdaCompiler {
 	}
 
 	public List<I> processIfStatement(ECMAScriptParser.IfStatementContext ast) {
-//		List<I> instrs = new ArrayList<I>();
-		throw new RuntimeException("not implemented");
-//		return instrs;
+		List<I> instrs = new ArrayList<I>();
+		if (ast.expressionSequence() == null || ast.expressionSequence().singleExpression().size() != 1 ) {
+			throw new RuntimeException("expected expr " + ast.toStringTree(ruleNames));
+		}
+		List<I> cond = processSingleExpression(ast.expressionSequence().singleExpression(0));
+		if (ast.statement().size() != 2) {
+			throw new RuntimeException("expected 2 elems " + ast.statement().toString());
+		}
+		
+		List<I> true_st = processStatement(ast.statement(0));
+		List<I> false_st = processStatement(ast.statement(1));
+		
+		I ldc = new I(I.Type.LDC);
+		ldc.params.add(new IntParam(1));
+		instrs.add(ldc);
+		I sel = new I(I.Type.TSEL);
+		sel.params.add(new RefParam(cond.get(0)));
+		sel.params.add(new IntParam(0));
+		instrs.add(sel); // unconditional
+		
+		instrs.addAll(true_st);
+		instrs.add(new I(I.Type.JOIN));
+		instrs.addAll(false_st);
+		instrs.add(new I(I.Type.JOIN));
+
+		instrs.addAll(cond);
+		I cond_sel = new I(I.Type.TSEL);
+		cond_sel.params.add(new RefParam(true_st.get(0)));
+		cond_sel.params.add(new RefParam(false_st.get(0)));
+		instrs.add(cond_sel); // conditional
+
+		return instrs;
+	}
+	
+	public List<I> processBlock(ECMAScriptParser.BlockContext ast) {
+		List<I> instrs = new ArrayList<I>();
+		if (ast.statementList() == null) {
+			throw new RuntimeException("statement list expected");
+		}
+		for (ECMAScriptParser.StatementContext stmt : ast.statementList().statement()) {
+			instrs.addAll(processStatement(stmt));
+		}
+		return instrs;
+	}
+	
+	public List<I> processStatement(ECMAScriptParser.StatementContext ast) {
+		List<I> instrs = new ArrayList<I>();
+		if (ast.expressionStatement() != null) {
+			if (ast.expressionStatement().expressionSequence() == null) {
+				throw new RuntimeException("expression sequence expected");
+			}
+			for (ECMAScriptParser.SingleExpressionContext expr : ast.expressionStatement().expressionSequence().singleExpression()) {
+				instrs.addAll(this.processSingleExpression(expr));
+			}
+		} else if (ast.returnStatement() != null) {
+			instrs.addAll(this.processReturnStatement(ast.returnStatement()));
+		} else if (ast.ifStatement() != null) {
+			instrs.addAll(this.processIfStatement(ast.ifStatement()));
+		} else if (ast.block() != null) {
+			instrs.addAll(this.processBlock(ast.block()));
+		} else {
+			throw new RuntimeException("unsupported statement" + ast.toStringTree(ruleNames));
+		}
+		return instrs;
 	}
 	
 	public List<I> processSourceElements(ECMAScriptParser.SourceElementsContext ast) {
@@ -249,20 +313,7 @@ public class LambdaCompiler {
 			if (sourceElem.statement() == null) {
 				throw new RuntimeException("statement expected");
 			}
-			if (sourceElem.statement().expressionStatement() != null) {
-				if (sourceElem.statement().expressionStatement().expressionSequence() == null) {
-					throw new RuntimeException("expression sequence expected");
-				}
-				for (ECMAScriptParser.SingleExpressionContext expr : sourceElem.statement().expressionStatement().expressionSequence().singleExpression()) {
-					instrs.addAll(this.processSingleExpression(expr));
-				}
-			} else if (sourceElem.statement().returnStatement() != null) {
-				instrs.addAll(this.processReturnStatement(sourceElem.statement().returnStatement()));
-			} else if (sourceElem.statement().ifStatement() != null) {
-				instrs.addAll(this.processIfStatement(sourceElem.statement().ifStatement()));
-			} else {
-				throw new RuntimeException("unsupported statement" + ast.toStringTree(ruleNames));
-			}
+			instrs.addAll(processStatement(sourceElem.statement()));
 		}
 		return instrs;
 	}
@@ -321,10 +372,11 @@ public class LambdaCompiler {
 //    						"    return acc " + 
 //    						"  } " +
 //    						"} " +
-//    						"function step(state, world) { return [1, state]; }" + 
+//    						"function id(x) { return x; } " +
+//    						"function step(state, world) { return [foldl(id, 0, car(world)), state]; }" + 
 //    						"function init() {return [3, step];} ";
     	String expression = "" +
-				"function step(state, world) { return [car(car(car(world))), state]; }" + 
+				"function step(state, world) { if(0) {return [0, state];} else {return [1, state];} }" + 
 				"function init() {return [3, step];} ";
      
     	{
