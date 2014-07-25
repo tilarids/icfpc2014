@@ -6,10 +6,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.log4j.Logger;
 import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.dom.AST;
-import org.eclipse.jdt.core.dom.ASTParser;
-import org.eclipse.jdt.core.dom.ASTVisitor;
-import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.*;
 
 public class Compiler {
 
@@ -45,7 +42,7 @@ public class Compiler {
         this.encoding = encoding;
     }
 
-    public ASTVisitor visitFile( File file ) throws IOException {
+    public TypeDeclaration parseFile(File file) throws IOException {
         if(!file.exists())
             new IllegalArgumentException("File "+file.getAbsolutePath()+" doesn't exist");
 
@@ -69,7 +66,7 @@ public class Compiler {
         return result;
     }
 
-    public ASTVisitor visit( InputStream stream, String encoding ) throws IOException {
+    public TypeDeclaration visit( InputStream stream, String encoding ) throws IOException {
         if( stream == null )
             throw new IllegalArgumentException("stream is null");
         if( encoding == null )
@@ -96,25 +93,12 @@ public class Compiler {
         return result.toString();
     }
 
-    public ASTVisitor visitString( String source ) {
+    public TypeDeclaration visitString( String source ) {
         ASTParser parser = ASTParser.newParser(AST.JLS3);
 
         @SuppressWarnings( "unchecked" )
         Map<String,String> options = JavaCore.getOptions();
-        if(VERSION_1_5.equals(targetJdk))
-            JavaCore.setComplianceOptions(JavaCore.VERSION_1_5, options);
-        else if(VERSION_1_6.equals(targetJdk))
-            JavaCore.setComplianceOptions(JavaCore.VERSION_1_6, options);
-        else {
-            if(!VERSION_1_4.equals(targetJdk)) {
-                log.warn("Unknown targetJdk ["+targetJdk+"]. Using "+VERSION_1_4+" for parsing. Supported values are: "
-                                + VERSION_1_4 + ", "
-                                + VERSION_1_5 + ", "
-                                + VERSION_1_6
-                );
-            }
-            JavaCore.setComplianceOptions(JavaCore.VERSION_1_4, options);
-        }
+        JavaCore.setComplianceOptions(JavaCore.VERSION_1_8, options);
         parser.setCompilerOptions(options);
 
         parser.setResolveBindings(false);
@@ -125,10 +109,9 @@ public class Compiler {
 
         CompilationUnit ast = (CompilationUnit) parser.createAST(null);
 
-        // AstVisitor extends org.eclipse.jdt.core.dom.ASTVisitor
-        //ast.accept( visitor );
-
-        return null;
+        CompilationUnit root = (CompilationUnit)ast.getRoot();
+        TypeDeclaration mainClass = (TypeDeclaration)root.types().get(0);
+        return mainClass;
     }
 
     public static void main(String[] args) throws IOException {
@@ -137,7 +120,7 @@ public class Compiler {
     }
 
     private void run() throws IOException {
-        visitFile(new File("/home/san/Work/icfpc2014/java/src/compiler/Compiler.java"));
+        TypeDeclaration typeDeclaration = parseFile(new File("src/app/VM.java"));
     }
 }
 

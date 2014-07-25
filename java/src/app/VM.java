@@ -19,6 +19,7 @@ public class VM {
         }
     }
 
+    @Compiled
     static class Tuple<A, B> {
         A a;
         B b;
