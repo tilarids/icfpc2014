@@ -402,8 +402,12 @@ public class LambdaCompiler {
 	
 	public String process(ECMAScriptParser.ProgramContext ast) {
 		this.generateInstructions(ast);
+		int index = 0;
 		for (int i = 0; i < instructions.size(); ++i) {
-			instructions.get(i).instruction_number = i;
+			instructions.get(i).instruction_number = index;
+			if (instructions.get(i).type != I.Type.COMMENT) {
+				++index;
+			}
 		}
 		for (I instr : instructions) {
 			instr.resolveParams();

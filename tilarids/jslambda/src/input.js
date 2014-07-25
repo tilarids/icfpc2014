@@ -5,14 +5,14 @@
     return foldl(func, func(acc, car(list)), cdr(list))
   } 
 }*/
-/*function mod(x, y) {
+function mod(x, y) {
   if (x > y) {
     return mod(x - y, y)
   } else {
     return x
   }
 }
-function step(state, world, lm_status, ghost_status, fruit_status) {
+/*function step(state, world, lm_status, ghost_status, fruit_status) {
   return [mod(state / 100, 4), state + 1]; 
 }
 function queue_new() {
@@ -57,7 +57,7 @@ function queue_dequeue(q) {
   return step(state, car(tuple4), car(cdr(tuple4)), car(cdr(cdr(tuple4))), cdr(cdr(cdr(tuple4))))
 }*/
 function init() {
-  return 42;
-//  return mod(7,3)
+//  return 42;
+  return mod(7,3)
 //    return [0, step_impl]
 }
