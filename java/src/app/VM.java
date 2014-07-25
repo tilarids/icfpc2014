@@ -35,19 +35,22 @@ public class VM {
     }
 
     public static <T> T head(Cons c) {
+        if (c == null) throw new RuntimeException("head: null");
         return (T)c.data;
     }
 
     public static <T> T first(Cons c) {
+        if (c == null) throw new RuntimeException("first: null");
         return (T)c.data;
     }
 
     public static<T> T second(Cons c) {
+        if (c == null) throw new RuntimeException("second: null");
         return (T)c.addr;
     }
 
     public static Cons tail(Cons c) {
-        if (c == null) throw new RuntimeException("tail of NULL");
+        if (c == null) throw new RuntimeException("tail: null");
         return (Cons)c.addr;
     }
 
@@ -58,9 +61,9 @@ public class VM {
 
     @Compiled
     public static Cons reverse(Cons c) {
-        if (c == null) return null;
-        if (tail(c) == null) return c;
-        return cons(reverse(tail(c)), head(c));
+        return (c == null) ? null :
+            (tail(c) == null) ?  c :
+                cons(reverse(tail(c)), head(c));
     }
 
     @Compiled
@@ -70,8 +73,7 @@ public class VM {
 
     @Compiled
     public static Object fold(Cons c, Function2 arg) {
-        if (tail(c) == null) return head(c);
-        return fold0(tail(c), head(c), arg);
+        return tail(c) == null ? head(c) : fold0(tail(c), head(c), arg);
     }
 
     @Compiled
@@ -81,6 +83,10 @@ public class VM {
 
     @Compiled
     public Queue queue_enqueue(Queue q, Object v) {
+        int x = 2;
+        int y = 3;
+        int z = x + y;
+        System.out.println("z="+z);
         return new Queue(q.xs, cons(v, q.ys));
     }
 
@@ -92,19 +98,23 @@ public class VM {
     @Compiled
     public Object list_item(Cons list, int index) {
         if (index < 0) throw new RuntimeException("list_item(list, -1)");
-        if (index == 0) return head(list); else return list_item(tail(list), index-1);
+        return index == 0 ? head(list) : list_item(tail(list), index-1);
     }
 
     @Compiled
     public Tuple<Object, Queue> queue_dequeue(Queue q) {
+        Tuple<Object, Queue> retval = null;
         if (q.xs == null) {
             if (q.ys != null) {
-                return queue_dequeue(new Queue(reverse(q.ys), null));
+                retval = queue_dequeue(new Queue(reverse(q.ys), null));
             } else {
                 throw new IllegalArgumentException("error dequeue");
             }
         }
-        return new Tuple<>(head(q.xs), new Queue(tail(q.xs), q.ys));
+        if (retval != null) {
+            retval = new Tuple<>(head(q.xs), new Queue(tail(q.xs), q.ys));
+        }
+        return retval;
     }
 
 }
