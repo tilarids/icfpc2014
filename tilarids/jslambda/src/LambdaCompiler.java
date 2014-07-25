@@ -146,7 +146,7 @@ public class LambdaCompiler {
 		}
 		
 		I ld = new I(I.Type.LD);
-		ld.params.add(new IntParam(1)); // todo: recursive calls!
+		ld.params.add(new IntParam(0)); // todo: recursive calls!
 		ld.params.add(new IntParam(functionMap.get(func_name).topFrameIndex));
 		instrs.add(ld);
 		return instrs;
@@ -205,6 +205,9 @@ public class LambdaCompiler {
 			throw new RuntimeException("expected sourceElements");
 		}
 		List<I> instrs = processSourceElements(ast.sourceElements());
+		I dum = new I(I.Type.DUM);
+		dum.params.add(new IntParam(this.topFrameDeclCount - 1));
+		this.instructions.add(dum);
 		for (int i = 0; i < this.topFrameDeclCount; ++i) {
 			// hack-hack-hack!
 			Func func = null;
@@ -217,10 +220,10 @@ public class LambdaCompiler {
 		    ldf.params.add(new RefParam(func.firstInstr));
 		    this.instructions.add(ldf);
 		}
-		I ap = new I(I.Type.AP);
-		ap.params.add(new IntParam(0)); // todo: support params to init;
+		I rap = new I(I.Type.RAP);
+		rap.params.add(new IntParam(1)); // todo: support correct params to init.
 		
-		this.instructions.add(ap); // call init, it is the last function loaded
+		this.instructions.add(rap); // call init, it is the last function loaded.
 		this.instructions.add(new I(I.Type.RTN));
 		this.instructions.addAll(instrs);
 	}
@@ -260,7 +263,7 @@ public class LambdaCompiler {
 //		  CONS
 //		  RTN           ; return (s+1, down)
 
-    	String expression = "function step() { return [0, 1]; }\n function init() {return [0, step];}\n ";
+    	String expression = "function step() { return [0, 3]; }\n function init() {return [0, step];}\n ";
      
     	{
         	ECMAScriptParser dumb_parser = new Builder.Parser(expression).build();
