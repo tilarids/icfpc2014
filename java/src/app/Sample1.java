@@ -41,12 +41,9 @@ public class Sample1 extends VM {
         int x = first(location);
         int y = second(location);
 
+        Object sum = fold(cons(5, cons(6, null)), (a, b) -> ((Integer) a) + ((Integer) b));
+        System.out.println(sum);
 
-        if (r0c0 == CT.FRUIT) {
-
-        } else {
-
-        }
         return null;
     }
 
@@ -87,7 +84,7 @@ public class Sample1 extends VM {
     }
 
     public static void main(String[] args) {
-        new Sample1().run(convertMap(map1), cons(5, cons(5, null)), 1, 3, 0);
+        new Sample1().run(convertMap(map1), cons(5, 5), 1, 3, 0);
     }
 
 }
