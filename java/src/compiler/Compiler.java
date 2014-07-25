@@ -8,6 +8,11 @@ import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 
+/**
+ * todo
+ * optimize list_item 0, list_item 1 etc. (faster head (tail (tail )) than call/etc)
+ */
+
 public class Compiler {
 
     public static final String VERSION_1_4 = "1.4";

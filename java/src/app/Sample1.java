@@ -52,13 +52,18 @@ public class Sample1 extends VM {
 
     @Compiled
     public Object run(Cons map, Tuple<Integer,Integer> location, Integer direction, Integer lives, Integer score) {
-        int x = location.a;
-        int y = location.b;
+//        int x = location.a;
+//        int y = location.b;
 
-        CT left = getMapItem(map, y, x-1);
-        CT right = getMapItem(map, y, x+1);
-        CT top = getMapItem(map, y-1, x);
-        CT bottom = getMapItem(map, y+1, x);
+        Integer q = (Integer)fold(cons(5, cons(6, null)), (a, b) -> (Integer)a + (Integer)b);
+        System.out.println("q="+q);
+
+//        CT left = getMapItem(map, y, x-1);
+//        CT right = getMapItem(map, y, x+1);
+//        CT top = getMapItem(map, y-1, x);
+//        CT bottom = getMapItem(map, y+1, x);
+
+
 
         return null;
     }
