@@ -24,14 +24,22 @@ public class LambdaCompiler {
 
 	public static class I {  // instruction
 		public enum Type {ERROR, CONS, DUM, LDC, LDF, RAP, RTN, LD, ADD, AP, CAR, CDR, JOIN, SEL, 
-							TSEL, ATOM};
+							TSEL, ATOM, CGT, SUB,  MUL, DIV, CEQ, COMMENT};
 		public I (Type t) {
 			this.type = t;
 		}
+		public I (String s) {
+			this.comment = s;
+			this.type = Type.COMMENT;
+		}
+		public String comment;
 		public Type type = Type.ERROR;
 		public List<IParam> params = new ArrayList<IParam>();
 		public int instruction_number = -1;
 		public String toString() {
+			if (this.type == Type.COMMENT) {
+				return "; " + this.comment + "\n";
+			}
 			StringBuilder builder = new StringBuilder();
 			builder.append(type.toString()+ " ");
 			for (IParam param : params) {
@@ -114,8 +122,9 @@ public class LambdaCompiler {
 
 		// parse the body.
 		List<I> function_body = new ArrayList<I>();
+		function_body.add(new I(func_name));
 		if (func.functionBody().sourceElements() != null) {
-			function_body = this.processSourceElements(func.functionBody().sourceElements());
+			function_body.addAll(this.processSourceElements(func.functionBody().sourceElements()));
 		}
 		if (func_name.length() == 0) {
 			throw new RuntimeException("expecting name" + func.toStringTree(ruleNames));
@@ -217,6 +226,27 @@ public class LambdaCompiler {
 		return instrs;
 	}
 	
+	
+	public List<I> processBinaryExpression(List<ECMAScriptParser.SingleExpressionContext> ast, I.Type type) {
+		List<I> instrs = new ArrayList<I>();
+		if (ast.size() != 2) {
+			throw new RuntimeException("expected two elems " + ast.toString());
+		}
+		for (ECMAScriptParser.SingleExpressionContext expr : ast) {
+			instrs.addAll(processSingleExpression(expr));
+		}
+		instrs.add(new I(type));
+		return instrs;
+	}
+
+	public List<I> processParenthesizedExpression(ECMAScriptParser.ParenthesizedExpressionContext ast) {
+		if (ast.expressionSequence() == null || ast.expressionSequence().singleExpression().size() > 1) {
+			throw new RuntimeException("expected 1-sequence" + ast.toStringTree(ruleNames));
+		} else {
+			return processSingleExpression(ast.expressionSequence().singleExpression(0));
+		}
+	}
+	
 	public List<I> processSingleExpression(ECMAScriptParser.SingleExpressionContext ast) {
 		if (ast instanceof ECMAScriptParser.FunctionExpressionContext) {
 			return processFunctionExpression((ECMAScriptParser.FunctionExpressionContext)ast);
@@ -228,8 +258,22 @@ public class LambdaCompiler {
 			return processIdentifierExpression((ECMAScriptParser.IdentifierExpressionContext)ast);
 		} else if (ast instanceof ECMAScriptParser.ArgumentsExpressionContext) {
 			return processArgumentsExpression((ECMAScriptParser.ArgumentsExpressionContext)ast);
+		} else if (ast instanceof ECMAScriptParser.GreaterThanExpressionContext) {
+			return processBinaryExpression(((ECMAScriptParser.GreaterThanExpressionContext)ast).singleExpression(), I.Type.CGT);
+		} else if (ast instanceof ECMAScriptParser.SubtractExpressionContext) {
+			return processBinaryExpression(((ECMAScriptParser.SubtractExpressionContext)ast).singleExpression(), I.Type.SUB);
+		} else if (ast instanceof ECMAScriptParser.AddExpressionContext) {
+			return processBinaryExpression(((ECMAScriptParser.AddExpressionContext)ast).singleExpression(), I.Type.ADD);
+		} else if (ast instanceof ECMAScriptParser.MultiplyExpressionContext) {
+			return processBinaryExpression(((ECMAScriptParser.MultiplyExpressionContext)ast).singleExpression(), I.Type.MUL);
+		} else if (ast instanceof ECMAScriptParser.DivideExpressionContext) {
+			return processBinaryExpression(((ECMAScriptParser.DivideExpressionContext)ast).singleExpression(), I.Type.DIV);
+		} else if (ast instanceof ECMAScriptParser.EqualsExpressionContext) {
+			return processBinaryExpression(((ECMAScriptParser.EqualsExpressionContext)ast).singleExpression(), I.Type.CEQ);
+		} else if (ast instanceof ECMAScriptParser.ParenthesizedExpressionContext) {
+			return processParenthesizedExpression((ECMAScriptParser.ParenthesizedExpressionContext)ast);
 		} else {
-			throw new RuntimeException("unsupported expression" + ast.toStringTree(this.ruleNames));
+			throw new RuntimeException("unsupported expression " + ast.toStringTree(this.ruleNames));
 		}
 	}
 
@@ -306,6 +350,8 @@ public class LambdaCompiler {
 			instrs.addAll(this.processIfStatement(ast.ifStatement()));
 		} else if (ast.block() != null) {
 			instrs.addAll(this.processBlock(ast.block()));
+		} else if (ast.emptyStatement() != null) {
+			// do nothing.
 		} else {
 			throw new RuntimeException("unsupported statement" + ast.toStringTree(ruleNames));
 		}
