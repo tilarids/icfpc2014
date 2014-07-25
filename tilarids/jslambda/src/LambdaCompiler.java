@@ -4,6 +4,7 @@ import java.util.Map.Entry;
 import org.antlr.runtime.*;
 import org.antlr.runtime.tree.*;
 import org.antlr.stringtemplate.*;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 public class LambdaCompiler {
 
@@ -74,7 +75,8 @@ public class LambdaCompiler {
 	
 	public List<I> instructions = new ArrayList<I>();
 
-	public class Func {
+	public class Func {  // todo: drop it. variables stack can be used instead, only instruction ref
+						  // should be saved here.
 		public int topFrameIndex = 0;
 		public I firstInstr = null;
 		Func(int x, I instr) {
@@ -83,13 +85,26 @@ public class LambdaCompiler {
 		}
 	}
 	Map<String, Func> functionMap = new HashMap<String, Func>();  // name -> func def 
+	
 	public int topFrameDeclCount = 0;
+	public Stack<Map<String, Integer>> variablesStack = new Stack<Map<String, Integer>>();
 	
 	public List<I> processFunctionExpression(ECMAScriptParser.FunctionExpressionContext func) {
 		String func_name = func.Identifier().toString();
 		if (func.functionBody() == null) {
 			throw new RuntimeException("function body expected");
 		}
+
+		// prepare stack.
+		if (func.formalParameterList() != null) {
+			Map<String, Integer> variables = new HashMap<String, Integer>();
+			for (int i = 0; i < func.formalParameterList().Identifier().size(); ++i) {
+				variables.put(func.formalParameterList().Identifier().get(i).toString(), i);
+			}
+			this.variablesStack.push(variables);
+		}
+
+		// parse the body.
 		List<I> function_body = new ArrayList<I>();
 		if (func.functionBody().sourceElements() != null) {
 			function_body = this.processSourceElements(func.functionBody().sourceElements());
@@ -97,8 +112,16 @@ public class LambdaCompiler {
 		if (func_name.length() == 0) {
 			throw new RuntimeException("expecting name" + func.toStringTree(ruleNames));
 		}
+
+		// drop stack.
+		if (func.formalParameterList() != null) {
+			this.variablesStack.pop();
+		}
+		// save new function defintion.
 		functionMap.put(func_name, new Func(topFrameDeclCount, function_body.get(0)));
+		this.variablesStack.peek().put(func_name, topFrameDeclCount);
 		topFrameDeclCount += 1;
+		
 		return function_body;
 	}
 
@@ -137,18 +160,24 @@ public class LambdaCompiler {
 
 	public List<I> processIdentifierExpression(ECMAScriptParser.IdentifierExpressionContext ast) {
 		List<I> instrs = new ArrayList<I>();
-		String func_name  = ast.Identifier().toString();
-		if (func_name.length() == 0) {
+		String id_name  = ast.Identifier().toString();
+		if (id_name.length() == 0) {
 			throw new RuntimeException("name expected");
 		}
-		if (!functionMap.containsKey(func_name)) {
-			throw new RuntimeException("function " + func_name + " not found");
+		for (int index = this.variablesStack.size() - 1; index >=0; --index) {
+			Map<String, Integer> variables = this.variablesStack.get(index);
+			if (variables.containsKey(id_name)) {
+				I ld = new I(I.Type.LD);
+				ld.params.add(new IntParam(this.variablesStack.size() - index - 1));
+				ld.params.add(new IntParam(variables.get(id_name)));
+				instrs.add(ld);
+				break;
+			}
 		}
-		
-		I ld = new I(I.Type.LD);
-		ld.params.add(new IntParam(0)); // todo: recursive calls!
-		ld.params.add(new IntParam(functionMap.get(func_name).topFrameIndex));
-		instrs.add(ld);
+
+		if (instrs.size() == 0) {
+			throw new RuntimeException("can't find an id " + ast.toStringTree(ruleNames));
+		}
 		return instrs;
 	}
 	
@@ -204,6 +233,9 @@ public class LambdaCompiler {
 		if (ast.sourceElements() == null) {
 			throw new RuntimeException("expected sourceElements");
 		}
+		
+		this.variablesStack.push(new HashMap<String, Integer>());
+		
 		List<I> instrs = processSourceElements(ast.sourceElements());
 		I dum = new I(I.Type.DUM);
 		dum.params.add(new IntParam(this.topFrameDeclCount - 1));
@@ -263,7 +295,7 @@ public class LambdaCompiler {
 //		  CONS
 //		  RTN           ; return (s+1, down)
 
-    	String expression = "function step() { return [0, 3]; }\n function init() {return [0, step];}\n ";
+    	String expression = "function step(state, world) { return [0, state]; }\n function init() {return [3, step];}\n ";
      
     	{
         	ECMAScriptParser dumb_parser = new Builder.Parser(expression).build();
