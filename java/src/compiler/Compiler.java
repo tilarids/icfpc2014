@@ -148,6 +148,7 @@ public class Compiler {
                     if (argument instanceof FunctionRef) {
                         FunctionRef fr = (FunctionRef)argument;
                         opcode.arguments[i] = fr.resolve();
+                        opcode.comment = " @"+fr.name;
                     }
                 }
             }
@@ -164,9 +165,6 @@ public class Compiler {
         myMethod.offset = offset;
         MethodDeclaration decl = myMethod.decl;
         List<VariableDeclaration> parameters = decl.parameters();
-        myMethod.opcodes.add(new Opcode(";"));
-        myMethod.opcodes.add(new Opcode("; "+key+"  "+parameters));
-        myMethod.opcodes.add(new Opcode(";"));
         for (VariableDeclaration parameter : parameters) {
             if (parameter instanceof SingleVariableDeclaration) {
                 SingleVariableDeclaration svd = (SingleVariableDeclaration)parameter;
@@ -180,7 +178,7 @@ public class Compiler {
         for (Statement statement : statements) {
             generateStatement(myMethod, statement);
         }
-
+        myMethod.opcodes.get(0).comment = " <== " + key+"  "+parameters;
         return myMethod;
     }
 
@@ -213,7 +211,7 @@ public class Compiler {
             Statement thenStatement = ifs.getThenStatement();
             Statement elseStatement = ifs.getElseStatement();
             generateExpression(myMethod, expression);
-            myMethod.addOpcode(new Opcode("SEL", new BranchRef(myMethod, thenStatement), new BranchRef(myMethod, elseStatement)));
+            myMethod.addOpcode(new Opcode("SEL", new BranchRef(myMethod, thenStatement, "then statement"), new BranchRef(myMethod, elseStatement,"else statement")));
         } else if (statement instanceof ThrowStatement) {
             myMethod.addOpcode(new Opcode("BRK"));
         } else if (statement instanceof Block) {
@@ -503,8 +501,9 @@ public class Compiler {
     class BranchRef implements FutureReference {
         MyMethod mtd;
         Statement expr;
+        String comment;
 
-        BranchRef(MyMethod mtd, Statement expr) {
+        BranchRef(MyMethod mtd, Statement expr, String comment) {
             this.mtd = mtd;
             this.expr = expr;
         }
@@ -514,7 +513,9 @@ public class Compiler {
             if (expr != null) {
                 generateStatement(mtd, expr);
             }
-            mtd.addOpcode(new Opcode("JOIN"));
+            Opcode join = new Opcode("JOIN");
+            mtd.addOpcode(join);
+            mtd.opcodes.get(loffs).comment = comment;
             return loffs + mtd.offset;
         }
     }
@@ -522,6 +523,7 @@ public class Compiler {
     class ExpressionRef implements FutureReference {
         MyMethod mtd;
         Expression expr;
+        String comment;
 
         ExpressionRef(MyMethod mtd, Expression expr) {
             this.mtd = mtd;
@@ -534,6 +536,7 @@ public class Compiler {
                 generateExpression(mtd, expr);
             }
             mtd.addOpcode(new Opcode("JOIN"));
+            mtd.opcodes.get(loffs).comment = comment;
             return loffs + mtd.offset;
         }
     }
@@ -542,22 +545,34 @@ public class Compiler {
         String name;
         Object[] arguments;
         public int offset;
+        String comment;
 
         public Opcode(String name, Object... arguments) {
             this.name = name;
             this.arguments = arguments;
         }
 
+        String rpad(String s, int max) {
+            while (s.length() < max) {
+                s = s + " ";
+            }
+            return s;
+        }
+
         @Override
         public String toString() {
             StringBuilder sb = new StringBuilder("");
-            sb.append(name);
+            sb.append(rpad(name, 6));
             sb.append(" ");
             for (Object argument : arguments) {
                 sb.append(argument);
                 sb.append(" ");
             }
-            return sb.toString().trim();
+            String str = rpad(sb.toString().trim(), 20);
+            if (comment != null) {
+                str += "; "+comment;
+            }
+            return str;
 
         }
     }
