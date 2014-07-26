@@ -522,6 +522,82 @@ public class Sample1 extends VMExtras {
                 (Integer) list_item_def((Cons) list_item_def(map, y, 0), x, 0);
     }
 
+    @Compiled
+    static class GHCState {
+        public static final byte MOV = 0;
+        public static final byte INC = 1;
+        public static final byte DEC = 2;
+        public static final byte ADD = 3;
+        public static final byte SUB = 4;
+        public static final byte MUL = 5;
+        public static final byte DIV = 6;
+        public static final byte AND = 7;
+        public static final byte OR = 8;
+        public static final byte XOR = 9;
+        public static final byte JLT = 10;
+        public static final byte JEQ = 11;
+        public static final byte JGT = 12;
+        public static final byte INT = 13;
+        public static final byte HLT = 14;
+
+        GhostState ghostState;
+        SortedMap<Integer> regs;
+        SortedMap<Integer> data;
+
+        GHCState(GhostState ghostState, SortedMap<Integer> regs, SortedMap<Integer> data) {
+            this.ghostState = ghostState;
+            this.regs = regs;
+            this.data = data;
+        }
+    }
+    @Compiled
+    public GHCState ghcstate_assoc(GHCState state, Cons arg_cons, Cons val_cons) {
+      Integer arg_tag = head(arg_cons);
+      Integer val_tag = head(val_cons);
+      if (val_tag > 3) throw new RuntimeException("value tag is invalid");
+      if (arg_tag > 3) throw new RuntimeException("arg tag is invalid");
+      if (arg_tag == 2) throw new RuntimeException("arg can't be const");
+      Integer val = 
+            val_tag == 0 ? sorted_map_get(state.regs, (Integer)tail(val_cons).data, 0)
+          : val_tag == 1 ? sorted_map_get(state.data, sorted_map_get(state.regs, (Integer)tail(val_cons).data, 0), 0)
+          : val_tag == 2 ? (Integer)tail(val_cons).data
+          : sorted_map_get(state.data, (Integer)tail(val_cons).data, 0);
+      return 
+            arg_tag == 0 ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, (Integer)tail(arg_cons).data, val), state.data)
+          : arg_tag == 1 ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, sorted_map_get(state.regs, (Integer)tail(arg_cons).data, 0), val), state.data)
+          : new GHCState(state.ghostState, state.regs, sorted_map_assoc(state.data, (Integer)tail(arg_cons).data, val));
+    }
+
+
+    @Compiled
+    public Integer runGhostStep(SortedMap<Cons> prog, WorldState world, int lev, GHCState state, Cons step) {
+      Integer opcode = head(step);
+      ListCons<Cons> args = (ListCons<Cons>)tail(step); 
+      return  
+            GHCState.MOV == opcode ? runGhost(prog, world, lev, ghcstate_assoc(state, head(args), tail(args)))
+          : -1;
+    }
+    
+    @Compiled
+    public Integer runGhost(SortedMap<Cons> prog, WorldState world, int lev, GHCState state) {
+      Integer pc = sorted_map_get(state.regs, 8, 0);
+      Cons step = sorted_map_get(prog, pc, null);
+      return step == null ? state.ghostState.direction 
+                          : (lev > 1023 ? state.ghostState.direction : runGhostStep(prog, world, lev + 1, state, step));
+    }
+    
+    @Compiled
+    public Integer getGhostDirection(WorldState world, ListCons<Cons> spec) {
+        Tuple<Integer, SortedMap<Cons>> prog = 
+            fold0(spec, 
+                  new Tuple<>(0, new SortedMap<Cons>(null, 0)), 
+                  (Tuple<Integer, SortedMap<Cons>> init, Cons step) -> new Tuple<>(init.a + 1, sorted_map_assoc(init.b, init.a, step)));
+        GhostState ghostState = new GhostState(0, new Point(0, 0), 0);  // get actual direction and location
+        return runGhost(prog.b, 
+                        world, 
+                        0,
+                        new GHCState(ghostState, new SortedMap<Integer>(null, 0), new SortedMap<Integer>(null, 0)));
+    }
 
     public static void main(String[] args) {
         String theMap = map1;
