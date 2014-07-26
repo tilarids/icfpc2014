@@ -130,7 +130,9 @@ public class Compiler {
 
     private void run() throws IOException {
         addTypes(parseFile(new File("src/app/VM.java")));
+        addTypes(parseFile(new File("src/app/VMExtras.java")));
         addTypes(parseFile(new File("src/app/Sample1.java")));
+        ArrayGenerator.generate(methods);
         ArrayList<Opcode> global = new ArrayList<>();
         MyMethod run = getMethod("entryPoint");
         methods.remove(run);
@@ -831,7 +833,7 @@ public class Compiler {
         }
     }
 
-    private class MyMethod {
+    public static  class MyMethod {
         List<VariableDeclaration> parameters;
         int offset;
         String name;

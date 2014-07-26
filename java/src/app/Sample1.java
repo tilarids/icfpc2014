@@ -4,7 +4,7 @@ package app;
  * Created by san on 7/25/14.
  */
 @SuppressWarnings("Convert2MethodRef")
-public class Sample1 extends VM {
+public class Sample1 extends VMExtras {
 
     static final String map1 = "" +
             "#######################\n" +
