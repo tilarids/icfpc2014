@@ -8,27 +8,27 @@ public class Sample1 extends VM {
 
     static final String map1 =
             "#######################\n" +
-            "#..........#..........#\n" +
-            "#.###.####.#.####.###.#\n" +
-            "#o###.####.#.####.###o#\n" +
-            "#.....................#\n" +
-            "#.###.#.#######.#.###.#\n" +
-            "#.....#....#....#.....#\n" +
-            "#####.#### # ####.#####\n" +
-            "#   #.#    =    #.#   #\n" +
-            "#####.# ### ### #.#####\n" +
-            "#    .  # === #  .    #\n" +
-            "#####.# ####### #.#####\n" +
-            "#   #.#    %    #.#   #\n" +
-            "#####.# ####### #.#####\n" +
-            "#..........#..........#\n" +
-            "#.###.####.#.####.###.#\n" +
-            "#o..#......\\......#..o#\n" +
-            "###.#.#.#######.#.#.###\n" +
-            "#.....#....#....#.....#\n" +
-            "#.########.#.########.#\n" +
-            "#.....................#\n" +
-            "#######################\n";
+                    "#..........#..........#\n" +
+                    "#.###.####.#.####.###.#\n" +
+                    "#o###.####.#.####.###o#\n" +
+                    "#.....................#\n" +
+                    "#.###.#.#######.#.###.#\n" +
+                    "#.....#....#....#.....#\n" +
+                    "#####.#### # ####.#####\n" +
+                    "#   #.#    =    #.#   #\n" +
+                    "#####.# ### ### #.#####\n" +
+                    "#    .  # === #  .    #\n" +
+                    "#####.# ####### #.#####\n" +
+                    "#   #.#    %    #.#   #\n" +
+                    "#####.# ####### #.#####\n" +
+                    "#..........#..........#\n" +
+                    "#.###.####.#.####.###.#\n" +
+                    "#o..#......\\......#..o#\n" +
+                    "###.#.#.#######.#.#.###\n" +
+                    "#.....#....#....#.....#\n" +
+                    "#.########.#.########.#\n" +
+                    "#.....................#\n" +
+                    "#######################\n";
 
     public Sample1() {
     }
@@ -43,7 +43,7 @@ public class Sample1 extends VM {
     }
 
     @Compiled
-    public Tuple<AIState,Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, Object undocumented) {
+    public Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, Object undocumented) {
         return entryFactual(ws);
 //        int x = location.a;
 //        int y = location.b;
@@ -53,7 +53,6 @@ public class Sample1 extends VM {
 //        CT right = getMapItem(map, y, x+1);
 //        CT top = getMapItem(map, y-1, x);
 //        CT bottom = getMapItem(map, y+1, x);
-
 
 
     }
@@ -68,8 +67,15 @@ public class Sample1 extends VM {
     @Compiled
     private ListCons<Point> collectEdgePills(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map) {
         ListCons<Point> pathOnEdge = dropWhile(edge.edge, (Point p) -> p.x != start.x || p.y != start.y ? 1 : 0);
-        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == 2 ? 1:0);
+        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == 2 ? 1 : 0);
     }
+
+    @Compiled
+    private ListCons<Point> collectEdgeGhosts(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map) {
+        ListCons<Point> pathOnEdge = dropWhile(edge.edge, (Point p) -> p.x != start.x || p.y != start.y ? 1 : 0);
+        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == 6 ? 1 : 0);
+    }
+
 
     @Compiled
     private ListCons<Point> collectAnyEdgePills(ParsedEdge edge, ListCons<ListCons<Integer>> map) {
@@ -81,10 +87,12 @@ public class Sample1 extends VM {
     class EdgeAndCount {
         ParsedEdge pe;
         int count;
+        int ghostCount;
 
-        EdgeAndCount(ParsedEdge pe, int count) {
+        EdgeAndCount(ParsedEdge pe, int count, int ghostCount) {
             this.pe = pe;
             this.count = count;
+            this.ghostCount = ghostCount;
         }
     }
 
@@ -92,19 +100,30 @@ public class Sample1 extends VM {
     private Tuple<AIState, Integer> performMove(AIState aistate, WorldState worldState) {
         Point location = worldState.lambdaManState.location;
         ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate, location);
-        ListCons<EdgeAndCount> collectedPoints = map(edgesForPoint, (e) -> new EdgeAndCount(e, length(collectEdgePills(e, location, worldState.map))));
-        EdgeAndCount ec = maximum_by(collectedPoints, (EdgeAndCount cp) -> cp.count);
+        ListCons<EdgeAndCount> collectedPoints = map(edgesForPoint, (e) -> new EdgeAndCount(e,
+                length(collectEdgePills(e, location, worldState.map)),
+                length(collectEdgeGhosts(e, location, worldState.map))));
+        EdgeAndCount ec = maximum_by(collectedPoints, (EdgeAndCount cp) -> (cp.count - 100 * cp.ghostCount));
         ListCons<Point> pathToWalk = dropWhile(ec.pe.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
         Tuple<AIState, Integer> retval;
         Point newLocation;
         int direction;
         ParsedEdge startEdge;
-        if (length(pathToWalk) < 2 || ec.count == 0) {
+        if (length(pathToWalk) < 2 || ec.count == 0) { // nothing close to me
             startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
             pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
             System.out.println("Chosen long way: "+startEdge.toString());
         }
-        if (length(pathToWalk) >= 2) {
+        if (ec.count == 0 && false) {
+            // branch svg
+            direction =
+                    isWalkable3(worldState.map, location.x, location.y - 1) == 1 && aistate.lastDirection != 2 ?
+                            0 :
+                            isWalkable3(worldState.map, location.x + 1, location.y) == 1 && aistate.lastDirection != 3 ?
+                                    1 :
+                                    isWalkable3(worldState.map, location.x, location.y + 1) == 1 && aistate.lastDirection != 0 ? 2 : 3;
+            retval = new Tuple<>(new AIState(aistate.parsedStaticMap, direction), direction);
+        } else if (length(pathToWalk) >= 2) {
             newLocation = head(tail(pathToWalk));
             direction =
                     (newLocation.x > location.x) ? 1 :
@@ -183,11 +202,12 @@ public class Sample1 extends VM {
     class AIState {
 
         ParsedStaticMap parsedStaticMap;
-        int dummy;
+        int lastDirection;
 
-        AIState(ParsedStaticMap parsedStaticMap, int dummy) {
+
+        AIState(ParsedStaticMap parsedStaticMap, int lastDirection) {
             this.parsedStaticMap = parsedStaticMap;
-            this.dummy = dummy;
+            this.lastDirection = lastDirection;
         }
     }
 
@@ -203,7 +223,7 @@ public class Sample1 extends VM {
 
         @Override
         public String toString() {
-            return "Point("+x+","+y+")";
+            return "Point(" + x + "," + y + ")";
         }
     }
 
@@ -339,9 +359,9 @@ public class Sample1 extends VM {
 
     @Compiled
     public static int isWalkable(int test) {
-        breakpoint();
         int retvla = 77;
-        if (test == 0) retvla = 0;  else retvla = 1;
+        if (test == 0) retvla = 0;
+        else retvla = 1;
         return retvla;
     }
 
@@ -351,18 +371,24 @@ public class Sample1 extends VM {
     }
 
     @Compiled
+    public static int isWalkable3(ListCons<ListCons<Integer>> map, int x, int y) {
+        return isWalkable(getMapItem(map, y, x));
+    }
+
+
+    @Compiled
     public int isJunction(ListCons<ListCons<Integer>> map, int x, int y) {
-        int a1 = isWalkable(getMapItem(map, y-1, x));
-        int a2 = isWalkable(getMapItem(map, y+1, x));
-        int a3 = isWalkable(getMapItem(map, y, x-1));
-        int a4 = isWalkable(getMapItem(map, y, x+1));
+        int a1 = isWalkable(getMapItem(map, y - 1, x));
+        int a2 = isWalkable(getMapItem(map, y + 1, x));
+        int a3 = isWalkable(getMapItem(map, y, x - 1));
+        int a4 = isWalkable(getMapItem(map, y, x + 1));
         return a1 + a2 + a3 + a4 > 2 ? 1 : 0;
     }
 
     @Compiled
     public ListCons<ParsedEdge> findNeighbourJunctions(ListCons<ListCons<Integer>> map, Point somePoint, ListCons<Point> allJunctions) {
         ListCons<ListCons<Point>> allNeighbourJunctionsPaths = waveFromPointToNearestJunction(map, queue_enqueue(queue_new(), cons(somePoint, null)), allJunctions, cons(somePoint, null), null);
-        return map(allNeighbourJunctionsPaths, (p) -> new ParsedEdge(p, length(p)-1, head(p), last(p), -1));
+        return map(allNeighbourJunctionsPaths, (p) -> new ParsedEdge(p, length(p) - 1, head(p), last(p), -1));
     }
 
     @Compiled
@@ -474,7 +500,7 @@ public class Sample1 extends VM {
     @Compiled
     public static Integer getMapItem(ListCons<ListCons<Integer>> map, int y, int x) {
         return y < 0 || x < 0 ? 0 :
-            (Integer)list_item_def((Cons) list_item_def(map, y, 0), x, 0);
+                (Integer) list_item_def((Cons) list_item_def(map, y, 0), x, 0);
     }
 
 
@@ -499,26 +525,35 @@ public class Sample1 extends VM {
         AIState aistate = initResult.a;
         Function2<AIState, WorldState, Tuple<AIState, Integer>> stepFunction = initResult.b;
         printMap(theMap);
-        while(true) {
+        while (true) {
             Tuple<AIState, Integer> apply = stepFunction.apply(aistate, worldState);
             aistate = apply.a;
             int direction = apply.b;
             int nx = worldState.lambdaManState.location.x, ny = worldState.lambdaManState.location.y;
-            switch(direction) {
-                case 0: ny--; break;
-                case 1: nx++; break;
-                case 2: ny++; break;
-                case 3: nx--; break;
-                default: throw new RuntimeException("Invalid move: "+direction);
+            switch (direction) {
+                case 0:
+                    ny--;
+                    break;
+                case 1:
+                    nx++;
+                    break;
+                case 2:
+                    ny++;
+                    break;
+                case 3:
+                    nx--;
+                    break;
+                default:
+                    throw new RuntimeException("Invalid move: " + direction);
             }
             if (isWalkable2(worldState.map, new Point(nx, ny)) == 1) {
-                System.out.println("WALKING: "+direction);
-                String newMap = replaceMap(theMap, worldState.lambdaManState.location.x, worldState.lambdaManState.location.y,' ');
-                newMap = replaceMap(newMap, nx, ny,'\\');
+                System.out.println("WALKING: " + direction);
+                String newMap = replaceMap(theMap, worldState.lambdaManState.location.x, worldState.lambdaManState.location.y, ' ');
+                newMap = replaceMap(newMap, nx, ny, '\\');
                 theMap = newMap;
                 worldState = convertMap(theMap);
             } else {
-                System.out.println("CANNOT WALK: "+direction);
+                System.out.println("CANNOT WALK: " + direction);
             }
             printMap(theMap);
         }
@@ -538,7 +573,7 @@ public class Sample1 extends VM {
             total.append(row);
             total.append("\n");
         }
-        total.setLength(total.length()-1);
+        total.setLength(total.length() - 1);
         return total.toString();
     }
 

@@ -1,0 +1,1535 @@
+LD     0 0          ;  <== entryPoint  [WorldState ws, Object undocumented] (as blk)
+LDC 0               ; local var space
+LDF    621          ;  @entryFactual
+AP     2            
+RTN                 
+LD     0 0          ;  <== mydebug  [T o] (as blk)
+DBUG                
+LD     0 0          ; var o
+RTN                 
+LD     0 0          ;  <== mydebugv  [Object tag, T o] (as blk)
+DBUG                
+LD     0 1          ; var o
+DBUG                
+LD     0 1          ; var o
+RTN                 
+LD     0 2          ;  <== foldl  [Function2<A,B,A> f, A a, ListCons<B> l] (as blk)
+ATOM                
+SEL    19 21        
+RTN                 
+LD     0 1          
+JOIN                
+LD     0 0          
+LD     0 1          ; var a
+LD     0 2          ; var l
+CAR                 
+LD     0 0          ; var f
+AP     2            
+LD     0 2          ; var l
+CDR                 
+LDF    15           ;  @foldl
+AP     3            
+JOIN                
+LD     0 2          ;  <== foldr  [Function2<A,B,B> f, B a, ListCons<A> l] (as blk)
+ATOM                
+SEL    36 38        
+RTN                 
+LD     0 1          
+JOIN                
+LD     0 2          
+CAR                 
+LD     0 0          ; var f
+LD     0 1          ; var a
+LD     0 2          ; var l
+CDR                 
+LDF    32           ;  @foldr
+AP     3            
+LD     0 0          ; var f
+AP     2            
+JOIN                
+LDF    1253         ;  <== o  [final Function1<B,C> f, final Function1<A,B> g] (as blk), ALSO: @lambda_1005
+RTN                 
+LDF    1259         ;  <== flip  [Function2<A,B,C> f] (as blk), ALSO: @lambda_1006
+RTN                 
+LD     0 0          ;  <== map  [ListCons<T> c, Function1<T,T2> arg] (as blk)
+ATOM                
+SEL    57 59        
+RTN                 
+LDC    0            
+JOIN                
+LD     0 0          
+CAR                 
+LD     0 1          ; var arg
+AP     1            
+LD     0 0          ; var c
+CDR                 
+LD     0 1          ; var arg
+LDF    53           ;  @map
+AP     2            
+CONS                
+JOIN                
+LD     0 0          ;  <== mapi  [ListCons<D> c, int ix, Function2<D,Integer,D2> arg] (as blk)
+ATOM                
+SEL    74 76        
+RTN                 
+LDC    0            
+JOIN                
+LD     0 0          
+CAR                 
+LD     0 1          ; var ix
+LD     0 2          ; var arg
+AP     2            
+LD     0 0          ; var c
+CDR                 
+LD     0 1          ; var ix
+LDC    1            ; just constant from code
+ADD                 
+LD     0 2          ; var arg
+LDF    70           ;  @mapi
+AP     3            
+CONS                
+JOIN                
+LD     0 0          ;  <== cat_maybes  [ListCons<Maybe<D>> data] (as blk)
+LDF    1264         ;  @lambda_1007
+LDF    53           ;  @map
+AP     2            
+ST     0 1          
+LD     0 1          ; var mtl
+LDF    102          ;  @concat
+AP     1            
+ST     0 2          
+LD     0 2          ; var rv
+RTN                 
+LD     0 0          ;  <== concat  [ListCons<ListCons<D>> data] (as blk)
+LDC    0            ; NULL literal
+LDF    133          ;  @concat_acc
+AP     2            
+LDF    283          ;  @reverse
+AP     1            
+RTN                 
+LD     0 0          ;  <== last  [ListCons<D> data] (as blk)
+ATOM                
+SEL    117 119      
+LD     0 0          ; var data
+CDR                 
+ATOM                
+SEL    120 123      
+RTN                 
+BRK                 ; branch@117
+JOIN                
+JOIN                ; branch@119
+LD     0 0          
+CAR                 
+JOIN                
+LD     0 0          
+CDR                 
+LDF    109          ;  @last
+AP     1            
+JOIN                
+LD     0 0          ;  <== concat_set  [ListCons<ListCons<D>> data] (as blk)
+LDC    0            ; NULL literal
+LDF    133          ;  @concat_acc
+AP     2            
+RTN                 
+LD     0 0          ;  <== concat_acc  [ListCons<ListCons<D>> data, ListCons<D> acc] (as blk)
+ATOM                
+SEL    137 139      
+RTN                 
+LD     0 1          
+JOIN                
+LD     0 0          
+CDR                 
+LD     0 0          ; var data
+CAR                 
+LD     0 1          ; var acc
+LDF    149          ;  @concat2
+AP     2            
+LDF    133          ;  @concat_acc
+AP     2            
+JOIN                
+LD     0 0          ;  <== concat2  [ListCons<D> data, ListCons<D> data2] (as blk)
+ATOM                
+SEL    153 155      
+RTN                 
+LD     0 1          
+JOIN                
+LD     0 1          
+ATOM                
+SEL    159 161      
+JOIN                
+LD     0 0          
+JOIN                
+LD     0 0          
+LDF    283          ;  @reverse
+AP     1            
+LD     0 1          ; var data2
+LDF    185          ;  @concat2_acc
+AP     2            
+JOIN                
+LD     0 0          ;  <== concat2_set  [ListCons<D> data, ListCons<D> data2] (as blk)
+ATOM                
+SEL    172 174      
+RTN                 
+LD     0 1          
+JOIN                
+LD     0 1          
+ATOM                
+SEL    178 180      
+JOIN                
+LD     0 0          
+JOIN                
+LD     0 0          
+LD     0 1          ; var data2
+LDF    185          ;  @concat2_acc
+AP     2            
+JOIN                
+LD     0 0          ;  <== concat2_acc  [ListCons<D> data, ListCons<D> acc] (as blk)
+ATOM                
+SEL    189 191      
+RTN                 
+LD     0 1          
+JOIN                
+LD     0 0          
+CDR                 
+LD     0 0          ; var data
+CAR                 
+LD     0 1          ; var acc
+CONS                
+LDF    185          ;  @concat2_acc
+AP     2            
+JOIN                
+LDC    0            ;  <== NOTHING  [] (as blk)
+LDC    0            ; NULL literal
+CONS                
+RTN                 
+LDC    1            ;  <== JUST  [T t] (as blk)
+LD     0 0          ; var t
+CONS                
+ST     0 1          
+LD     0 1          ; var tMaybe
+RTN                 
+LD     0 0          ;  <== maybeToList  [Maybe<D> d] (as blk)
+LDF    267          ;  @is_nothing
+AP     1            
+LDC    1            ; just constant from code
+CEQ                 
+SEL    217 219      
+RTN                 
+LDC    0            
+JOIN                
+LD     0 0          
+LDF    272          ;  @from_maybe
+AP     1            
+LDC    0            ; NULL literal
+CONS                
+JOIN                
+LDC    0            ;  <== catMaybes_acc  [ListCons<Maybe<D>> data, ListCons<D> acc] (as blk)
+ST     0 2          
+LD     0 0          ; var data
+ATOM                
+SEL    232 235      
+LD     0 2          ; var rv
+RTN                 
+LD     0 1          ; branch@232
+ST     0 2          
+JOIN                
+LD     0 0          ; branch@235
+CAR                 
+LDF    267          ;  @is_nothing
+AP     1            
+ST     0 3          
+LD     0 0          ; var data
+CAR                 
+LDF    272          ;  @from_maybe
+AP     1            
+ST     0 4          
+LD     0 4          ; var data1
+LD     0 1          ; var acc
+CONS                
+ST     0 5          
+LD     0 0          ; var data
+CDR                 
+LD     0 3          ; var nothing
+LDC    1            ; just constant from code
+CEQ                 
+SEL    263 265      
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDF    225          ;  @catMaybes_acc
+AP     6            
+ST     0 2          
+JOIN                
+LD     0 1          
+JOIN                
+LD     0 5          
+JOIN                
+LDC    1            ;  <== is_nothing  [Maybe<D> head] (as blk)
+LD     0 0          ; var head
+CAR                 ; generateTupleAccess total=2 pos=0
+SUB                 
+RTN                 
+LD     0 0          ;  <== from_maybe  [Maybe<D> head] (as blk)
+CAR                 ; generateTupleAccess total=2 pos=0
+LDC    0            ; just constant from code
+CEQ                 
+SEL    280 282      
+LD     0 0          ; var head
+CDR                 ; generateTupleAccess total=2 pos=1
+RTN                 
+BRK                 ; branch@280
+JOIN                
+JOIN                ; branch@282
+LD     0 0          ;  <== reverse  [ListCons<D> c] (as blk)
+LDC    0            ; NULL literal
+LDF    355          ;  @reverse_acc
+AP     2            
+RTN                 
+LD     0 0          ;  <== maximum_by_acc  [ListCons<D> d, Function1<D,Integer> projection, D acc] (as blk)
+ATOM                
+SEL    292 294      
+RTN                 
+LD     0 2          
+JOIN                
+LD     0 2          
+LD     0 1          ; var projection
+AP     1            
+LD     0 0          ; var d
+CAR                 
+LD     0 1          ; var projection
+AP     1            
+CGT                 
+SEL    304 311      
+JOIN                
+LD     0 0          
+CDR                 
+LD     0 1          ; var projection
+LD     0 2          ; var acc
+LDF    288          ;  @maximum_by_acc
+AP     3            
+JOIN                
+LD     0 0          
+CDR                 
+LD     0 1          ; var projection
+LD     0 0          ; var d
+CAR                 
+LDF    288          ;  @maximum_by_acc
+AP     3            
+JOIN                
+LD     0 0          ;  <== maximum_by  [ListCons<D> d, Function1<D,Integer> projection] (as blk)
+ATOM                
+SEL    330 332      
+LD     0 0          ; var d
+CDR                 
+LD     0 1          ; var projection
+LD     0 0          ; var d
+CAR                 
+LDF    288          ;  @maximum_by_acc
+AP     3            
+RTN                 
+BRK                 ; branch@330
+JOIN                
+JOIN                ; branch@332
+LD     0 0          ;  <== dropWhile  [ListCons<D> c, Function1<D,Integer> test] (as blk)
+ATOM                
+SEL    337 339      
+RTN                 
+LDC    0            
+JOIN                
+LD     0 0          
+CAR                 
+LD     0 1          ; var test
+AP     1            
+LDC    1            ; just constant from code
+CEQ                 
+SEL    347 353      
+JOIN                
+LD     0 0          
+CDR                 
+LD     0 1          ; var test
+LDF    333          ;  @dropWhile
+AP     2            
+JOIN                
+LD     0 0          
+JOIN                
+LD     0 0          ;  <== reverse_acc  [ListCons<D> c, ListCons<D> acc] (as blk)
+ATOM                
+SEL    359 361      
+RTN                 
+LD     0 1          
+JOIN                
+LD     0 0          
+CDR                 
+LD     0 0          ; var c
+CAR                 
+LD     0 1          ; var acc
+CONS                
+LDF    355          ;  @reverse_acc
+AP     2            
+JOIN                
+LD     0 0          ;  <== fold0  [ListCons<I> c, R init, Function2<R,I,R> arg] (as blk)
+ATOM                
+SEL    374 376      
+RTN                 
+LD     0 1          
+JOIN                
+LD     0 0          
+CDR                 
+LD     0 1          ; var init
+LD     0 0          ; var c
+CAR                 
+LD     0 2          ; var arg
+AP     2            
+LD     0 2          ; var arg
+LDF    370          ;  @fold0
+AP     3            
+JOIN                
+LDC    0            ;  <== queue_new  [] (as blk)
+LDC    0            ; NULL literal
+CONS                
+RTN                 
+LD     0 0          ;  <== queue_enqueue  [Queue<T> q, T v] (as blk)
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     0 1          ; var v
+LD     0 0          ; var q
+CDR                 ; generateTupleAccess total=2 pos=1
+CONS                
+CONS                
+RTN                 
+LD     0 0          ;  <== queue_isempty  [Queue<T> q] (as blk)
+CAR                 ; generateTupleAccess total=2 pos=0
+ATOM                
+LD     0 0          ; var q
+CDR                 ; generateTupleAccess total=2 pos=1
+ATOM                
+MUL                 
+RTN                 
+LDC    0            ;  <== list_item  [Cons list, int n] (as blk)
+LD     0 1          ; var n
+CGT                 
+SEL    416 418      
+LD     0 1          ; var n
+LDC    0            ; just constant from code
+CEQ                 
+SEL    419 422      
+RTN                 
+BRK                 ; branch@416
+JOIN                
+JOIN                ; branch@418
+LD     0 0          
+CAR                 
+JOIN                
+LD     0 0          
+CDR                 
+LD     0 1          ; var n
+LDC    1            ; just constant from code
+SUB                 
+LDF    407          ;  @list_item
+AP     2            
+JOIN                
+LDC    0            ;  <== list_item_def  [Cons list, int index, Object deflt] (as blk)
+LD     0 1          ; var index
+CGT                 
+SEL    435 437      
+RTN                 
+LD     0 2          
+JOIN                
+LD     0 1          
+LDC    0            ; just constant from code
+CEQ                 
+SEL    442 445      
+JOIN                
+LD     0 0          
+CAR                 
+JOIN                
+LD     0 0          
+CDR                 
+LD     0 1          ; var index
+LDC    1            ; just constant from code
+SUB                 
+LDF    407          ;  @list_item
+AP     2            
+JOIN                
+LDC    0            ;  <== queue_dequeue  [Queue<T> q] (as blk)
+ST     0 1          
+LD     0 0          ; var q
+CAR                 ; generateTupleAccess total=2 pos=0
+ATOM                
+SEL    461 468      
+LD     0 1          ; var retval
+RTN                 
+LD     0 0          ; branch@461
+CDR                 ; generateTupleAccess total=2 pos=1
+ATOM                
+LDC    1            ; for negation
+SUB                 
+SEL    480 491      
+JOIN                
+LD     0 0          ; branch@468
+CAR                 ; generateTupleAccess total=2 pos=0
+CAR                 
+LD     0 0          ; var q
+CAR                 ; generateTupleAccess total=2 pos=0
+CDR                 
+LD     0 0          ; var q
+CDR                 ; generateTupleAccess total=2 pos=1
+CONS                
+CONS                
+ST     0 1          
+JOIN                
+LD     0 0          ; branch@480
+CDR                 ; generateTupleAccess total=2 pos=1
+LDF    283          ;  @reverse
+AP     1            
+LDC    0            ; NULL literal
+CONS                
+LDC 0               ; local var space
+LDF    453          ;  @queue_dequeue
+AP     2            
+ST     0 1          
+JOIN                
+BRK                 ; branch@491
+JOIN                
+LD     0 0          ;  <== length  [ListCons<T> list] (as blk)
+LDC    0            ; just constant from code
+LDF    607          ;  @elements_counter
+AP     2            
+RTN                 
+LD     0 0          ;  <== filter  [ListCons<T> list, Function1<T,Integer> pred] (as blk)
+LD     0 1          ; var pred
+LDC    0            ; NULL literal
+LDF    570          ;  @filter_acc
+AP     3            
+LDF    283          ;  @reverse
+AP     1            
+RTN                 
+LD     0 0          ;  <== any  [ListCons<T> list, Function1<T,Integer> pred] (as blk)
+ATOM                
+SEL    510 512      
+RTN                 
+LDC    0            
+JOIN                
+LD     0 0          
+CAR                 
+LD     0 1          ; var pred
+AP     1            
+LDC    1            ; just constant from code
+CEQ                 
+SEL    520 522      
+JOIN                
+LDC    1            
+JOIN                
+LD     0 0          
+CDR                 
+LD     0 1          ; var pred
+LDF    506          ;  @any
+AP     2            
+JOIN                
+LD     0 0          ;  <== noneof  [ListCons<T> list, Function1<T,Integer> pred] (as blk)
+ATOM                
+SEL    532 534      
+RTN                 
+LDC    1            
+JOIN                
+LD     0 0          
+CAR                 
+LD     0 1          ; var pred
+AP     1            
+LDC    1            ; just constant from code
+CEQ                 
+SEL    542 544      
+JOIN                
+LDC    0            
+JOIN                
+LD     0 0          
+CDR                 
+LD     0 1          ; var pred
+LDF    528          ;  @noneof
+AP     2            
+JOIN                
+LD     0 0          ;  <== empty  [Cons d] (as blk)
+ATOM                
+LDC    1            ; for negation
+SUB                 
+SEL    556 558      
+RTN                 
+LDC    0            
+JOIN                
+LDC    1            
+JOIN                
+LD     0 0          ;  <== notempty  [Cons d] (as blk)
+ATOM                
+LDC    1            ; for negation
+SUB                 
+SEL    566 568      
+RTN                 
+LDC    1            
+JOIN                
+LDC    0            
+JOIN                
+LD     0 0          ;  <== filter_acc  [ListCons<T> list, Function1<T,Integer> pred, ListCons<T> acc] (as blk)
+ATOM                
+SEL    574 576      
+RTN                 
+LD     0 2          
+JOIN                
+LD     0 0          
+CDR                 
+LD     0 1          ; var pred
+LD     0 0          ; var list
+CAR                 
+LD     0 1          ; var pred
+AP     1            
+LDC    1            ; just constant from code
+CEQ                 
+SEL    589 594      
+LDF    570          ;  @filter_acc
+AP     3            
+JOIN                
+LD     0 0          
+CAR                 
+LD     0 2          ; var acc
+CONS                
+JOIN                
+LD     0 2          
+JOIN                
+LD     0 0          ;  <== map_height  [Cons map] (as blk)
+LDC    0            ; just constant from code
+LDF    607          ;  @elements_counter
+AP     2            
+RTN                 
+LD     0 0          ;  <== map_width  [Cons map] (as blk)
+CAR                 
+LDC    0            ; just constant from code
+LDF    607          ;  @elements_counter
+AP     2            
+RTN                 
+LD     0 0          ;  <== elements_counter  [Cons list, int counter] (as blk)
+ATOM                
+SEL    611 613      
+RTN                 
+LD     0 1          
+JOIN                
+LD     0 0          
+CDR                 
+LD     0 1          ; var counter
+LDC    1            ; just constant from code
+ADD                 
+LDF    607          ;  @elements_counter
+AP     2            
+JOIN                
+LD     0 0          ;  <== entryFactual  [WorldState ws] (as blk)
+CAR                 ; generateTupleAccess total=4 pos=0
+LDF    811          ;  @createInitialState
+AP     1            
+ST     0 1          
+LD     0 1          ; var initialState
+LDF    1240         ;  @lambda_1004
+CONS                
+RTN                 
+LD     0 0          ;  <== collectEdgePills  [ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map] (as blk)
+CDR                 ; generateTupleAccess total=5 pos=2
+CDR                 
+CAR                 
+LDF    1268         ;  @lambda_1008
+LDF    333          ;  @dropWhile
+AP     2            
+ST     0 3          
+LD     0 3          ; var pathOnEdge
+LDF    1289         ;  @lambda_1009
+LDF    498          ;  @filter
+AP     2            
+RTN                 
+LD     0 0          ;  <== collectEdgeGhosts  [ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map] (as blk)
+CDR                 ; generateTupleAccess total=5 pos=2
+CDR                 
+CAR                 
+LDF    1304         ;  @lambda_1010
+LDF    333          ;  @dropWhile
+AP     2            
+ST     0 3          
+LD     0 3          ; var pathOnEdge
+LDF    1325         ;  @lambda_1011
+LDF    498          ;  @filter
+AP     2            
+RTN                 
+LD     0 1          ;  <== performMove  [AIState aistate, WorldState worldState] (as blk)
+CDR                 ; generateTupleAccess total=4 pos=1
+CAR                 
+CDR                 ; generateTupleAccess total=5 pos=1
+CAR                 
+ST     0 2          
+LD     0 0          ; var aistate
+LD     0 2          ; var location
+LDF    1062         ;  @findEdgesForPoint
+AP     2            
+ST     0 3          
+LD     0 3          ; var edgesForPoint
+LDF    1345         ;  @lambda_1013
+LDF    53           ;  @map
+AP     2            
+ST     0 4          
+LD     0 4          ; var collectedPoints
+LDF    1367         ;  @lambda_1014
+LDF    319          ;  @maximum_by
+AP     2            
+ST     0 5          
+LD     0 5          ; var ec
+CAR                 ; generateTupleAccess total=3 pos=0
+CDR                 ; generateTupleAccess total=5 pos=2
+CDR                 
+CAR                 
+LDF    1377         ;  @lambda_1015
+LDF    333          ;  @dropWhile
+AP     2            
+ST     0 6          
+LD     0 5          ; var ec
+CDR                 ; generateTupleAccess total=3 pos=1
+CAR                 
+LDC    0            ; just constant from code
+CEQ                 
+SEL    694 723      
+LD     0 7          ; var retval
+RTN                 
+LD     0 1          ; branch@694
+CAR                 ; generateTupleAccess total=4 pos=0
+LD     0 2          ; var location
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     0 2          ; var location
+CDR                 ; generateTupleAccess total=2 pos=1
+LDC    1            ; just constant from code
+SUB                 
+LDF    852          ;  @isWalkable3
+AP     3            
+LDC    1            ; just constant from code
+CEQ                 
+LD     0 0          ; var aistate
+CDR                 ; generateTupleAccess total=2 pos=1
+LDC    2            ; just constant from code
+CEQ                 
+LDC    1            ; for negation
+SUB                 
+MUL                 
+SEL    739 741      
+ST     0 9          
+LD     0 0          ; var aistate
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     0 9          ; var direction
+CONS                
+LD     0 9          ; var direction
+CONS                
+ST     0 7          
+JOIN                
+LD     0 6          ; branch@723
+CDR                 
+CAR                 
+ST     0 8          
+LD     0 8          ; var newLocation
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     0 2          ; var location
+CAR                 ; generateTupleAccess total=2 pos=0
+CGT                 
+SEL    762 764      
+ST     0 9          
+LD     0 0          ; var aistate
+LD     0 9          ; var direction
+CONS                
+ST     0 7          
+JOIN                
+LDC    0            
+JOIN                
+LD     0 1          
+CAR                 ; generateTupleAccess total=4 pos=0
+LD     0 2          ; var location
+CAR                 ; generateTupleAccess total=2 pos=0
+LDC    1            ; just constant from code
+ADD                 
+LD     0 2          ; var location
+CDR                 ; generateTupleAccess total=2 pos=1
+LDF    852          ;  @isWalkable3
+AP     3            
+LDC    1            ; just constant from code
+CEQ                 
+LD     0 0          ; var aistate
+CDR                 ; generateTupleAccess total=2 pos=1
+LDC    3            ; just constant from code
+CEQ                 
+LDC    1            ; for negation
+SUB                 
+MUL                 
+SEL    771 773      
+JOIN                
+LDC    1            
+JOIN                
+LD     0 2          
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     0 8          ; var newLocation
+CAR                 ; generateTupleAccess total=2 pos=0
+CGT                 
+SEL    794 796      
+JOIN                
+LDC    1            
+JOIN                
+LD     0 1          
+CAR                 ; generateTupleAccess total=4 pos=0
+LD     0 2          ; var location
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     0 2          ; var location
+CDR                 ; generateTupleAccess total=2 pos=1
+LDC    1            ; just constant from code
+ADD                 
+LDF    852          ;  @isWalkable3
+AP     3            
+LDC    1            ; just constant from code
+CEQ                 
+LD     0 0          ; var aistate
+CDR                 ; generateTupleAccess total=2 pos=1
+LDC    0            ; just constant from code
+CEQ                 
+LDC    1            ; for negation
+SUB                 
+MUL                 
+SEL    803 805      
+JOIN                
+LDC    3            
+JOIN                
+LD     0 2          
+CDR                 ; generateTupleAccess total=2 pos=1
+LD     0 8          ; var newLocation
+CDR                 ; generateTupleAccess total=2 pos=1
+CGT                 
+SEL    807 809      
+JOIN                
+LDC    2            
+JOIN                
+LDC    3            
+JOIN                
+LDC    0            
+JOIN                
+LDC    2            
+JOIN                
+LD     0 0          ;  <== createInitialState  [ListCons<ListCons<Integer>> map] (as blk)
+LDC 0               ; local var space
+LDF    1131         ;  @parseStaticMap
+AP     2            
+LDC    0            ; just constant from code
+CONS                
+RTN                 
+LD     0 0          ;  <== isWall  [int test] (as blk)
+LDC    0            ; just constant from code
+CEQ                 
+SEL    823 825      
+RTN                 
+LDC    1            
+JOIN                
+LDC    0            
+JOIN                
+LDC    77           ;  <== isWalkable  [int test] (as blk)
+ST     0 1          
+LD     0 0          ; var test
+LDC    0            ; just constant from code
+CEQ                 
+SEL    835 838      
+LD     0 1          ; var retvla
+RTN                 
+LDC    0            ; branch@835
+ST     0 1          
+JOIN                
+LDC    1            ; branch@838
+ST     0 1          
+JOIN                
+LD     0 0          ;  <== isWalkable2  [ListCons<ListCons<Integer>> map, Point p] (as blk)
+LD     0 1          ; var p
+CDR                 ; generateTupleAccess total=2 pos=1
+LD     0 1          ; var p
+CAR                 ; generateTupleAccess total=2 pos=0
+LDF    1172         ;  @getMapItem
+AP     3            
+LDC 0               ; local var space
+LDF    827          ;  @isWalkable
+AP     2            
+RTN                 
+LD     0 0          ;  <== isWalkable3  [ListCons<ListCons<Integer>> map, int x, int y] (as blk)
+LD     0 2          ; var y
+LD     0 1          ; var x
+LDF    1172         ;  @getMapItem
+AP     3            
+LDC 0               ; local var space
+LDF    827          ;  @isWalkable
+AP     2            
+RTN                 
+LD     0 0          ;  <== isJunction  [ListCons<ListCons<Integer>> map, int x, int y] (as blk)
+LD     0 2          ; var y
+LDC    1            ; just constant from code
+SUB                 
+LD     0 1          ; var x
+LDF    1172         ;  @getMapItem
+AP     3            
+LDC 0               ; local var space
+LDF    827          ;  @isWalkable
+AP     2            
+ST     0 3          
+LD     0 0          ; var map
+LD     0 2          ; var y
+LDC    1            ; just constant from code
+ADD                 
+LD     0 1          ; var x
+LDF    1172         ;  @getMapItem
+AP     3            
+LDC 0               ; local var space
+LDF    827          ;  @isWalkable
+AP     2            
+ST     0 4          
+LD     0 0          ; var map
+LD     0 2          ; var y
+LD     0 1          ; var x
+LDC    1            ; just constant from code
+SUB                 
+LDF    1172         ;  @getMapItem
+AP     3            
+LDC 0               ; local var space
+LDF    827          ;  @isWalkable
+AP     2            
+ST     0 5          
+LD     0 0          ; var map
+LD     0 2          ; var y
+LD     0 1          ; var x
+LDC    1            ; just constant from code
+ADD                 
+LDF    1172         ;  @getMapItem
+AP     3            
+LDC 0               ; local var space
+LDF    827          ;  @isWalkable
+AP     2            
+ST     0 6          
+LD     0 3          ; var a1
+LD     0 4          ; var a2
+ADD                 
+LD     0 5          ; var a3
+ADD                 
+LD     0 6          ; var a4
+ADD                 
+LDC    2            ; just constant from code
+CGT                 
+SEL    916 918      
+RTN                 
+LDC    1            
+JOIN                
+LDC    0            
+JOIN                
+LD     0 0          ;  <== findNeighbourJunctions  [ListCons<ListCons<Integer>> map, Point somePoint, ListCons<Point> allJunctions] (as blk)
+LDF    387          ;  @queue_new
+AP     0            
+LD     0 1          ; var somePoint
+LDC    0            ; NULL literal
+CONS                
+LDF    391          ;  @queue_enqueue
+AP     2            
+LD     0 2          ; var allJunctions
+LD     0 1          ; var somePoint
+LDC    0            ; NULL literal
+CONS                
+LDC    0            ; NULL literal
+LDC 0               ; local var space
+LDF    942          ;  @waveFromPointToNearestJunction
+AP     6            
+ST     0 3          
+LD     0 3          ; var allNeighbourJunctionsPaths
+LDF    1398         ;  @lambda_1016
+LDF    53           ;  @map
+AP     2            
+RTN                 
+LD     0 1          ;  <== waveFromPointToNearestJunction  [ListCons<ListCons<Integer>> map, Queue<ListCons<Point>> pointQueue, ListCons<Point> destinations, ListCons<Point> visited, ListCons<ListCons<Point>> acc] (as blk)
+LDF    399          ;  @queue_isempty
+AP     1            
+SEL    948 951      
+LD     0 5          ; var retval
+RTN                 
+LD     0 4          ; branch@948
+ST     0 5          
+JOIN                
+LD     0 0          ; branch@951
+LD     0 1          ; var pointQueue
+LD     0 2          ; var destinations
+LD     0 3          ; var visited
+LD     0 4          ; var acc
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDF    970          ;  @waveFromPointToNearestJunction0
+AP     15           
+ST     0 5          
+JOIN                
+LD     0 1          ;  <== waveFromPointToNearestJunction0  [ListCons<ListCons<Integer>> map, Queue<ListCons<Point>> pointQueue, ListCons<Point> destinations, ListCons<Point> visited, ListCons<ListCons<Point>> acc] (as blk)
+LDC 0               ; local var space
+LDF    453          ;  @queue_dequeue
+AP     2            
+ST     0 6          
+LD     0 6          ; var emptier
+CAR                 ; generateTupleAccess total=2 pos=0
+ST     0 7          
+LD     0 7          ; var thisRoute
+CAR                 
+ST     0 8          
+LD     0 8          ; var weAreHere
+CAR                 ; generateTupleAccess total=2 pos=0
+LDC    1            ; just constant from code
+ADD                 
+LD     0 8          ; var weAreHere
+CDR                 ; generateTupleAccess total=2 pos=1
+CONS                
+LD     0 8          ; var weAreHere
+CAR                 ; generateTupleAccess total=2 pos=0
+LDC    1            ; just constant from code
+SUB                 
+LD     0 8          ; var weAreHere
+CDR                 ; generateTupleAccess total=2 pos=1
+CONS                
+LD     0 8          ; var weAreHere
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     0 8          ; var weAreHere
+CDR                 ; generateTupleAccess total=2 pos=1
+LDC    1            ; just constant from code
+ADD                 
+CONS                
+LD     0 8          ; var weAreHere
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     0 8          ; var weAreHere
+CDR                 ; generateTupleAccess total=2 pos=1
+LDC    1            ; just constant from code
+SUB                 
+CONS                
+LDC    0            ; NULL literal
+CONS                
+CONS                
+CONS                
+CONS                
+ST     0 9          
+LD     0 9          ; var possibleDestinations
+LDF    1415         ;  @lambda_1017
+LDF    498          ;  @filter
+AP     2            
+ST     0 10         
+LD     0 10         ; var exits
+LDF    1425         ;  @lambda_1018
+LDF    498          ;  @filter
+AP     2            
+ST     0 11         
+LD     0 10         ; var exits
+LDF    1430         ;  @lambda_1019
+LDF    498          ;  @filter
+AP     2            
+ST     0 12         
+LD     0 12         ; var continueds
+LDF    1435         ;  @lambda_1020
+LDF    53           ;  @map
+AP     2            
+ST     0 13         
+LD     0 13         ; var exitRoutes
+LD     0 6          ; var emptier
+CDR                 ; generateTupleAccess total=2 pos=1
+LDF    1439         ;  @lambda_1021
+LDF    370          ;  @fold0
+AP     3            
+ST     0 14         
+LD     0 0          ; var map
+LD     0 14         ; var filledQueue
+LD     0 2          ; var destinations
+LD     0 3          ; var visited
+LD     0 10         ; var exits
+LDF    168          ;  @concat2_set
+AP     2            
+LD     0 4          ; var acc
+LD     0 11         ; var arriveds
+LDF    1444         ;  @lambda_1022
+LDF    53           ;  @map
+AP     2            
+LDF    168          ;  @concat2_set
+AP     2            
+LDC 0               ; local var space
+LDF    942          ;  @waveFromPointToNearestJunction
+AP     6            
+ST     0 5          
+LD     0 5          ; var retval
+RTN                 
+LD     0 0          ;  <== findEdgesForPoint  [AIState state, Point pos] (as blk)
+CAR                 ; generateTupleAccess total=2 pos=0
+CDR                 ; generateTupleAccess total=5 pos=2
+CDR                 
+CAR                 
+LDF    1340         ;  @lambda_1012
+LDF    498          ;  @filter
+AP     2            
+RTN                 
+LD     0 1          ;  <== pointInEdge  [Point pos, ParsedEdge e] (as blk)
+CDR                 ; generateTupleAccess total=5 pos=2
+CDR                 
+CAR                 
+LDF    1448         ;  @lambda_1023
+LDF    506          ;  @any
+AP     2            
+RTN                 
+LD     0 0          ;  <== parseMap  [ListCons<ListCons<Integer>> m] (as blk)
+LDC    0            ; just constant from code
+LDF    1193         ;  @lambda_1000
+LDF    70           ;  @mapi
+AP     3            
+ST     0 1          
+LD     0 1          ; var toConcat
+LDF    102          ;  @concat
+AP     1            
+ST     0 2          
+LD     0 2          ; var walkable
+LDF    1201         ;  @lambda_1001
+LDF    498          ;  @filter
+AP     2            
+ST     0 3          
+LD     0 3          ; var junctions
+LDF    1213         ;  @lambda_1002
+LDF    53           ;  @map
+AP     2            
+LDF    102          ;  @concat
+AP     1            
+ST     0 4          
+LD     0 4          ; var allParsedEdges
+LDC    0            ; just constant from code
+LDF    1220         ;  @lambda_1003
+LDF    70           ;  @mapi
+AP     3            
+ST     0 4          
+LD     0 2          ; var walkable
+LD     0 3          ; var junctions
+LD     0 4          ; var allParsedEdges
+LDC    0            ; NULL literal
+LDC    0            ; NULL literal
+CONS                
+CONS                
+CONS                
+CONS                
+RTN                 
+LD     0 0          ;  <== my_cat_maybes  [ListCons<Maybe<Point>> maybeListCons] (as blk)
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDF    91           ;  @cat_maybes
+AP     3            
+ST     0 1          
+LD     0 1          ; var rv
+RTN                 
+LD     0 0          ;  <== collectWalkableXY  [ListCons<Integer> row, Integer rowy] (as blk)
+LDC    0            ; just constant from code
+LDF    1465         ;  @lambda_1024
+LDF    70           ;  @mapi
+AP     3            
+RTN                 
+LD     0 0          ;  <== parseStaticMap  [ListCons<ListCons<Integer>> map] (as blk)
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDF    1079         ;  @parseMap
+AP     5            
+ST     0 1          
+LD     0 1          ; var parsedMap
+RTN                 
+LDF    387          ;  <== test2  [] (as blk), ALSO: @queue_new
+AP     0            
+LDC    1            ; just constant from code
+LDF    391          ;  @queue_enqueue
+AP     2            
+LDC    2            ; just constant from code
+LDF    391          ;  @queue_enqueue
+AP     2            
+LDC    3            ; just constant from code
+LDF    391          ;  @queue_enqueue
+AP     2            
+ST     0 0          
+LD     0 0          ; var queue
+LDC 0               ; local var space
+LDF    453          ;  @queue_dequeue
+AP     2            
+ST     0 1          
+LD     0 1          ; var q1
+CDR                 ; generateTupleAccess total=2 pos=1
+LDC 0               ; local var space
+LDF    453          ;  @queue_dequeue
+AP     2            
+ST     0 1          
+LD     0 1          ; var q1
+CDR                 ; generateTupleAccess total=2 pos=1
+LDC 0               ; local var space
+LDF    453          ;  @queue_dequeue
+AP     2            
+ST     0 1          
+LDC    1            ; just constant from code
+RTN                 
+LDC    0            ;  <== getMapItem  [ListCons<ListCons<Integer>> map, int y, int x] (as blk)
+LD     0 1          ; var y
+CGT                 
+LDC    0            ; just constant from code
+LD     0 2          ; var x
+CGT                 
+ADD                 
+SEL    1181 1183    
+RTN                 
+LDC    0            
+JOIN                
+LD     0 0          
+LD     0 1          ; var y
+LDC    0            ; just constant from code
+LDF    430          ;  @list_item_def
+AP     3            
+LD     0 2          ; var x
+LDC    0            ; just constant from code
+LDF    430          ;  @list_item_def
+AP     3            
+JOIN                
+LD     0 0          ;  <== lambda_1000  [row, rowy] (as expr)
+LD     0 1          ; var rowy
+LDF    1125         ;  @collectWalkableXY
+AP     2            
+LDC 0               ; local var space
+LDF    1117         ;  @my_cat_maybes
+AP     2            
+RTN                 
+LD     1 0          ;  <== lambda_1001  [Point w] (as expr)
+LD     0 0          ; var w
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     0 0          ; var w
+CDR                 ; generateTupleAccess total=2 pos=1
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDF    861          ;  @isJunction
+AP     7            
+RTN                 
+LD     1 0          ;  <== lambda_1002  [j] (as expr)
+LD     0 0          ; var j
+LD     1 3          ; var junctions
+LDC 0               ; local var space
+LDF    920          ;  @findNeighbourJunctions
+AP     4            
+RTN                 
+LD     0 0          ;  <== lambda_1003  [ParsedEdge pe, Integer ix] (as expr)
+CDR                 ; generateTupleAccess total=5 pos=2
+CDR                 
+CAR                 
+LD     0 0          ; var pe
+CDR                 ; generateTupleAccess total=5 pos=3
+CDR                 
+CDR                 
+CAR                 
+LD     0 0          ; var pe
+CAR                 ; generateTupleAccess total=5 pos=0
+LD     0 0          ; var pe
+CDR                 ; generateTupleAccess total=5 pos=1
+CAR                 
+LD     0 1          ; var ix
+CONS                
+CONS                
+CONS                
+CONS                
+RTN                 
+LD     0 0          ;  <== lambda_1004  [nextaistate, worldState] (as expr)
+LD     0 1          ; var worldState
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDC 0               ; local var space
+LDF    656          ;  @performMove
+AP     10           
+RTN                 
+LD     0 0          ;  <== lambda_1005  [x] (as expr)
+LD     1 1          ; var g
+AP     1            
+LD     1 0          ; var f
+AP     1            
+RTN                 
+LD     0 1          ;  <== lambda_1006  [b, a] (as expr)
+LD     0 0          ; var b
+LD     1 0          ; var f
+AP     2            
+RTN                 
+LD     0 0          ;  <== lambda_1007  [d] (as expr)
+LDF    210          ;  @maybeToList
+AP     1            
+RTN                 
+LD     0 0          ;  <== lambda_1008  [Point p] (as expr)
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     1 1          ; var start
+CAR                 ; generateTupleAccess total=2 pos=0
+CEQ                 
+LDC    1            ; for negation
+SUB                 
+LD     0 0          ; var p
+CDR                 ; generateTupleAccess total=2 pos=1
+LD     1 1          ; var start
+CDR                 ; generateTupleAccess total=2 pos=1
+CEQ                 
+LDC    1            ; for negation
+SUB                 
+ADD                 
+SEL    1285 1287    
+RTN                 
+LDC    1            
+JOIN                
+LDC    0            
+JOIN                
+LD     1 2          ;  <== lambda_1009  [Point p] (as expr)
+LD     0 0          ; var p
+CDR                 ; generateTupleAccess total=2 pos=1
+LD     0 0          ; var p
+CAR                 ; generateTupleAccess total=2 pos=0
+LDF    1172         ;  @getMapItem
+AP     3            
+LDC    2            ; just constant from code
+CEQ                 
+SEL    1300 1302    
+RTN                 
+LDC    1            
+JOIN                
+LDC    0            
+JOIN                
+LD     0 0          ;  <== lambda_1010  [Point p] (as expr)
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     1 1          ; var start
+CAR                 ; generateTupleAccess total=2 pos=0
+CEQ                 
+LDC    1            ; for negation
+SUB                 
+LD     0 0          ; var p
+CDR                 ; generateTupleAccess total=2 pos=1
+LD     1 1          ; var start
+CDR                 ; generateTupleAccess total=2 pos=1
+CEQ                 
+LDC    1            ; for negation
+SUB                 
+ADD                 
+SEL    1321 1323    
+RTN                 
+LDC    1            
+JOIN                
+LDC    0            
+JOIN                
+LD     1 2          ;  <== lambda_1011  [Point p] (as expr)
+LD     0 0          ; var p
+CDR                 ; generateTupleAccess total=2 pos=1
+LD     0 0          ; var p
+CAR                 ; generateTupleAccess total=2 pos=0
+LDF    1172         ;  @getMapItem
+AP     3            
+LDC    6            ; just constant from code
+CEQ                 
+SEL    1336 1338    
+RTN                 
+LDC    1            
+JOIN                
+LDC    0            
+JOIN                
+LD     1 1          ;  <== lambda_1012  [e] (as expr)
+LD     0 0          ; var e
+LDF    1071         ;  @pointInEdge
+AP     2            
+RTN                 
+LD     0 0          ;  <== lambda_1013  [e] (as expr)
+LD     0 0          ; var e
+LD     1 2          ; var location
+LD     1 1          ; var worldState
+CAR                 ; generateTupleAccess total=4 pos=0
+LDC 0               ; local var space
+LDF    630          ;  @collectEdgePills
+AP     4            
+LDF    493          ;  @length
+AP     1            
+LD     0 0          ; var e
+LD     1 2          ; var location
+LD     1 1          ; var worldState
+CAR                 ; generateTupleAccess total=4 pos=0
+LDC 0               ; local var space
+LDF    643          ;  @collectEdgeGhosts
+AP     4            
+LDF    493          ;  @length
+AP     1            
+CONS                
+CONS                
+RTN                 
+LD     0 0          ;  <== lambda_1014  [EdgeAndCount cp] (as expr)
+CDR                 ; generateTupleAccess total=3 pos=1
+CAR                 
+LDC    100          ; just constant from code
+LD     0 0          ; var cp
+CDR                 ; generateTupleAccess total=3 pos=2
+CDR                 
+MUL                 
+SUB                 
+RTN                 
+LD     0 0          ;  <== lambda_1015  [Point p] (as expr)
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     1 2          ; var location
+CAR                 ; generateTupleAccess total=2 pos=0
+CEQ                 
+LDC    1            ; for negation
+SUB                 
+LD     0 0          ; var p
+CDR                 ; generateTupleAccess total=2 pos=1
+LD     1 2          ; var location
+CDR                 ; generateTupleAccess total=2 pos=1
+CEQ                 
+LDC    1            ; for negation
+SUB                 
+ADD                 
+SEL    1394 1396    
+RTN                 
+LDC    1            
+JOIN                
+LDC    0            
+JOIN                
+LD     0 0          ;  <== lambda_1016  [p] (as expr)
+LD     0 0          ; var p
+LDF    493          ;  @length
+AP     1            
+LDC    1            ; just constant from code
+SUB                 
+LD     0 0          ; var p
+CAR                 
+LD     0 0          ; var p
+LDF    109          ;  @last
+AP     1            
+LDC    -1           ; just negative constant from code
+CONS                
+CONS                
+CONS                
+CONS                
+RTN                 
+LD     1 0          ;  <== lambda_1017  [Point d] (as expr)
+LD     0 0          ; var d
+LDF    841          ;  @isWalkable2
+AP     2            
+LD     1 3          ; var visited
+LDF    1483         ;  @lambda_1025
+LDF    528          ;  @noneof
+AP     2            
+MUL                 
+RTN                 
+LD     1 2          ;  <== lambda_1018  [Point e] (as expr)
+LDF    1500         ;  @lambda_1026
+LDF    506          ;  @any
+AP     2            
+RTN                 
+LD     1 11         ;  <== lambda_1019  [Point e] (as expr)
+LDF    1517         ;  @lambda_1027
+LDF    528          ;  @noneof
+AP     2            
+RTN                 
+LD     0 0          ;  <== lambda_1020  [Point e] (as expr)
+LD     1 7          ; var thisRoute
+CONS                
+RTN                 
+LD     0 0          ;  <== lambda_1021  [r, i] (as expr)
+LD     0 1          ; var i
+LDF    391          ;  @queue_enqueue
+AP     2            
+RTN                 
+LD     0 0          ;  <== lambda_1022  [e] (as expr)
+LD     1 7          ; var thisRoute
+CONS                
+RTN                 
+LD     1 0          ;  <== lambda_1023  [Point ep] (as expr)
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     0 0          ; var ep
+CAR                 ; generateTupleAccess total=2 pos=0
+CEQ                 
+LD     1 0          ; var pos
+CDR                 ; generateTupleAccess total=2 pos=1
+LD     0 0          ; var ep
+CDR                 ; generateTupleAccess total=2 pos=1
+CEQ                 
+MUL                 
+SEL    1461 1463    
+RTN                 
+LDC    1            
+JOIN                
+LDC    0            
+JOIN                
+LD     0 0          ;  <== lambda_1024  [col, colx] (as expr)
+LDC 0               ; local var space
+LDF    827          ;  @isWalkable
+AP     2            
+LDC    0            ; just constant from code
+CGT                 
+SEL    1473 1480    
+RTN                 
+LD     0 1          
+LD     1 1          ; var rowy
+CONS                
+LDC 0               ; local var space
+LDF    204          ;  @JUST
+AP     2            
+JOIN                
+LDF    200          ;  @NOTHING
+AP     0            
+JOIN                
+LD     0 0          ;  <== lambda_1025  [Point v] (as expr)
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     1 0          ; var d
+CAR                 ; generateTupleAccess total=2 pos=0
+CEQ                 
+LD     0 0          ; var v
+CDR                 ; generateTupleAccess total=2 pos=1
+LD     1 0          ; var d
+CDR                 ; generateTupleAccess total=2 pos=1
+CEQ                 
+MUL                 
+SEL    1496 1498    
+RTN                 
+LDC    1            
+JOIN                
+LDC    0            
+JOIN                
+LD     0 0          ;  <== lambda_1026  [Point d] (as expr)
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     1 0          ; var e
+CAR                 ; generateTupleAccess total=2 pos=0
+CEQ                 
+LD     0 0          ; var d
+CDR                 ; generateTupleAccess total=2 pos=1
+LD     1 0          ; var e
+CDR                 ; generateTupleAccess total=2 pos=1
+CEQ                 
+MUL                 
+SEL    1513 1515    
+RTN                 
+LDC    1            
+JOIN                
+LDC    0            
+JOIN                
+LD     0 0          ;  <== lambda_1027  [Point d] (as expr)
+CAR                 ; generateTupleAccess total=2 pos=0
+LD     1 0          ; var e
+CAR                 ; generateTupleAccess total=2 pos=0
+CEQ                 
+LD     0 0          ; var d
+CDR                 ; generateTupleAccess total=2 pos=1
+LD     1 0          ; var e
+CDR                 ; generateTupleAccess total=2 pos=1
+CEQ                 
+MUL                 
+SEL    1530 1532    
+RTN                 
+LDC    1            
+JOIN                
+LDC    0            
+JOIN                
+
