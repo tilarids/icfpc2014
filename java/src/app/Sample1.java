@@ -62,10 +62,11 @@ public class Sample1 extends VM {
 
     @Compiled
     private ListCons<Point> collectEdgePills(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map) {
-        ListCons<Point> pathOnEdge = dropWhile(edge.edge, (p) -> p.x != start.x || p.y != start.y ? 1 : 0);
-        return filter(pathOnEdge, (p) -> getMapItem(map, p.y, p.x) == 2 ? 1:0);
+        ListCons<Point> pathOnEdge = dropWhile(edge.edge, (Point p) -> p.x != start.x || p.y != start.y ? 1 : 0);
+        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == 2 ? 1:0);
     }
 
+    @Compiled
     class EdgeAndCount {
         ParsedEdge pe;
         int count;
@@ -81,8 +82,8 @@ public class Sample1 extends VM {
         Point location = worldState.lambdaManState.location;
         ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate, location);
         ListCons<EdgeAndCount> collectedPoints = map(edgesForPoint, (e) -> new EdgeAndCount(e, length(collectEdgePills(e, location, worldState.map))));
-        EdgeAndCount ec = maximum_by(collectedPoints, (cp) -> cp.count);
-        ListCons<Point> pathToWalk = dropWhile(ec.pe.edge, (p) -> p.x != location.x || p.y != location.y ? 1 : 0);
+        EdgeAndCount ec = maximum_by(collectedPoints, (EdgeAndCount cp) -> cp.count);
+        ListCons<Point> pathToWalk = dropWhile(ec.pe.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
         Point newLocation = head(tail(pathToWalk));
         int direction =
                 (newLocation.x > location.x) ? 1 :
@@ -237,11 +238,10 @@ public class Sample1 extends VM {
 
     @Compiled
     static<A,B> Maybe<Tuple<A,B>> cat_maybe_to_pair(Maybe<A> a, Maybe<B> b) {
-        if (a.set != 0 && b.set != 0) {
-            return new Maybe<Tuple<A, B>>(new Tuple<A,B>(a.data, b.data), 1);
-        } else {
-            return new Maybe<Tuple<A, B>>(null, 0);
-        }
+        return
+                a.set != 0 && b.set != 0 ?
+                        new Maybe<Tuple<A, B>>(new Tuple<A,B>(a.data, b.data), 1)
+                        : new Maybe<Tuple<A, B>>(null, 0);
     }
 
     @Compiled
@@ -297,10 +297,10 @@ public class Sample1 extends VM {
                                             cons(new Point(weAreHere.x, weAreHere.y - 1), null))
                             )
                     );
-            ListCons<Point> exits = filter(possibleDestinations, (d) -> isWalkable2(map, d) * noneof(visited, (Point v) -> v.x == d.x && v.y == d.y ? 1 : 0));// here * === &&
-            ListCons<Point> arriveds = filter(exits, (e) -> any(destinations, (d) -> d.x == e.x && d.y == e.y ? 1 : 0));
-            ListCons<Point> continueds = filter(exits, (e) -> noneof(arriveds, (d) -> d.x == e.x && d.y == e.y ? 1 : 0));
-            ListCons<ListCons<Point>> exitRoutes = map(continueds, (e) -> cons(e, thisRoute));
+            ListCons<Point> exits = filter(possibleDestinations, (Point d) -> isWalkable2(map, d) * noneof(visited, (Point v) -> v.x == d.x && v.y == d.y ? 1 : 0));// here * === &&
+            ListCons<Point> arriveds = filter(exits, (Point e) -> any(destinations, (Point d) -> d.x == e.x && d.y == e.y ? 1 : 0));
+            ListCons<Point> continueds = filter(exits, (Point e) -> noneof(arriveds, (Point d) -> d.x == e.x && d.y == e.y ? 1 : 0));
+            ListCons<ListCons<Point>> exitRoutes = map(continueds, (Point e) -> cons(e, thisRoute));
             Queue<ListCons<Point>> filledQueue = fold0(exitRoutes, emptier.b, (r, i) -> queue_enqueue(r, i));
             retval = waveFromPointToNearestJunction(map, filledQueue, destinations, concat2_set(visited, exits), concat2_set(acc, map(arriveds, (e) -> cons(e, thisRoute))));
         }
@@ -314,16 +314,16 @@ public class Sample1 extends VM {
 
     @Compiled
     private Integer pointInEdge(Point pos, ParsedEdge e) {
-        return any(e.edge, (ep) -> pos.x == ep.x && pos.y == ep.y ? 1 : 0);
+        return any(e.edge, (Point ep) -> pos.x == ep.x && pos.y == ep.y ? 1 : 0);
     }
 
     @Compiled
     private ParsedStaticMap parseMap(ListCons<ListCons<Integer>> m) {
         ListCons<Point> walkable = concat(mapi(m, 0, (row, rowy) -> cat_maybes(mapi(row, 0, (col, colx) -> isWalkable(col) == 1 ? JUST(new Point(colx, rowy)) : NOTHING()))));
-        ListCons<Point> junctions = filter(walkable, (w) -> isJunction(m, w.x, w.y));
+        ListCons<Point> junctions = filter(walkable, (Point w) -> isJunction(m, w.x, w.y));
         ListCons<ParsedEdge> allParsedEdges = concat(map(junctions, (j) -> findNeighbourJunctions(m, j, junctions)));
         // renumber them.
-        allParsedEdges = mapi(allParsedEdges, 0, (pe, ix) -> new ParsedEdge(pe.edge, pe.count, pe.a, pe.b, ix));
+        allParsedEdges = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.edge, pe.count, pe.a, pe.b, ix));
         return new ParsedStaticMap(walkable, junctions, allParsedEdges, null, null);
     }
 

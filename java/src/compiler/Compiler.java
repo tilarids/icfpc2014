@@ -172,6 +172,8 @@ public class Compiler {
             Opcode opcode = global.get(i);
             System.out.println(String.format("%s", opcode.toString()));
         }
+        System.out.println("=========");
+        System.out.println("Total ops: "+global.size());
     }
 
     private MyMethod generateMethod(String name, MyMethod myMethod) {
@@ -181,6 +183,9 @@ public class Compiler {
                 if (parameter instanceof SingleVariableDeclaration) {
                     SingleVariableDeclaration svd = (SingleVariableDeclaration) parameter;
                     myMethod.addVariable(svd.getType().toString(), parameter.getName().toString());
+                } else if (parameter instanceof VariableDeclarationFragment) {
+                    VariableDeclarationFragment vdf = (VariableDeclarationFragment)parameter;
+                    myMethod.addVariable("@untyped lambda@", parameter.getName().toString());
                 } else {
                     throw new CompilerException("Must be single variable declaration in parameter!", parameter);
                 }
@@ -212,7 +217,7 @@ public class Compiler {
             }
             VariableDeclarationFragment o = (VariableDeclarationFragment)fragments.get(0);
             SimpleName name = o.getName();
-            myMethod.addVariable("XX", name.toString());
+            myMethod.addVariable(vds.getType().toString(), name.toString());
             Expression initializer = o.getInitializer();
             if (initializer != null) {
                 generateExpression(myMethod, initializer);
@@ -280,9 +285,14 @@ public class Compiler {
     private void generateExpression(MyMethod myMethod, Expression expression) {
         if (expression instanceof NumberLiteral) {
             myMethod.addOpcode(new Opcode("LDC", new Integer(expression.toString())).commented("just constant from code"));
-            return;
-        }
-        if (expression instanceof InfixExpression) {
+        } else if (expression instanceof PrefixExpression) {
+            PrefixExpression pe = (PrefixExpression)expression;
+            if (pe.getOperator() == PrefixExpression.Operator.MINUS && pe.getOperand() instanceof NumberLiteral) {
+                myMethod.addOpcode(new Opcode("LDC", -new Integer(pe.getOperand().toString())).commented("just negative constant from code"));
+            } else {
+                throw new CompilerException("Prefix expression not supported (yet?) ", expression);
+            }
+        } else if (expression instanceof InfixExpression) {
             InfixExpression ie = (InfixExpression)expression;
             if (ie.getOperator().toString().equals("+")) {
                 generateExpression(myMethod, ie.getLeftOperand());
@@ -363,14 +373,8 @@ public class Compiler {
                 generateExpression(myMethod, arguments.get(i));
                 myMethod.addOpcode(new Opcode("CONS"));
             }
-        } else if (expression instanceof SimpleName) {
-            SimpleName sn = (SimpleName)expression;
-            generateLoadSimpleName(myMethod, sn);
-        } else if (expression instanceof QualifiedName) {
-            QualifiedName qn = (QualifiedName)expression;
-            Name qualifier = qn.getQualifier();
-            SimpleName name = qn.getName();
-            QualifiedNameResolved qnr = resolveName(myMethod, qualifier);
+        } else if (expression instanceof QualifiedName || expression instanceof SimpleName) {
+            QualifiedNameResolved qnr = resolveName(myMethod, (Name)expression);
             for (Opcode opcode : qnr.accessor) {
                 myMethod.addOpcode(opcode);
             }
@@ -462,7 +466,7 @@ public class Compiler {
         Opcode ld = new Opcode("LD", level, varix);
         ld.comment = "var "+sn.toString();
         accessor.add(ld);
-        return new QualifiedNameResolved(tuples.get(vartype), accessor);
+        return new QualifiedNameResolved(tuples.get(cleanupTemplates(vartype)), accessor);
     }
 
     private QualifiedNameResolved resolveName(MyMethod myMethod, Name qualifier) {
@@ -470,9 +474,15 @@ public class Compiler {
             QualifiedNameResolved qualifiedNameResolved = generateLoadSimpleName(myMethod, (SimpleName) qualifier);
             return qualifiedNameResolved;
         } else if (qualifier instanceof QualifiedName) {
+            if (qualifier.toString().equals("ec.pe")) {
+                qualifier = qualifier;
+            }
             Name qn = ((QualifiedName) qualifier).getQualifier();
             QualifiedNameResolved mt = resolveName(myMethod, qn);
             if (mt == null) throw new CompilerException("Unable to completely resolve qualified name: ", qn);
+            if (mt.tuple == null) {
+                throw new CompilerException("Could not find type of base expression, maybe forgot @Compile in class declaration or untyped lambda arg?", qualifier);
+            }
             ArrayList<Opcode> accessor = new ArrayList<>();
             SimpleName name = ((QualifiedName) qualifier).getName();
             Integer position = mt.tuple.positions.get(name.toString());
