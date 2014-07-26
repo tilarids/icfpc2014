@@ -43,8 +43,8 @@ public class Sample1 extends VM {
     }
 
     @Compiled
-    public Tuple<AIState,Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(ListCons<ListCons<Integer>> map, Object undocumented) {
-        return new Tuple<>(createInitialState(map), (nextaistate, worldState) -> performMove(nextaistate, worldState));
+    public Tuple<AIState,Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, Object undocumented) {
+        return new Tuple<>(createInitialState(ws.map), (nextaistate, worldState) -> performMove(nextaistate, worldState));
 //        int x = location.a;
 //        int y = location.b;
 
@@ -243,14 +243,6 @@ public class Sample1 extends VM {
 
 
     @Compiled
-    static<A,B> Maybe<Tuple<A,B>> cat_maybe_to_pair(Maybe<A> a, Maybe<B> b) {
-        return
-                a.set != 0 && b.set != 0 ?
-                        new Maybe<Tuple<A, B>>(new Tuple<A,B>(a.data, b.data), 1)
-                        : new Maybe<Tuple<A, B>>(null, 0);
-    }
-
-    @Compiled
     private AIState createInitialState(ListCons<ListCons<Integer>> map) {
         return new AIState(parseStaticMap(map), 0);
     }
@@ -262,7 +254,10 @@ public class Sample1 extends VM {
 
     @Compiled
     public static int isWalkable(int test) {
-        return test == 0 ? 0 : 1;
+        breakpoint();
+        int retvla = 77;
+        if (test == 0) retvla = 0;  else retvla = 1;
+        return retvla;
     }
 
     @Compiled
@@ -282,7 +277,6 @@ public class Sample1 extends VM {
     @Compiled
     public ListCons<ParsedEdge> findNeighbourJunctions(ListCons<ListCons<Integer>> map, Point somePoint, ListCons<Point> allJunctions) {
         ListCons<ListCons<Point>> allNeighbourJunctionsPaths = waveFromPointToNearestJunction(map, queue_enqueue(queue_new(), cons(somePoint, null)), allJunctions, cons(somePoint, null), null);
-        debug(allNeighbourJunctionsPaths);
         return map(allNeighbourJunctionsPaths, (p) -> new ParsedEdge(p, length(p)-1, head(p), last(p), -1));
     }
 
@@ -295,7 +289,6 @@ public class Sample1 extends VM {
             Tuple<ListCons<Point>, Queue<ListCons<Point>>> emptier = queue_dequeue(pointQueue);
             ListCons<Point> thisRoute = emptier.a;
             Point weAreHere = head(thisRoute);
-            debug(weAreHere);
             ListCons<Point> possibleDestinations =
                     cons(new Point(weAreHere.x + 1, weAreHere.y),
                             cons(new Point(weAreHere.x - 1, weAreHere.y),
@@ -325,12 +318,34 @@ public class Sample1 extends VM {
 
     @Compiled
     private ParsedStaticMap parseMap(ListCons<ListCons<Integer>> m) {
-        ListCons<Point> walkable = concat(mapi(m, 0, (row, rowy) -> cat_maybes(mapi(row, 0, (col, colx) -> isWalkable(col) == 1 ? JUST(new Point(colx, rowy)) : NOTHING()))));
+        ListCons<ListCons<Point>> toConcat = mapi(m, 0, (row, rowy) -> my_cat_maybes(collectWalkableXY(row, rowy)));
+        ListCons<Point> walkable = concat(toConcat);
+        debug(200001);
+        debug(walkable);
         ListCons<Point> junctions = filter(walkable, (Point w) -> isJunction(m, w.x, w.y));
+        debug(200002);
+        debug(junctions);
         ListCons<ParsedEdge> allParsedEdges = concat(map(junctions, (j) -> findNeighbourJunctions(m, j, junctions)));
+        debug(200003);
+        debug(allParsedEdges);
         // renumber them.
         allParsedEdges = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.edge, pe.count, pe.a, pe.b, ix));
         return new ParsedStaticMap(walkable, junctions, allParsedEdges, null, null);
+    }
+
+    @Compiled
+    private ListCons<Point> my_cat_maybes(ListCons<Maybe<Point>> maybeListCons) {
+        ListCons<Point> rv = cat_maybes(maybeListCons);
+        debug(30000010);
+        debug(maybeListCons);
+        debug(30000020);
+        debug(rv);
+        return rv;
+    }
+
+    @Compiled
+    private ListCons<Maybe<Point>> collectWalkableXY(ListCons<Integer> row, Integer rowy) {
+        return mapi(row, 0, (col, colx) -> isWalkable(col) > 0 ? JUST(new Point(colx, rowy)) : NOTHING());
     }
 
     @Compiled
@@ -344,11 +359,8 @@ public class Sample1 extends VM {
     private int test2() {
         Queue queue = queue_enqueue(queue_enqueue(queue_enqueue(queue_new(), 1), 2), 3);
         Tuple<Object, Queue> q1 = queue_dequeue(queue);
-        debug(q1.a);
         q1 = queue_dequeue(q1.b);
-        debug(q1.a);
         q1 = queue_dequeue(q1.b);
-        debug(q1.a);
         return 1;
     }
 
@@ -401,7 +413,7 @@ public class Sample1 extends VM {
         }
 
         WorldState worldState = convertMap(theMap);
-        Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> initResult = new Sample1().entryPoint(worldState.map, null);
+        Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> initResult = new Sample1().entryPoint(worldState, null);
         AIState aistate = initResult.a;
         Function2<AIState, WorldState, Tuple<AIState, Integer>> stepFunction = initResult.b;
         printMap(theMap);

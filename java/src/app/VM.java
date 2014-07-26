@@ -45,6 +45,23 @@ public class VM {
         System.out.println("DEBUG: "+o.toString());
     }
 
+    public static void breakpoint() {
+        System.out.println("DEBUG: BREAKPOINT");
+    }
+
+    @Compiled
+    public static<T> T mydebug(T o) {
+        debug(o);
+        return o;
+    }
+
+    @Compiled
+    public static<T> T mydebugv(Object tag, T o) {
+        debug(tag);
+        debug(o);
+        return o;
+    }
+
     public static <T> T head(ListCons<T> c) {
         if (c == null) {
             throw new RuntimeException("head: null");
@@ -94,9 +111,9 @@ public class VM {
         /** value */
         T data;
 
-        Maybe(T data, int set) {
-            this.data = data;
+        Maybe(int set, T data) {
             this.set = set;
+            this.data = data;
         }
 
         @Override
@@ -119,6 +136,8 @@ public class VM {
     /** concatenates list of maybes into list of values where maybe contains value */
     @Compiled
     public static<D> ListCons<D> cat_maybes(ListCons<Maybe<D>> data) {
+        debug(30000011);
+        debug(data);
         return catMaybes_acc(data, null);
     }
 
@@ -172,19 +191,38 @@ public class VM {
     /** constructor for empty maybe */
     @Compiled
     public static <T> Maybe<T> NOTHING() {
-        return new Maybe<>(null, 0);
+        return new Maybe<>(0, null);
     }
 
     /** constructor for full maybe */
     @Compiled
     public static <T> Maybe<T> JUST(T t) {
-        return new Maybe<>(t, 1);
+        Maybe<T> tMaybe = new Maybe<>(1, t);
+        debug(8000001);
+        debug(t);
+        debug(tMaybe);
+
+        return tMaybe;
     }
 
     /** helper for catMaybes */
     @Compiled
     public static<D> ListCons<D> catMaybes_acc(ListCons<Maybe<D>> data, ListCons<D> acc) {
-        return data == null ? acc : catMaybes_acc(tail(data), is_nothing(head(data)) == 1 ? acc : cons(from_maybe(head(data)), acc));
+        debug(30000012);
+        debug(data);
+        debug(acc);
+        ListCons<D> rv = data == null ?
+                acc
+                :
+                catMaybes_acc(tail(data), is_nothing(head(data)) == 1 ?
+                        acc
+                        :
+                        cons(from_maybe(head(data)), acc));
+        debug(5000001);
+        debug(data);
+        debug(acc);
+        debug(rv);
+        return rv;
     }
 
     /** test is maybe is empty */
@@ -197,6 +235,9 @@ public class VM {
     @Compiled
     private static <D> D from_maybe(Maybe<D> head) {
         if (head.set == 0) throw new IllegalArgumentException("Maybe: nothing");
+//        debug(710000);
+//        debug(head);
+        //        debug(rv);
         return head.data;
     }
 
@@ -260,7 +301,7 @@ public class VM {
     @Compiled
     public static Object list_item(Cons list, int n) {
         if (n < 0) throw new RuntimeException("list_item(list, -1)");
-        return n == 0 ? head(list) : list_item(tail(list), n-1);
+        return mydebugv(cons(77000003, cons(n, cons(list, cons(head(list), null)))), (n == 0) ? head(list) : list_item(tail(list), n - 1));
     }
 
     /** return n-th item in the list, with default if it is beyond the list */
