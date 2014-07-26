@@ -8,6 +8,8 @@ import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Author: brox
@@ -43,6 +45,9 @@ public class Preprocessor {
         private final Map<String, Integer> labelPos = new HashMap<>();
         private List<GHCInstruction> virtualInstructions = new ArrayList<>();
         private List<RealGHCInstruction> realInstructions = new ArrayList<>();
+
+        // relative labels are "&(+2)" or "&(-42)"
+        private static final Pattern RELATIVE_LABEL = Pattern.compile("([^&]+)&\\(([+\\-]?[0-9]+)\\)(.*)");
 
         public GHCCode(List<String> src) {
             virtualInstructions.add(new SimpleGHCInstruction("mov h, 255 ; initialize stack"));
@@ -82,15 +87,26 @@ public class Preprocessor {
                 if (label != null)
                     instruction.setUsedLabel(label);
             }
-
         }
 
         public String generateAsm(boolean annotateWithLineNumbers) {
             StringBuilder sb = new StringBuilder();
+            int pos = 0;
             for (RealGHCInstruction instr : this.realInstructions) {
-                String str = instr.toAsmString(this);
+                String realInstructionAsm = processRealInstrLabels(instr, pos);
+                if (annotateWithLineNumbers)
+                    instr.appendComment(" #" + pos);
+                String comment = instr.getComment();
+                String str;
+                if (comment != null) {
+                    str = Compiler.Opcode.rpad(realInstructionAsm, COMMENT_PADDING) + comment;
+                } else
+                    str = realInstructionAsm;
+
+
                 sb.append(str);
                 sb.append("\r\n");
+                pos++;
             }
             return sb.toString();
         }
@@ -107,13 +123,25 @@ public class Preprocessor {
             return null;
         }
 
-        public String replaceLabelsWithAddr(String asm, RealGHCInstruction realInstr) {
+        public String processRealInstrLabels(RealGHCInstruction realInstr, int curInstrAddr) {
+            String asm = realInstr.getRealInstructionAsm();
             for (Map.Entry<String, Integer> p : labelPos.entrySet()) {
                 if (asm.contains(p.getKey())) {
                     realInstr.appendComment("=>" + p.getKey());
                     return asm.replace(p.getKey(), p.getValue().toString());
                 }
             }
+
+            Matcher m = RELATIVE_LABEL.matcher(asm);
+            if (m.matches()) {
+                int shift = Integer.parseInt(m.group(2));
+                realInstr.appendComment("=>"
+                        + (shift > 0 ? "+" : "")
+                        + shift);
+                int jumpAddr = curInstrAddr + shift;
+                return m.replaceFirst(m.group(1) + jumpAddr + m.group(3));
+            }
+
             return asm;
         }
 
@@ -181,6 +209,10 @@ public class Preprocessor {
             }
         }
 
+        public String getComment() {
+            return comment;
+        }
+
         public abstract List<RealGHCInstruction> getRealInstructions();
 
         public String getCommentForNextInstr() {
@@ -197,15 +229,15 @@ public class Preprocessor {
             super(srcInstruction, comment);
         }
 
-        public String toAsmString(GHCCode code) {
-            String realInstructionAsm = code.replaceLabelsWithAddr(getRealInstructionAsm(), this);
-            if (comment != null) {
-                return Compiler.Opcode.rpad(realInstructionAsm, COMMENT_PADDING) + comment;
-            } else
-                return realInstructionAsm;
-        }
+//        public String toAsmString(GHCCode code) {
+//            String realInstructionAsm = code.replaceLabelsWithAddr(getRealInstructionAsm(), this);
+//            if (comment != null) {
+//                return Compiler.Opcode.rpad(realInstructionAsm, COMMENT_PADDING) + comment;
+//            } else
+//                return realInstructionAsm;
+//        }
 
-        protected abstract String getRealInstructionAsm();
+        public abstract String getRealInstructionAsm();
 
         @Override
         public List<RealGHCInstruction> getRealInstructions() {
@@ -223,7 +255,7 @@ public class Preprocessor {
         }
 
         @Override
-        protected String getRealInstructionAsm() {
+        public String getRealInstructionAsm() {
             return srcInstruction;
         }
     }
@@ -238,7 +270,7 @@ public class Preprocessor {
         }
 
         @Override
-        protected String getRealInstructionAsm() {
+        public String getRealInstructionAsm() {
             return lazy.get();
         }
     }
