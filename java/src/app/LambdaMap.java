@@ -8,14 +8,14 @@ import java.util.List;
  */
 public class LambdaMap {
 
-    List<List<CT>> map;
+    List<List<Integer>> map;
 
     public LambdaMap(String s){
         String[] rows = s.split("\n");
-        map = new ArrayList<List<CT>>();
+        map = new ArrayList<List<Integer>>();
         for (int i = 0; i < rows.length; i++) {
             String row = rows[i];
-            List<CT> lst = new ArrayList<>();
+            List<Integer> lst = new ArrayList<>();
             for (int j = 0; j < row.length(); j++) {
                 lst.add(CT.convertMapCharacter(row.charAt(i)));
             }
@@ -30,7 +30,7 @@ public class LambdaMap {
     public Cons toCons(){
         Cons result = null;
         for (int i1 = map.size() - 1; i1 >= 0; i1--) {
-            List<CT> row = map.get(i1);
+            List<Integer> row = map.get(i1);
             Cons lst = null;
             for (int i = row.size() - 1; i >= 0; i--) {
                 lst = VM.cons(row.get(i), lst);

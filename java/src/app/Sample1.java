@@ -6,29 +6,29 @@ package app;
 @SuppressWarnings("Convert2MethodRef")
 public class Sample1 extends VM {
 
-    static final String map1 =
+    static final String map1 = "" +
             "#######################\n" +
-                    "#..........#..........#\n" +
-                    "#.###.####.#.####.###.#\n" +
-                    "#o###.####.#.####.###o#\n" +
-                    "#.....................#\n" +
-                    "#.###.#.#######.#.###.#\n" +
-                    "#.....#....#....#.....#\n" +
-                    "#####.#### # ####.#####\n" +
-                    "#   #.#    =    #.#   #\n" +
-                    "#####.# ### ### #.#####\n" +
-                    "#    .  # === #  .    #\n" +
-                    "#####.# ####### #.#####\n" +
-                    "#   #.#    %    #.#   #\n" +
-                    "#####.# ####### #.#####\n" +
-                    "#..........#..........#\n" +
-                    "#.###.####.#.####.###.#\n" +
-                    "#o..#......\\......#..o#\n" +
-                    "###.#.#.#######.#.#.###\n" +
-                    "#.....#....#....#.....#\n" +
-                    "#.########.#.########.#\n" +
-                    "#.....................#\n" +
-                    "#######################\n";
+            "#..........#..........#\n" +
+            "#.###.####.#.####.###.#\n" +
+            "#o###.####.#.####.###o#\n" +
+            "#.....................#\n" +
+            "#.###.#.#######.#.###.#\n" +
+            "#.....#....#....#.....#\n" +
+            "#####.#### # ####.#####\n" +
+            "#   #.#    =    #.#   #\n" +
+            "#####.# ### ### #.#####\n" +
+            "#    .  # === #  .    #\n" +
+            "#####.# ####### #.#####\n" +
+            "#   #.#    %    #.#   #\n" +
+            "#####.# ####### #.#####\n" +
+            "#..........#..........#\n" +
+            "#.###.####.#.####.###.#\n" +
+            "#o..#......\\......#..o#\n" +
+            "###.#.#.#######.#.#.###\n" +
+            "#.....#....#....#.....#\n" +
+            "#.########.#.########.#\n" +
+            "#.....................#\n" +
+            "#######################\n";
 
     public Sample1() {
     }
@@ -67,20 +67,20 @@ public class Sample1 extends VM {
     @Compiled
     private ListCons<Point> collectEdgePills(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map) {
         ListCons<Point> pathOnEdge = dropWhile(edge.edge, (Point p) -> p.x != start.x || p.y != start.y ? 1 : 0);
-        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == 2 ? 1 : 0);
+        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == CT.PILL ? 1 : 0);
     }
 
     @Compiled
     private ListCons<Point> collectEdgeGhosts(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map) {
         ListCons<Point> pathOnEdge = dropWhile(edge.edge, (Point p) -> p.x != start.x || p.y != start.y ? 1 : 0);
-        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == 6 ? 1 : 0);
+        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == CT.GHOST ? 1 : 0);
     }
 
 
     @Compiled
     private ListCons<Point> collectAnyEdgePills(ParsedEdge edge, ListCons<ListCons<Integer>> map) {
         ListCons<Point> pathOnEdge = edge.edge;
-        ListCons<Point> rv = filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == 2 ? 1 : 0);
+        ListCons<Point> rv = filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == CT.PILL ? 1 : 0);
         return rv;
     }
 
@@ -119,27 +119,31 @@ public class Sample1 extends VM {
                 findBestDistantEdge(edgesForPoint, aistate, worldState);
             }
             pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
-            System.out.println("Chosen long way: "+startEdge.toString());
+            System.out.println("Chosen long way: " + startEdge.toString());
         }
         if (ec.count == 0 && 1 == 2) {
+            // ensure that we don't stuck when there is no pills nearby. just go somewhere (and don't go back)
             // branch svg
-            direction =
-                    isWalkable3(worldState.map, location.x, location.y - 1) == 1 && aistate.lastDirection != 2 ?
-                            0 :
-                            isWalkable3(worldState.map, location.x + 1, location.y) == 1 && aistate.lastDirection != 3 ?
-                                    1 :
-                                    isWalkable3(worldState.map, location.x, location.y + 1) == 1 && aistate.lastDirection != 0 ? 2 : 3;
+            direction = isWalkable3(worldState.map, location.x, location.y - 1) == 1 && aistate.lastDirection != Direction.DOWN ?
+                    Direction.UP :
+                    isWalkable3(worldState.map, location.x + 1, location.y) == 1 && aistate.lastDirection != Direction.LEFT ?
+                            Direction.RIGHT :
+                            isWalkable3(worldState.map, location.x, location.y + 1) == 1 && aistate.lastDirection != Direction.UP ?
+                                    Direction.DOWN :
+                                    Direction.LEFT;
             retval = new Tuple<>(new AIState(aistate.parsedStaticMap, direction), direction);
         } else if (length(pathToWalk) >= 2) {
             newLocation = head(tail(pathToWalk));
-            direction =
-                    (newLocation.x > location.x) ? 1 :
-                            (newLocation.x < location.x) ? 3 :
-                                    (newLocation.y < location.y) ? 0 :
-                                            2;
+            direction = (newLocation.x > location.x) ?
+                    Direction.RIGHT :
+                    (newLocation.x < location.x) ?
+                            Direction.LEFT :
+                            (newLocation.y < location.y) ?
+                                    Direction.UP :
+                                    Direction.DOWN;
             retval = new Tuple<>(aistate, direction);
         } else {
-            retval = new Tuple<>(aistate, 2);
+            retval = new Tuple<>(aistate, Direction.UP);
         }
         return retval;
     }
@@ -176,15 +180,17 @@ public class Sample1 extends VM {
         return retval;
     }
 
-    /** find edges linked to given one */
+    /**
+     * find edges linked to given one
+     */
     @Compiled
     private ListCons<ParsedEdge> findFollowingEdges(ListCons<ParsedEdge> parsedEdges, ListCons<ParsedEdge> lookingEdge) {
-        return filter(parsedEdges, (ParsedEdge pe)->pointEquals(pe.a, endingPointOfEdgeRoute(lookingEdge)));
+        return filter(parsedEdges, (ParsedEdge pe) -> pointEquals(pe.a, endingPointOfEdgeRoute(lookingEdge)));
     }
 
     @Compiled
     private Integer pointEquals(Point a, Point b) {
-        return (a.x == b.x && a.y == b.y) ? 1: 0;
+        return (a.x == b.x && a.y == b.y) ? 1 : 0;
     }
 
     @Compiled
@@ -198,7 +204,7 @@ public class Sample1 extends VM {
         Queue<ListCons<ParsedEdge>> q = queue_new();
         q = fold0(currentEdges, q, (Queue<ListCons<ParsedEdge>> qq, ParsedEdge e) -> queue_enqueue(qq, cons(e, null)));
         ListCons<ListCons<ParsedEdge>> reverseDests = reverse(waveFromEdgeToNearestEdges(aistate, worldState, q, map(currentEdges, (ParsedEdge e) -> e.edgeNumber), null));
-        ListCons<ListCons<ParsedEdge>> sortedRoutes = filter(reverseDests, (r) -> (any(r, (r0) -> length(collectAnyEdgePills(r0, worldState.map)) > 0 ? 1:0) > 0 && length(r) >= 2) ? 1:0);
+        ListCons<ListCons<ParsedEdge>> sortedRoutes = filter(reverseDests, (r) -> (any(r, (r0) -> length(collectAnyEdgePills(r0, worldState.map)) > 0 ? 1 : 0) > 0 && length(r) >= 2) ? 1 : 0);
         ListCons<ParsedEdge> someRoute = head(sortedRoutes);
         ParsedEdge myStart = head(reverse(someRoute));
         return myStart;
@@ -295,7 +301,7 @@ public class Sample1 extends VM {
 
         @Override
         public String toString() {
-            return "[Edge: form="+a+" to="+b+" count="+count+" id="+edgeNumber+"]";
+            return "[Edge: form=" + a + " to=" + b + " count=" + count + " id=" + edgeNumber + "]";
         }
     }
 
@@ -488,8 +494,8 @@ public class Sample1 extends VM {
             String row = rows[i1];
             ListCons<Integer> lst = null;
             for (int i = row.length() - 1; i >= 0; i--) {
-                CT charValue = CT.convertMapCharacter(row.charAt(i));
-                lst = cons(charValue.getValue(), lst);
+                int charValue = CT.convertMapCharacter(row.charAt(i));
+                lst = cons(charValue, lst);
                 if (charValue == CT.LAMBDA) {
                     human.x = i;
                     human.y = i1;
@@ -500,7 +506,7 @@ public class Sample1 extends VM {
             }
             result = cons(lst, result);
         }
-        return new WorldState(result, new LambdaManState(100, human, 0, 3, 0), gs, 0);
+        return new WorldState(result, new LambdaManState(100, human, 0, Direction.LEFT, 0), gs, 0);
     }
 
     @Compiled
@@ -537,16 +543,16 @@ public class Sample1 extends VM {
             int direction = apply.b;
             int nx = worldState.lambdaManState.location.x, ny = worldState.lambdaManState.location.y;
             switch (direction) {
-                case 0:
+                case Direction.UP:
                     ny--;
                     break;
-                case 1:
+                case Direction.RIGHT:
                     nx++;
                     break;
-                case 2:
+                case Direction.DOWN:
                     ny++;
                     break;
-                case 3:
+                case Direction.LEFT:
                     nx--;
                     break;
                 default:
