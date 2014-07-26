@@ -3,12 +3,12 @@ package app;
 /**
  * Created by san on 7/25/14.
  */
-public class Cons {
+public class Cons<D extends Object, A extends Object> {
 
-    Object data;
-    Object addr;
+    D data;
+    A addr;
 
-    public Cons(Object data, Object addr) {
+    public Cons(D data, A addr) {
         this.data = data;
         this.addr = addr;
     }

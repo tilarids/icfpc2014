@@ -6,7 +6,6 @@ import java.util.*;
 import org.apache.log4j.Logger;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.*;
-import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 
 /**
  * todo
@@ -130,7 +129,7 @@ public class Compiler {
         addTypes(parseFile(new File("src/app/VM.java")));
         addTypes(parseFile(new File("src/app/Sample1.java")));
         ArrayList<Opcode> global = new ArrayList<>();
-        MyMethod run = getMethod("run");
+        MyMethod run = getMethod("entryPoint");
         methods.remove(run);
         methods.add(0, run);
         for (int m = 0; m < methods.size(); m++) {
@@ -173,6 +172,8 @@ public class Compiler {
             Opcode opcode = global.get(i);
             System.out.println(String.format("%s", opcode.toString()));
         }
+        System.out.println("=========");
+        System.out.println("Total ops: "+global.size());
     }
 
     private MyMethod generateMethod(String name, MyMethod myMethod) {
@@ -182,6 +183,9 @@ public class Compiler {
                 if (parameter instanceof SingleVariableDeclaration) {
                     SingleVariableDeclaration svd = (SingleVariableDeclaration) parameter;
                     myMethod.addVariable(svd.getType().toString(), parameter.getName().toString());
+                } else if (parameter instanceof VariableDeclarationFragment) {
+                    VariableDeclarationFragment vdf = (VariableDeclarationFragment)parameter;
+                    myMethod.addVariable("@untyped lambda@", parameter.getName().toString());
                 } else {
                     throw new CompilerException("Must be single variable declaration in parameter!", parameter);
                 }
@@ -213,7 +217,7 @@ public class Compiler {
             }
             VariableDeclarationFragment o = (VariableDeclarationFragment)fragments.get(0);
             SimpleName name = o.getName();
-            myMethod.addVariable("XX", name.toString());
+            myMethod.addVariable(vds.getType().toString(), name.toString());
             Expression initializer = o.getInitializer();
             if (initializer != null) {
                 generateExpression(myMethod, initializer);
@@ -268,12 +272,27 @@ public class Compiler {
         }
     }
 
+    public class QualifiedNameResolved {
+        MyTyple tuple;
+        ArrayList<Opcode> accessor;
+
+        public QualifiedNameResolved(MyTyple tuple, ArrayList<Opcode> accessor) {
+            this.tuple = tuple;
+            this.accessor = accessor;
+        }
+    }
+
     private void generateExpression(MyMethod myMethod, Expression expression) {
         if (expression instanceof NumberLiteral) {
             myMethod.addOpcode(new Opcode("LDC", new Integer(expression.toString())).commented("just constant from code"));
-            return;
-        }
-        if (expression instanceof InfixExpression) {
+        } else if (expression instanceof PrefixExpression) {
+            PrefixExpression pe = (PrefixExpression)expression;
+            if (pe.getOperator() == PrefixExpression.Operator.MINUS && pe.getOperand() instanceof NumberLiteral) {
+                myMethod.addOpcode(new Opcode("LDC", -new Integer(pe.getOperand().toString())).commented("just negative constant from code"));
+            } else {
+                throw new CompilerException("Prefix expression not supported (yet?) ", expression);
+            }
+        } else if (expression instanceof InfixExpression) {
             InfixExpression ie = (InfixExpression)expression;
             if (ie.getOperator().toString().equals("+")) {
                 generateExpression(myMethod, ie.getLeftOperand());
@@ -343,7 +362,7 @@ public class Compiler {
             }
         } else if (expression instanceof ClassInstanceCreation) {
             ClassInstanceCreation cic = (ClassInstanceCreation)expression;
-            String className = cic.getType().toString().replace("<>","");
+            String className = cleanupTemplates(cic.getType().toString());
             MyTyple myTyple = tuples.get(className);
             if (myTyple == null) throw new CompilerException("Unable to instantiate unknown tuple: "+className, expression);
             List<Expression> arguments = cic.arguments();
@@ -354,38 +373,10 @@ public class Compiler {
                 generateExpression(myMethod, arguments.get(i));
                 myMethod.addOpcode(new Opcode("CONS"));
             }
-        } else if (expression instanceof SimpleName) {
-            SimpleName sn = (SimpleName)expression;
-            Integer varix = myMethod.variables.get(sn.toString());   // index of q
-            if (varix == null) throw new CompilerException("Unable to find variable",expression);
-            Opcode ld = new Opcode("LD", 0, varix);
-            ld.comment = "var "+sn.toString();
-            myMethod.addOpcode(ld);
-        } else if (expression instanceof QualifiedName) {
-            QualifiedName qn = (QualifiedName)expression;
-            Name qualifier = qn.getQualifier();
-            SimpleName name = qn.getName();
-            if (qualifier instanceof SimpleName) {
-                // example: q.s
-                Integer varix = myMethod.variables.get(qualifier.toString());   // index of q
-                if (varix == null) throw new CompilerException("Unable to find variable: "+qualifier,expression);
-                String typeName = cleanupTemplates(myMethod.variableTypes.get(varix));    //  type of q
-                MyTyple myTyple = tuples.get(typeName);     // type of q
-                if (myTyple == null) {
-                    throw new CompilerException("Unable to find type of the tuple: "+qualifier, expression);
-                }
-                Integer indexInTuple = myTyple.positions.get(name.toString());  // index of s in q
-                if (indexInTuple == null) throw new CompilerException("Unable to find variable in given tuple: "+qualifier, expression);
-
-                // arg 2 for list_item
-                myMethod.addOpcode(new Opcode("LDC", indexInTuple).commented("field index in tuple: "+typeName+"::"+name));
-                // arg 1 for list_item
-                myMethod.addOpcode(new Opcode("LD", 0, varix).commented("var "+qualifier.toString()));
-                // call function
-                myMethod.addOpcode(new Opcode("LDF", new FunctionRef("list_item")));
-                myMethod.addOpcode(new Opcode("AP", 2));
-            } else {
-                System.out.println("Qualifiedname cannot compile yet, but easy: "+qn);
+        } else if (expression instanceof QualifiedName || expression instanceof SimpleName) {
+            QualifiedNameResolved qnr = resolveName(myMethod, (Name)expression);
+            for (Opcode opcode : qnr.accessor) {
+                myMethod.addOpcode(opcode);
             }
             // qn.
         } else if (expression instanceof ConditionalExpression) {
@@ -406,6 +397,7 @@ public class Compiler {
             final ASTNode body = le.getBody();
             String name = "lambda_"+(lambdaCount++);
             MyMethod mm = new MyMethod(name, parameters, body);
+            mm.parentMethod = myMethod;
             methods.add(mm);
             myMethod.addOpcode(new Opcode("LDF", new FunctionRef(name)));
         } else if (expression instanceof MethodInvocation) {
@@ -455,6 +447,55 @@ public class Compiler {
         // expression.resolveTypeBinding();
     }
 
+    private QualifiedNameResolved generateLoadSimpleName(MyMethod myMethod, SimpleName sn) {
+        int level = 0;
+        MyMethod currentMethod = myMethod;
+        Integer varix = null;
+        String vartype = null;
+        while(currentMethod != null) {
+            varix = currentMethod.variables.get(sn.toString());   // index of q
+            if (varix != null) {
+                vartype = currentMethod.variableTypes.get(varix);
+                break;
+            }
+            currentMethod = currentMethod.parentMethod;
+            level++;
+        }
+        if (varix == null) throw new CompilerException("Unable to find variable", sn);
+        ArrayList<Opcode> accessor = new ArrayList<>();
+        Opcode ld = new Opcode("LD", level, varix);
+        ld.comment = "var "+sn.toString();
+        accessor.add(ld);
+        return new QualifiedNameResolved(tuples.get(cleanupTemplates(vartype)), accessor);
+    }
+
+    private QualifiedNameResolved resolveName(MyMethod myMethod, Name qualifier) {
+        if (qualifier instanceof SimpleName) {
+            QualifiedNameResolved qualifiedNameResolved = generateLoadSimpleName(myMethod, (SimpleName) qualifier);
+            return qualifiedNameResolved;
+        } else if (qualifier instanceof QualifiedName) {
+            if (qualifier.toString().equals("ec.pe")) {
+                qualifier = qualifier;
+            }
+            Name qn = ((QualifiedName) qualifier).getQualifier();
+            QualifiedNameResolved mt = resolveName(myMethod, qn);
+            if (mt == null) throw new CompilerException("Unable to completely resolve qualified name: ", qn);
+            if (mt.tuple == null) {
+                throw new CompilerException("Could not find type of base expression, maybe forgot @Compile in class declaration or untyped lambda arg?", qualifier);
+            }
+            ArrayList<Opcode> accessor = new ArrayList<>();
+            SimpleName name = ((QualifiedName) qualifier).getName();
+            Integer position = mt.tuple.positions.get(name.toString());
+            accessor.add(new Opcode("LDC", position).commented("index of " + mt.tuple.name + "::" + name.toString() + " in " + qualifier));
+            accessor.addAll(mt.accessor);
+            accessor.add(new Opcode("LDF", new FunctionRef("list_item")));
+            accessor.add(new Opcode("AP", 2));
+            String typleIndex = mt.tuple.types.get(position);
+            MyTyple myTyple = tuples.get(typleIndex != null ? typleIndex : "XXXXX@NONEXIST");
+            return new QualifiedNameResolved(myTyple, accessor);
+        } else throw new CompilerException("Unsupported (yet?) name",qualifier);
+    }
+
     static int lambdaCount = 1000;
 
     private String cleanupTemplates(String s) {
@@ -467,6 +508,12 @@ public class Compiler {
 
     class MyTyple {
         HashMap<String, Integer> positions = new HashMap<>();
+        HashMap<Integer, String> types = new HashMap<>();
+        String name;
+
+        MyTyple(String name) {
+            this.name = name;
+        }
     }
 
     HashMap<String, MyTyple> tuples = new HashMap<>();
@@ -506,7 +553,7 @@ public class Compiler {
     private void addTuple(TypeDeclaration type) {
         List list = type.bodyDeclarations();
         int ix = 0;
-        MyTyple mt = new MyTyple();
+        MyTyple mt = new MyTyple(type.getName().toString());
         for (Object o : list) {
             if (o instanceof FieldDeclaration) {
                 FieldDeclaration f = (FieldDeclaration)o;
@@ -516,6 +563,7 @@ public class Compiler {
                 }
                 String fieldName = fragments.get(0).toString();
                 mt.positions.put(fieldName, ix);
+                mt.types.put(ix, f.getType().toString());
                 ix++;
             }
         }
@@ -635,6 +683,7 @@ public class Compiler {
         List<VariableDeclaration> parameters;
         int offset;
         String name;
+        MyMethod parentMethod;
 
         HashMap<String, Integer> variables = new HashMap<>();
 
