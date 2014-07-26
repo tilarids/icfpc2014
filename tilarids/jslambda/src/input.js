@@ -1,17 +1,19 @@
-function foo(skip1, skip2, size, size2) {
-  while(size) {
-    write_memory(size, size * 5)
-    size--
-  }
-
-  while(size2) {
-    dbug(load_memory(size2))
-    size--
-  }
-  return 7757;
-  insert_vtables(); // don't be afraid to insert tables after return! :)
+function step(state, world, n, m) {
+  return [state, state+1];
 } 
+function length(l) {
+  if (atom(car(l))) {
+    return 2;
+  } else {
+    return 1 + length(car(l));
+  }
+}
+function step_impl(state, tuple4) {
+  return init_memory(step, 10, state, car(tuple4), length(car(tuple4)) - 1, length(car(car(tuple4))) - 1)
+}
+//insert_vtables(); 
 function init() {
-  return init_memory(0, 0, 3, 3, foo)
+  return [0, step_impl]
+
 }
 

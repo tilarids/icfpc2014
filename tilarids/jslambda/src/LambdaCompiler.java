@@ -158,6 +158,7 @@ public class LambdaCompiler {
 		}
 		Func theFunc = new Func(topFrameDeclCount, null);
 		funcsStack.push(theFunc);
+		functionMap.put(func_name, theFunc);
 		this.variablesStack.peek().put(func_name, topFrameDeclCount);
 
 		// prepare stack.
@@ -187,7 +188,6 @@ public class LambdaCompiler {
 		funcsStack.pop();
 		// save new function defintion.
 		theFunc.firstInstr = function_body.get(0);
-		functionMap.put(func_name, theFunc);
 		topFrameDeclCount += 1;
 		
 		return function_body;
@@ -403,6 +403,7 @@ public class LambdaCompiler {
 			I ap = new I(I.Type.AP);
 			ap.params.add(new IntParam(count - 2 + memorySize * 2 + varsAdded.size()));
 			instrs.add(ap);
+			this.memorySkip = count - 2 + varsAdded.size();
 		} else if (id_name.equals("read_memory")) {
 			if (ast.arguments().argumentList().singleExpression().size() != 1) {
 				throw new RuntimeException("should be 1");
@@ -743,7 +744,7 @@ public class LambdaCompiler {
 	}
 
 	public static void main(String[] args) throws IOException {
-		String expression = new String(Files.readAllBytes(FileSystems.getDefault().getPath("src/test_input.js")));
+		String expression = new String(Files.readAllBytes(FileSystems.getDefault().getPath("src/input.js")));
 //    	String expression = "" +
 //				"function step(state, world) { if(0) {return [0, state];} else {return [1, state];} }" + 
 //				"function init() {return [3, step];} ";
