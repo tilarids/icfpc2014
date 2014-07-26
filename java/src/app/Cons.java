@@ -5,8 +5,8 @@ package app;
  */
 public class Cons<D extends Object, A extends Object> {
 
-    D data;
-    A addr;
+    public D data;
+    public A addr;
 
     public Cons(D data, A addr) {
         this.data = data;
