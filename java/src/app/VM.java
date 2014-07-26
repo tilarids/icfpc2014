@@ -159,8 +159,12 @@ public class VM {
             cons(arg.apply(head(c)), (ListCons<T2>) map(tail(c), arg));
     }
 
+    /** wrapper that can contain value, or does not contain */
+    @Compiled
     static class Maybe<T> {
+        /** contains? */
         int set;
+        /** value */
         T data;
 
         Maybe(T data, int set) {
@@ -186,26 +190,38 @@ public class VM {
     }
 
     /** concatenates list of maybes into list of values where maybe contains value */
+    @Compiled
     public static<D> ListCons<D> cat_maybes(ListCons<Maybe<D>> data) {
         return catMaybes_acc(data, null);
     }
 
     /** concatenates list of lists into one list */
+    @Compiled
     public static<D> ListCons<D> concat(ListCons<ListCons<D>> data) {
         return reverse(concat_acc(data, null));
     }
 
     /** concatenates list of lists into one list */
+    @Compiled
+    public static<D> D last(ListCons<D> data) {
+        if (data == null) throw new RuntimeException("Last: null list");
+        return tail(data) == null ? head(data) : last(tail(data));
+    }
+
+    /** concatenates list of lists into one list */
+    @Compiled
     public static<D> ListCons<D> concat_set(ListCons<ListCons<D>> data) {
         return concat_acc(data, null);
     }
 
     /** helper for concat */
+    @Compiled
     public static<D> ListCons<D> concat_acc(ListCons<ListCons<D>> data, ListCons<D> acc) {
         return data == null ? acc : concat_acc(tail(data), concat2(head(data), acc));
     }
 
     /** concatenates 2 lists (haskell (++)) */
+    @Compiled
     public static<D> ListCons<D> concat2(ListCons<D> data, ListCons<D> data2) {
         return (data == null) ? data2 :
                 (data2 == null ? data :
@@ -213,6 +229,7 @@ public class VM {
     }
 
     /** concatenates 2 lists, unordered */
+    @Compiled
     public static<D> ListCons<D> concat2_set(ListCons<D> data, ListCons<D> data2) {
         return (data == null) ? data2 :
                 (data2 == null ? data :
@@ -220,43 +237,66 @@ public class VM {
     }
 
     /** helper for concat2 */
+    @Compiled
     public static<D> ListCons<D> concat2_acc(ListCons<D> data, ListCons<D> acc) {
         return data == null ? acc : concat2_acc(tail(data), cons(head(data), acc));
     }
 
     /** constructor for empty maybe */
+    @Compiled
     public static <T> Maybe<T> NOTHING() {
         return new Maybe<>(null, 0);
     }
 
     /** constructor for full maybe */
+    @Compiled
     public static <T> Maybe<T> JUST(T t) {
         return new Maybe<>(t, 1);
     }
 
     /** helper for catMaybes */
+    @Compiled
     public static<D> ListCons<D> catMaybes_acc(ListCons<Maybe<D>> data, ListCons<D> acc) {
         return data == null ? acc : catMaybes_acc(tail(data), is_nothing(head(data)) == 1 ? acc : cons(from_maybe(head(data)), acc));
     }
 
     /** test is maybe is empty */
+    @Compiled
     private static <D> int is_nothing(Maybe<D> head) {
         return 1 - head.set;
     }
 
     /** extract value form maybe */
+    @Compiled
     private static <D> D from_maybe(Maybe<D> head) {
-        if (head.set == 0) {
-            throw new IllegalArgumentException("Maybe: nothing");
-        } else {
-            return head.data;
-        }
+        if (head.set == 0) throw new IllegalArgumentException("Maybe: nothing");
+        return head.data;
     }
 
     /** reverse list */
     @Compiled
     public static<D> ListCons<D> reverse(ListCons<D> c) {
         return reverse_acc(c, null);
+    }
+
+    @Compiled
+    public static<D> D maximum_by_acc(ListCons<D> d, Function1<D, Integer> projection, D acc) {
+        return d == null ? acc :
+                projection.apply(acc) > projection.apply(head(d)) ? maximum_by_acc(tail(d), projection, acc)
+                        : maximum_by_acc(tail(d), projection, head(d));
+    }
+
+    @Compiled
+    public static<D> D maximum_by(ListCons<D> d, Function1<D, Integer> projection) {
+        if (d == null) throw new RuntimeException("maximum_by: null list");
+        return maximum_by_acc(tail(d), projection, head(d));
+    }
+
+    /** reverse list */
+    @Compiled
+    public static<D> ListCons<D> dropWhile(ListCons<D> c, Function1<D, Integer> test) {
+        return (c == null) ? null :
+            test.apply(head(c)) == 1 ? dropWhile(tail(c), test) : c;
     }
 
     /** helper for reverse */
@@ -291,14 +331,14 @@ public class VM {
 
     /** return n-th item in the list */
     @Compiled
-    public Object list_item(Cons list, int n) {
+    public static Object list_item(Cons list, int n) {
         if (n < 0) throw new RuntimeException("list_item(list, -1)");
         return n == 0 ? head(list) : list_item(tail(list), n-1);
     }
 
     /** return n-th item in the list, with default if it is beyond the list */
     @Compiled
-    public Object list_item_def(Cons list, int index, Object deflt) {
+    public static Object list_item_def(Cons list, int index, Object deflt) {
         return (index < 0) ? deflt :
             index == 0 ? head(list) : list_item(tail(list), index-1);
     }
@@ -319,14 +359,20 @@ public class VM {
         return retval;
     }
 
+    /** length of list */
+    @Compiled
     public static<T> int length(ListCons<T> list) {
         return elements_counter(list, 0);
     }
 
+    /** filter list by predicate */
+    @Compiled
     public static<T> ListCons<T> filter(ListCons<T> list, Function1<T, Integer> pred) {
         return reverse(filter_acc(list, pred, null));
     }
 
+    /** has any satisfying item? */
+    @Compiled
     public static<T> int any(ListCons<T> list, Function1<T, Integer> pred) {
         return list == null? 0 :
                 pred.apply(head(list)) == 1 ? 1:
@@ -334,6 +380,8 @@ public class VM {
 
     }
 
+    /** free of any satisfying items? */
+    @Compiled
     public static<T> int noneof(ListCons<T> list, Function1<T, Integer> pred) {
         return list == null? 1 :
                 pred.apply(head(list)) == 1 ? 0:
@@ -341,31 +389,41 @@ public class VM {
 
     }
 
+    /** list is empty? */
+    @Compiled
     public int empty(Cons d) {
         return d != null ? 0 : 1;
     }
 
+    /** list is not empty? */
+    @Compiled
     public int notempty(Cons d) {
         return d != null ? 1 : 0;
     }
 
+    /** used by filter */
+    @Compiled
     public static<T> ListCons<T> filter_acc(ListCons<T> list, Function1<T, Integer> pred, ListCons<T> acc) {
         return list == null ? acc : filter_acc(tail(list), pred, pred.apply(head(list)) == 1 ? cons(head(list), acc) : acc);
     }
 
     /*Map operations*/
 
+    @Compiled
     public static int map_height(Cons map){
         return elements_counter(map, 0);
     }
 
+    @Compiled
     public static int map_width(Cons map){
         return elements_counter(head(map), 0);
     }
 
+    /** used by length */
+    @Compiled
     public static int elements_counter(Cons list, int counter){
-        if(list == null) return counter;
-        return elements_counter(tail(list), counter + 1);
+        return list == null ? counter:
+            elements_counter(tail(list), counter + 1);
     }
 
 
