@@ -486,7 +486,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private int test3() {
-        SortedMap<Integer> map = new SortedMap<Integer>(null);
+        SortedMap<Integer> map = new SortedMap<Integer>(null, 0);
         SortedMap<Integer> new_map = sorted_map_assoc(sorted_map_assoc(sorted_map_assoc(map, 30, 31), 20, 21), 10, 11);
         return sorted_map_get(sorted_map_assoc(new_map, 20, 33), 20, 88);
     }

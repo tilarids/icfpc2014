@@ -616,6 +616,7 @@ public class Compiler {
             QualifiedNameResolved mt = resolveName(myMethod, qn);
             if (mt == null) throw new CompilerException("Unable to completely resolve qualified name: ", qn);
             if (mt.tuple == null) {
+                resolveName(myMethod, qn);
                 throw new CompilerException("Could not find type of base expression, maybe forgot @Compile in class declaration or untyped lambda arg?", qualifier);
             }
             ArrayList<Opcode> accessor = new ArrayList<>();
@@ -625,7 +626,7 @@ public class Compiler {
 
             generateTupleAccess(accessor, position, mt.tuple.positions.size());
             String typleIndex = mt.tuple.types.get(position);
-            MyTyple myTyple = tuples.get(typleIndex != null ? typleIndex : "XXXXX@NONEXIST");
+            MyTyple myTyple = tuples.get(cleanupTemplates(typleIndex != null ? typleIndex : "XXXXX@NONEXIST"));
             return new QualifiedNameResolved(myTyple, accessor);
         } else throw new CompilerException("Unsupported (yet?) name", qualifier);
     }

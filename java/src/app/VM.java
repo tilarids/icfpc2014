@@ -560,9 +560,11 @@ public class VM {
     @Compiled
     class SortedMap<T> {
         SortedMapNode<T> node;
+        int dummy;
 
-        SortedMap(SortedMapNode<T> node) {
+        SortedMap(SortedMapNode<T> node, int dummy) {
             this.node = node;
+            this.dummy = dummy;
         }
     }
 
@@ -586,9 +588,10 @@ public class VM {
         return sorted_map_if_changed(m, m.node, sorted_node_put(m.node, key, val));
     }
 
+    @Compiled
     public <T> SortedMap<T> sorted_map_if_changed(SortedMap<T> thisMap, SortedMapNode<T> node, SortedMapNode<T> another_node) {
         return node == another_node ?  // same node!
             thisMap : // no change
-            new SortedMap<T>(another_node); // create new map
+            new SortedMap<T>(another_node, 0); // create new map
     } 
 }
