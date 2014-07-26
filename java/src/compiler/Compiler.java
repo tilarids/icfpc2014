@@ -178,6 +178,9 @@ public class Compiler {
 
     private MyMethod generateMethod(String name, MyMethod myMethod) {
         if (myMethod.opcodes.size() == 0) {
+            if (name.contains("lambda_1000")) {
+                name = name;
+            }
             List<VariableDeclaration> parameters = myMethod.parameters;
             for (VariableDeclaration parameter : parameters) {
                 if (parameter instanceof SingleVariableDeclaration) {
@@ -197,10 +200,11 @@ public class Compiler {
                 for (Statement statement : statements) {
                     generateStatement(myMethod, statement);
                 }
-                myMethod.opcodes.get(0).comment = " <== " + name + "  " + parameters;
+                myMethod.opcodes.get(0).comment = " <== " + name + "  " + parameters + " (as blk)";
             } else if (b instanceof Expression) {
                 generateExpression(myMethod, (Expression) b);
                 myMethod.addOpcode(new Opcode("RTN"));
+                myMethod.opcodes.get(0).comment = " <== " + name + "  " + parameters + " (as expr)";
             } else {
                 System.out.println("Oh");
             }
@@ -210,6 +214,9 @@ public class Compiler {
 
     private void generateStatement(MyMethod myMethod, Statement statement) {
         if (statement instanceof VariableDeclarationStatement) {
+            if (!(statement.getParent().getParent() instanceof MethodDeclaration)) {
+                throw new CompilerException("Vardecl must be in method-level only, not in blocks", statement);
+            }
             VariableDeclarationStatement vds = (VariableDeclarationStatement)statement;
             List fragments = vds.fragments();
             if (fragments.size() != 1) {
@@ -251,7 +258,9 @@ public class Compiler {
 
             if (es.toString().startsWith("System.out.print")) {
                 // ok
-            } else if (es.getExpression() instanceof MethodInvocation && ((MethodInvocation)es.getExpression()).getName().toString().equals("debug")) {
+            } else if (es.getExpression() instanceof MethodInvocation &&
+                    (((MethodInvocation)es.getExpression()).getName().toString().equals("debug")
+                    || ((MethodInvocation)es.getExpression()).getName().toString().equals("breakpoint"))) {
                 generateExpression(myMethod, es.getExpression());
             } else if (es.getExpression() instanceof Assignment) {
                 Assignment as = (Assignment)es.getExpression();
@@ -298,26 +307,56 @@ public class Compiler {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
                 myMethod.addOpcode(new Opcode("ADD"));
+                if (ie.hasExtendedOperands()) {
+                    List<Expression> extendedOperands = ie.extendedOperands();
+                    for (int i = 0; i < extendedOperands.size(); i++) {
+                        generateExpression(myMethod, extendedOperands.get(i));
+                        myMethod.addOpcode(new Opcode("ADD"));
+                    }
+                }
             } else if (ie.getOperator().toString().equals("-")) {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
                 myMethod.addOpcode(new Opcode("SUB"));
+                if (ie.hasExtendedOperands()) throw new CompilerException("Extended operand sorry", expression);
             } else if (ie.getOperator().toString().equals("*")) {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
                 myMethod.addOpcode(new Opcode("MUL"));
+                if (ie.hasExtendedOperands()) {
+                    List<Expression> extendedOperands = ie.extendedOperands();
+                    for (int i = 0; i < extendedOperands.size(); i++) {
+                        generateExpression(myMethod, extendedOperands.get(i));
+                        myMethod.addOpcode(new Opcode("MUL"));
+                    }
+                }
             } else if (ie.getOperator().toString().equals("&&")) {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
                 myMethod.addOpcode(new Opcode("MUL"));
+                if (ie.hasExtendedOperands()) {
+                    List<Expression> extendedOperands = ie.extendedOperands();
+                    for (int i = 0; i < extendedOperands.size(); i++) {
+                        generateExpression(myMethod, extendedOperands.get(i));
+                        myMethod.addOpcode(new Opcode("MUL"));
+                    }
+                }
             } else if (ie.getOperator().toString().equals("||")) {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
                 myMethod.addOpcode(new Opcode("ADD"));
+                if (ie.hasExtendedOperands()) {
+                    List<Expression> extendedOperands = ie.extendedOperands();
+                    for (int i = 0; i < extendedOperands.size(); i++) {
+                        generateExpression(myMethod, extendedOperands.get(i));
+                        myMethod.addOpcode(new Opcode("ADD"));
+                    }
+                }
             } else if (ie.getOperator().toString().equals("/")) {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
                 myMethod.addOpcode(new Opcode("DIV"));
+                if (ie.hasExtendedOperands()) throw new CompilerException("Extended operand sorry", expression);
             } else if (ie.getOperator().toString().equals(">")) {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
@@ -368,9 +407,10 @@ public class Compiler {
             List<Expression> arguments = cic.arguments();
             if (myTyple.positions.size() != arguments.size()) throw new CompilerException("Unable to instantiate tuple (size mismatch): "+className, expression);
             if (myTyple.positions.size() < 2) throw new CompilerException("Tuple must have more than 1 element: "+className, expression);
-            generateExpression(myMethod, arguments.get(arguments.size()-1));
-            for (int i = arguments.size() - 2; i >= 0; i--) {
+            for (int i = 0; i < arguments.size(); i++) {
                 generateExpression(myMethod, arguments.get(i));
+            }
+            for (int i = 0; i < arguments.size()-1; i++) {
                 myMethod.addOpcode(new Opcode("CONS"));
             }
         } else if (expression instanceof QualifiedName || expression instanceof SimpleName) {
@@ -418,6 +458,8 @@ public class Compiler {
                 myMethod.addOpcode(new Opcode("CAR"));
             } else if (methodName.toString().equals("second")) {
                 myMethod.addOpcode(new Opcode("CDR"));
+            } else if (methodName.toString().equals("breakpoint")) {
+                myMethod.addOpcode(new Opcode("BRK"));
             } else if (methodName.toString().equals("debug")) {
                 myMethod.addOpcode(new Opcode("DBUG"));
             } else {
@@ -438,7 +480,7 @@ public class Compiler {
                         throw new CompilerException("Apply wants expression", expression);
                     }
                 } else {
-                    throw new CompilerException("Unknown user method expression ", expression);
+                    throw new CompilerException("Unknown user method expression, forgotten @Compiled? ", expression);
                 }
             }
         } else {
@@ -486,14 +528,29 @@ public class Compiler {
             ArrayList<Opcode> accessor = new ArrayList<>();
             SimpleName name = ((QualifiedName) qualifier).getName();
             Integer position = mt.tuple.positions.get(name.toString());
-            accessor.add(new Opcode("LDC", position).commented("index of " + mt.tuple.name + "::" + name.toString() + " in " + qualifier));
             accessor.addAll(mt.accessor);
-            accessor.add(new Opcode("LDF", new FunctionRef("list_item")));
-            accessor.add(new Opcode("AP", 2));
+
+            generateTupleAccess(accessor, position, mt.tuple.positions.size());
             String typleIndex = mt.tuple.types.get(position);
             MyTyple myTyple = tuples.get(typleIndex != null ? typleIndex : "XXXXX@NONEXIST");
             return new QualifiedNameResolved(myTyple, accessor);
         } else throw new CompilerException("Unsupported (yet?) name",qualifier);
+    }
+
+    private void generateTupleAccess(ArrayList<Opcode> accessor, Integer position, int tupleSize) {
+        int ix = accessor.size();
+        if (position == tupleSize - 1) {
+            for(int i=0; i<tupleSize-2; i++) {
+                accessor.add(new Opcode("CDR"));
+            }
+            accessor.add(new Opcode("CDR"));
+        } else {
+            for(int i=0; i<position; i++) {
+                accessor.add(new Opcode("CDR"));
+            }
+            accessor.add(new Opcode("CAR"));
+        }
+        accessor.get(ix).comment = "generateTupleAccess total="+tupleSize+" pos="+position;
     }
 
     static int lambdaCount = 1000;
@@ -612,6 +669,9 @@ public class Compiler {
             }
             Opcode join = new Opcode("JOIN");
             mtd.addOpcode(join);
+            if (comment == null) {
+                comment = "branch@"+(loffs+mtd.offset);
+            }
             mtd.opcodes.get(loffs).comment = comment;
             return loffs + mtd.offset;
         }
