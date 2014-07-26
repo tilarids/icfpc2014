@@ -1,0 +1,34 @@
+call get_surround_walls
+int 8 ; debug
+hlt
+get_surround_walls:
+int 3 ; get our index
+int 5 ; get our current coords in (a,b)
+mov d,a ; keep a
+mov c,0 ; # of surrounding walls
+sub b,1
+int 7; get (a,b-1) value (zero is a wall)
+jgt not_wall1,a,0
+add c,1 ; wall found
+not_wall1:
+add b,2
+mov a,d ; restore a
+int 7; get (a,b+1) value
+jgt not_wall2,a,0
+add c,1 ; wall found
+not_wall2:
+sub b,1 ; restore original b
+sub d,1
+mov a,d
+int 7; get (a-1,b) value
+jgt not_wall3,a,0
+add c,1 ; wall found
+not_wall3:
+add d,2
+mov a,d
+int 7; get (a+1,b) value
+jgt not_wall4,a,0
+add c,1 ; wall found
+not_wall4:
+mov a,c
+ret
