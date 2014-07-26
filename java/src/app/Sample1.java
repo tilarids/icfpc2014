@@ -111,13 +111,13 @@ public class Sample1 extends VMExtras {
         int direction;
         ParsedEdge startEdge;
         if (length(pathToWalk) < 2 || ec.count == 0) { // nothing close to me
-            long l = System.nanoTime();
+//            long l = System.nanoTime();
             startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
-            l = System.nanoTime() - l;
-            System.out.println("Search time: "+l);
-            if (l > 1000000) {
-                findBestDistantEdge(edgesForPoint, aistate, worldState);
-            }
+//            l = System.nanoTime() - l;
+//            System.out.println("Search time: "+l);
+//            if (l > 1000000) {
+//                findBestDistantEdge(edgesForPoint, aistate, worldState);
+//            }
             pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
             System.out.println("Chosen long way: " + startEdge.toString());
         }

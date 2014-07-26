@@ -13,7 +13,6 @@ public class ArrayGenerator {
     }
 
     public static void generate(ArrayList<Compiler.MyMethod> methods) {
-
     }
 
     public ArrayList<String> assembler(ArrayList<String> lines) {
