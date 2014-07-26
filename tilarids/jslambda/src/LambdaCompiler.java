@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,7 +25,7 @@ public class LambdaCompiler {
 
 	public static class I {  // instruction
 		public enum Type {ERROR, CONS, DUM, LDC, LDF, RAP, RTN, LD, ADD, AP, CAR, CDR, JOIN, SEL, 
-							TSEL, ATOM, CGT, SUB,  MUL, DIV, CEQ, COMMENT};
+							TSEL, ATOM, CGT, SUB,  MUL, DIV, CEQ, COMMENT, ST, DBUG};
 		public I (Type t) {
 			this.type = t;
 		}
@@ -101,6 +102,40 @@ public class LambdaCompiler {
 	
 	public int topFrameDeclCount = 0;
 	public Stack<Map<String, Integer>> variablesStack = new Stack<Map<String, Integer>>();
+	public List<I> vtable = null;
+	int DEFAULT_SIZE = 10;
+	int DEFAULT_SKIP = 4;
+	public List<I> createVtable(int size) {
+		// SEL y x
+		// x: FUN
+		// JOIN
+		// y: SEL
+		
+		// load mem
+		List<I> instrs = new ArrayList<I>();
+		instrs.add(new I(" vtable end "));
+		for (int i = size - 1; i >=0; --i) {
+			instrs.add(0, new I(I.Type.JOIN));			
+			I fun = new I(I.Type.LD);
+			fun.params.add(new IntParam(0));
+			fun.params.add(new IntParam(DEFAULT_SKIP + i));
+			instrs.add(0, fun);
+			I sel = new I(I.Type.SEL);
+			sel.params.add(new RefParam(instrs.get(1)));
+			sel.params.add(new RefParam(fun));
+			instrs.add(0, sel);
+		}
+		instrs.add(0, new I(" vtable start "));
+
+		return instrs;
+	}
+	
+	public List<I> getOrCreateVtable() {
+		if (null == vtable) {
+			this.vtable = createVtable(DEFAULT_SIZE);
+		}
+		return vtable;
+	}
 	
 	public List<I> processFunctionExpression(ECMAScriptParser.FunctionExpressionContext func) {
 		String func_name = func.Identifier().toString();
@@ -216,6 +251,89 @@ public class LambdaCompiler {
 			instrs.add(new I(I.Type.CDR));
 		} else if (id_name.equals("atom")) {
 			instrs.add(new I(I.Type.ATOM));
+		} else if (id_name.equals("dbug")) {
+			instrs.add(new I(I.Type.DBUG));
+		} else if (id_name.equals("insert_vtable")) {
+			instrs.addAll(this.getOrCreateVtable());
+		} else if (id_name.equals("init_memory")) {
+//			int N = 22;
+//			int M = 23;
+			for (int i = 0; i < DEFAULT_SIZE; ++i) {
+				I ldc = new I(I.Type.LDC);
+				ldc.params.add(new IntParam(i));
+				instrs.add(ldc);
+			}
+			instrs.addAll(processSingleExpression(ast.arguments().argumentList().singleExpression(count - 1))); // add again
+			I ap = new I(I.Type.AP);
+			ap.params.add(new IntParam(count + DEFAULT_SIZE));
+			instrs.add(ap);
+		} else if (id_name.equals("load_memory")) {
+			if (ast.arguments().argumentList().singleExpression().size() != 1) {
+				throw new RuntimeException("should be 1");
+			}
+			String variableName = ((ECMAScriptParser.IdentifierExpressionContext)ast.arguments().argumentList().singleExpression(0)).Identifier().toString();
+			Integer variableIndex = this.variablesStack.peek().get(variableName);
+			List<I> vtable = this.getOrCreateVtable();
+			// jmp addr
+			// false:
+			// LDC 1
+			// SEL vtable 0
+			// jmp rtn
+			// true:
+			// LD X
+			// ST X - 1
+			// LD X
+			// addr: TSEL true false
+			// rtn:
+			
+			I ldc1 = new I(I.Type.LDC);
+			ldc1.params.add(new IntParam(1));
+			instrs.add(ldc1);
+			
+			I addr_tsel = new I(I.Type.TSEL);
+			
+			I tsel1 = new I(I.Type.TSEL);
+			tsel1.params.add(new RefParam(addr_tsel));
+			tsel1.params.add(new IntParam(0));
+			instrs.add(tsel1);
+			
+			I ldc2 = new I(I.Type.LDC);
+			ldc2.params.add(new IntParam(2));
+			instrs.add(ldc2);
+			
+			I sel1 = new I(I.Type.SEL);
+			sel1.params.add(new RefParam(vtable.get(0)));
+			sel1.params.add(new IntParam(0));
+			instrs.add(sel1);
+			
+			I ldc3 = new I(I.Type.LDC);
+			ldc3.params.add(new IntParam(3));
+			instrs.add(ldc3);
+			
+			I rtn = new I("return in load_memory");
+			
+			I tsel2 = new I(I.Type.TSEL);
+			tsel2.params.add(new RefParam(rtn));
+			tsel2.params.add(new IntParam(0));
+			instrs.add(tsel2);
+			
+			I ld1 = new I(I.Type.LD);
+			ld1.params.add(new IntParam(0));
+			ld1.params.add(new IntParam(variableIndex));
+			instrs.add(ld1);
+
+			instrs.addAll(this.processDecreaseVariable(variableIndex));
+			
+			I ld3 = new I(I.Type.LD);
+			ld3.params.add(new IntParam(0));
+			ld3.params.add(new IntParam(variableIndex));
+			instrs.add(ld3);
+
+			addr_tsel.params.add(new RefParam(ld1));
+			addr_tsel.params.add(new RefParam(ldc1));
+			
+			instrs.add(addr_tsel);
+			instrs.add(rtn);
 		} else {
 			instrs.addAll(processIdentifierExpression((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()));
 			I ap = new I(I.Type.AP);
@@ -246,7 +364,44 @@ public class LambdaCompiler {
 			return processSingleExpression(ast.expressionSequence().singleExpression(0));
 		}
 	}
+
+	public List<I> processDecreaseVariable(int variableIndex) {
+		List<I> instrs = new ArrayList<I>();
+		I ld = new I(I.Type.LD);
+		ld.params.add(new IntParam(0));
+		ld.params.add(new IntParam(variableIndex));
+		instrs.add(ld);
+
+		I ldc_one = new I(I.Type.LDC);
+		ldc_one.params.add(new IntParam(1));
+		instrs.add(ldc_one);
+		instrs.add(new I(I.Type.SUB));
+
+		I st = new I(I.Type.ST);
+		st.params.add(new IntParam(0));
+		st.params.add(new IntParam(variableIndex));
+		instrs.add(st);
+		return instrs;
+	}
 	
+	public List<I> processPreDecreaseExpression(ECMAScriptParser.PreDecreaseExpressionContext ast) {
+		if (!(ast.singleExpression() instanceof ECMAScriptParser.IdentifierExpressionContext)) {
+			throw new RuntimeException("expected identifier");
+		}
+		String variableName = ((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()).Identifier().toString();
+		Integer variableIndex = this.variablesStack.peek().get(variableName);
+		return processDecreaseVariable(variableIndex);
+	}
+
+	public List<I> processPostDecreaseExpression(ECMAScriptParser.PostDecreaseExpressionContext ast) {
+		if (!(ast.singleExpression() instanceof ECMAScriptParser.IdentifierExpressionContext)) {
+			throw new RuntimeException("expected identifier");
+		}
+		String variableName = ((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()).Identifier().toString();
+		Integer variableIndex = this.variablesStack.peek().get(variableName);
+		return processDecreaseVariable(variableIndex);
+	}
+
 	public List<I> processSingleExpression(ECMAScriptParser.SingleExpressionContext ast) {
 		if (ast instanceof ECMAScriptParser.FunctionExpressionContext) {
 			return processFunctionExpression((ECMAScriptParser.FunctionExpressionContext)ast);
@@ -272,6 +427,10 @@ public class LambdaCompiler {
 			return processBinaryExpression(((ECMAScriptParser.EqualsExpressionContext)ast).singleExpression(), I.Type.CEQ);
 		} else if (ast instanceof ECMAScriptParser.ParenthesizedExpressionContext) {
 			return processParenthesizedExpression((ECMAScriptParser.ParenthesizedExpressionContext)ast);
+		} else if (ast instanceof ECMAScriptParser.PreDecreaseExpressionContext) {
+			return processPreDecreaseExpression((ECMAScriptParser.PreDecreaseExpressionContext)ast);
+		} else if (ast instanceof ECMAScriptParser.PostDecreaseExpressionContext) {
+			return processPostDecreaseExpression((ECMAScriptParser.PostDecreaseExpressionContext)ast);
 		} else {
 			throw new RuntimeException("unsupported expression " + ast.toStringTree(this.ruleNames));
 		}
@@ -334,6 +493,43 @@ public class LambdaCompiler {
 		}
 		return instrs;
 	}
+
+	public List<I> processWhileStatement(ECMAScriptParser.WhileStatementContext ast) {
+		if (ast.statement() == null || ast.expressionSequence() == null || ast.expressionSequence().singleExpression().size() != 1) {
+			throw new RuntimeException("malformed while");
+		}
+		List<I> stmt = processStatement(ast.statement());
+		List<I> expr = processSingleExpression(ast.expressionSequence().singleExpression(0));
+		List<I> instrs = new ArrayList<I>();
+		
+		I ldc = new I(I.Type.LDC);
+		ldc.params.add(new IntParam(1));
+		instrs.add(ldc);
+		
+		I uncond_sel = new I(I.Type.TSEL);
+		uncond_sel.params.add(new RefParam(expr.get(0)));
+		uncond_sel.params.add(new IntParam(0));
+
+		instrs.add(uncond_sel);
+		
+		instrs.addAll(stmt);
+		I join = new I(I.Type.JOIN);
+		instrs.add(join);
+		instrs.addAll(expr);
+				
+		I cond_sel = new I(I.Type.SEL);
+		cond_sel.params.add(new RefParam(stmt.get(0)));
+		cond_sel.params.add(new RefParam(join));
+		instrs.add(cond_sel);
+		return instrs;
+	}
+	
+	public List<I> processIterationStatement(ECMAScriptParser.IterationStatementContext ast) {
+		if (!(ast instanceof ECMAScriptParser.WhileStatementContext)) {
+			throw new RuntimeException("expected while");
+		}
+		return processWhileStatement((ECMAScriptParser.WhileStatementContext)ast);
+	}
 	
 	public List<I> processStatement(ECMAScriptParser.StatementContext ast) {
 		List<I> instrs = new ArrayList<I>();
@@ -350,6 +546,8 @@ public class LambdaCompiler {
 			instrs.addAll(this.processIfStatement(ast.ifStatement()));
 		} else if (ast.block() != null) {
 			instrs.addAll(this.processBlock(ast.block()));
+		} else if (ast.iterationStatement() != null) {
+			instrs.addAll(this.processIterationStatement(ast.iterationStatement()));
 		} else if (ast.emptyStatement() != null) {
 			// do nothing.
 		} else {
@@ -400,7 +598,7 @@ public class LambdaCompiler {
 		this.instructions.addAll(instrs);
 	}
 	
-	public String process(ECMAScriptParser.ProgramContext ast) {
+	public String process(ECMAScriptParser.ProgramContext ast, boolean generateComments, boolean generateLines) {
 		this.generateInstructions(ast);
 		int index = 0;
 		for (int i = 0; i < instructions.size(); ++i) {
@@ -414,6 +612,13 @@ public class LambdaCompiler {
 		}
 		StringBuilder builder = new StringBuilder();
 		for (I instr : instructions) {
+			if (instr.type == I.Type.COMMENT && !generateComments) {
+				continue;
+			}
+			if (generateLines) {
+				builder.append(instr.instruction_number);
+				builder.append(": ");
+			}
 			builder.append(instr.toString());
 		}
 		return builder.toString();
@@ -436,6 +641,11 @@ public class LambdaCompiler {
     	parser.setBuildParseTree(true);
    
         LambdaCompiler compiler = new LambdaCompiler(Arrays.asList(parser.getRuleNames()));
-        System.out.println("Compiled:" + compiler.process(parser.program()));
+        String compiled = compiler.process(parser.program(), false, false);
+        System.out.println("Compiled:" + compiled);
+        
+        PrintWriter writer = new PrintWriter("src/output.txt", "UTF-8");
+        writer.println(compiled);
+        writer.close();
     }
 }
