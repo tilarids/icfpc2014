@@ -297,6 +297,8 @@ public class Compiler {
     private void generateExpression(MyMethod myMethod, Expression expression) {
         if (expression instanceof NumberLiteral) {
             myMethod.addOpcode(new Opcode("LDC", new Integer(expression.toString())).commented("just constant from code"));
+        } else if (expression instanceof BooleanLiteral) {
+            myMethod.addOpcode(new Opcode("LDC", "true".equalsIgnoreCase(expression.toString()) ? 1 : 0).commented("just a boolean constant from code"));
         } else if (expression instanceof PrefixExpression) {
             PrefixExpression pe = (PrefixExpression) expression;
             if (pe.getOperator() == PrefixExpression.Operator.MINUS && pe.getOperand() instanceof NumberLiteral) {
