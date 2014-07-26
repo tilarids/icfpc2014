@@ -3,3 +3,5 @@ tilarids/jslambda/.settings
 tilarids/jslambda/src/output.txt
 *.class
 java/cp.txt
+java/.idea/vcs.xml
+java/.idea/workspace.xml
