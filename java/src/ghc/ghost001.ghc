@@ -5,5 +5,4 @@ mov A, B
 inc A
 and A, 3
 int 0
-int 8
 hlt
