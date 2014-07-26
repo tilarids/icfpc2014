@@ -1,6 +1,7 @@
 package compiler;
 
 import java.io.*;
+import java.lang.reflect.Field;
 import java.util.*;
 
 import org.apache.log4j.Logger;
@@ -19,6 +20,7 @@ public class Compiler {
     public static final String VERSION_1_6 = "1.6";
 
     private static final Set<String> ALLOWED_TARGET_JDKS = new LinkedHashSet<String>();
+
     static {
         ALLOWED_TARGET_JDKS.add(VERSION_1_4);
         ALLOWED_TARGET_JDKS.add(VERSION_1_5);
@@ -31,35 +33,35 @@ public class Compiler {
     private String targetJdk = VERSION_1_4;
     private String encoding = "UTF-8";
 
-    public void setTargetJdk( String targetJdk ) {
-        if(!ALLOWED_TARGET_JDKS.contains(targetJdk))
-            throw new IllegalArgumentException("Invalid value for targetJdk: [" + targetJdk + "]. Allowed are "+ALLOWED_TARGET_JDKS);
+    public void setTargetJdk(String targetJdk) {
+        if (!ALLOWED_TARGET_JDKS.contains(targetJdk))
+            throw new IllegalArgumentException("Invalid value for targetJdk: [" + targetJdk + "]. Allowed are " + ALLOWED_TARGET_JDKS);
 
         this.targetJdk = targetJdk;
     }
 
-    public void setEncoding( String encoding ) {
-        if( encoding == null )
+    public void setEncoding(String encoding) {
+        if (encoding == null)
             throw new IllegalArgumentException("encoding is null");
-        if( encoding.trim().length() == 0 )
+        if (encoding.trim().length() == 0)
             throw new IllegalArgumentException("encoding is empty");
         this.encoding = encoding;
     }
 
-    public TypeDeclaration parseFile(File file) throws IOException {
-        if(!file.exists())
-            new IllegalArgumentException("File "+file.getAbsolutePath()+" doesn't exist");
+    public Tuple<TypeDeclaration, ImportPackages> parseFile(File file) throws IOException {
+        if (!file.exists())
+            new IllegalArgumentException("File " + file.getAbsolutePath() + " doesn't exist");
 
-        String source = readFileToString( file, encoding );
+        String source = readFileToString(file, encoding);
 
-        return visitString( file, source );
+        return visitString(file, source);
     }
 
-    public static String readFileToString( File file, String encoding ) throws IOException {
-        FileInputStream stream = new FileInputStream( file );
+    public static String readFileToString(File file, String encoding) throws IOException {
+        FileInputStream stream = new FileInputStream(file);
         String result = null;
         try {
-            result = readInputStreamToString( stream, encoding );
+            result = readInputStreamToString(stream, encoding);
         } finally {
             try {
                 stream.close();
@@ -70,25 +72,25 @@ public class Compiler {
         return result;
     }
 
-    public static String readInputStreamToString( InputStream stream, String encoding ) throws IOException {
+    public static String readInputStreamToString(InputStream stream, String encoding) throws IOException {
 
-        Reader r = new BufferedReader( new InputStreamReader( stream, encoding ), 16384 );
+        Reader r = new BufferedReader(new InputStreamReader(stream, encoding), 16384);
         StringBuilder result = new StringBuilder(16384);
         char[] buffer = new char[16384];
 
         int len;
-        while((len = r.read( buffer, 0, buffer.length )) >= 0) {
+        while ((len = r.read(buffer, 0, buffer.length)) >= 0) {
             result.append(buffer, 0, len);
         }
 
         return result.toString();
     }
 
-    public TypeDeclaration visitString(File file, String source) {
+    public Tuple<TypeDeclaration, ImportPackages> visitString(File file, String source) {
         ASTParser parser = ASTParser.newParser(AST.JLS8);
 
-        @SuppressWarnings( "unchecked" )
-        Map<String,String> options = JavaCore.getOptions();
+        @SuppressWarnings("unchecked")
+        Map<String, String> options = JavaCore.getOptions();
         JavaCore.setComplianceOptions(JavaCore.VERSION_1_8, options);
         parser.setCompilerOptions(options);
 
@@ -101,25 +103,26 @@ public class Compiler {
 
         CompilationUnit ast = (CompilationUnit) parser.createAST(null);
 
-        CompilationUnit root = (CompilationUnit)ast.getRoot();
+        CompilationUnit root = (CompilationUnit) ast.getRoot();
         root.setProperty("sourceFile", file.getPath());
-        TypeDeclaration mainClass = (TypeDeclaration)root.types().get(0);
-        return mainClass;
+        TypeDeclaration mainClass = (TypeDeclaration) root.types().get(0);
+
+        return new Tuple<>(mainClass, new ImportPackages(root));
     }
 
     public static void main(String[] args) throws IOException {
         try {
             new Compiler().run();
         } catch (CompilerException e) {
-            CompilationUnit root = (CompilationUnit)e.node.getRoot();
-            String sourceFile = (String)root.getProperty("sourceFile");
+            CompilationUnit root = (CompilationUnit) e.node.getRoot();
+            String sourceFile = (String) root.getProperty("sourceFile");
             int line = root.getLineNumber(e.node.getStartPosition());
             int col = root.getColumnNumber(e.node.getStartPosition());
             System.out.println("ERROR!! ");
             System.out.println("ERROR!! ");
             System.out.println("ERROR!! ");
-            System.out.println("ERROR: "+sourceFile+"("+line+","+col+"): "+e.getMessage());
-            System.out.println("ERROR:     => "+e.node);
+            System.out.println("ERROR: " + sourceFile + "(" + line + "," + col + "): " + e.getMessage());
+            System.out.println("ERROR:     => " + e.node);
             System.out.println("ERROR!! ");
         }
 
@@ -156,7 +159,7 @@ public class Compiler {
                 for (int i = 0; i < opcode.arguments.length; i++) {
                     Object argument = opcode.arguments[i];
                     if (argument instanceof FunctionRef) {
-                        FunctionRef fr = (FunctionRef)argument;
+                        FunctionRef fr = (FunctionRef) argument;
                         opcode.arguments[i] = fr.resolve();
                         if (opcode.comment == null) {
                             opcode.comment = " @" + fr.name;
@@ -173,7 +176,7 @@ public class Compiler {
             System.out.println(String.format("%s", opcode.toString()));
         }
         System.out.println("=========");
-        System.out.println("Total ops: "+global.size());
+        System.out.println("Total ops: " + global.size());
     }
 
     private MyMethod generateMethod(String name, MyMethod myMethod) {
@@ -187,7 +190,7 @@ public class Compiler {
                     SingleVariableDeclaration svd = (SingleVariableDeclaration) parameter;
                     myMethod.addVariable(svd.getType().toString(), parameter.getName().toString());
                 } else if (parameter instanceof VariableDeclarationFragment) {
-                    VariableDeclarationFragment vdf = (VariableDeclarationFragment)parameter;
+                    VariableDeclarationFragment vdf = (VariableDeclarationFragment) parameter;
                     myMethod.addVariable("@untyped lambda@", parameter.getName().toString());
                 } else {
                     throw new CompilerException("Must be single variable declaration in parameter!", parameter);
@@ -217,12 +220,12 @@ public class Compiler {
             if (!(statement.getParent().getParent() instanceof MethodDeclaration)) {
                 throw new CompilerException("Vardecl must be in method-level only, not in blocks", statement);
             }
-            VariableDeclarationStatement vds = (VariableDeclarationStatement)statement;
+            VariableDeclarationStatement vds = (VariableDeclarationStatement) statement;
             List fragments = vds.fragments();
             if (fragments.size() != 1) {
-                System.out.println("Do not support multiple fragments for "+statement);
+                System.out.println("Do not support multiple fragments for " + statement);
             }
-            VariableDeclarationFragment o = (VariableDeclarationFragment)fragments.get(0);
+            VariableDeclarationFragment o = (VariableDeclarationFragment) fragments.get(0);
             SimpleName name = o.getName();
             myMethod.addVariable(vds.getType().toString(), name.toString());
             Expression initializer = o.getInitializer();
@@ -239,42 +242,42 @@ public class Compiler {
             generateExpression(myMethod, expression);
             myMethod.addOpcode(new Opcode("RTN"));
         } else if (statement instanceof IfStatement) {
-            IfStatement ifs = (IfStatement)statement;
+            IfStatement ifs = (IfStatement) statement;
             Expression expression = ifs.getExpression();
             Statement thenStatement = ifs.getThenStatement();
             Statement elseStatement = ifs.getElseStatement();
             generateExpression(myMethod, expression);
-            myMethod.addOpcode(new Opcode("SEL", new BranchRef(myMethod, thenStatement, "then statement"), new BranchRef(myMethod, elseStatement,"else statement")));
+            myMethod.addOpcode(new Opcode("SEL", new BranchRef(myMethod, thenStatement, "then statement"), new BranchRef(myMethod, elseStatement, "else statement")));
         } else if (statement instanceof ThrowStatement) {
             myMethod.addOpcode(new Opcode("BRK"));
         } else if (statement instanceof Block) {
-            Block blk = (Block)statement;
+            Block blk = (Block) statement;
             List<Statement> statements = blk.statements();
             for (Statement stm : statements) {
                 generateStatement(myMethod, stm);
             }
         } else if (statement instanceof ExpressionStatement) {
-            ExpressionStatement es = (ExpressionStatement)statement;
+            ExpressionStatement es = (ExpressionStatement) statement;
 
             if (es.toString().startsWith("System.out.print")) {
                 // ok
             } else if (es.getExpression() instanceof MethodInvocation &&
-                    (((MethodInvocation)es.getExpression()).getName().toString().equals("debug")
-                    || ((MethodInvocation)es.getExpression()).getName().toString().equals("breakpoint"))) {
+                    (((MethodInvocation) es.getExpression()).getName().toString().equals("debug")
+                            || ((MethodInvocation) es.getExpression()).getName().toString().equals("breakpoint"))) {
                 generateExpression(myMethod, es.getExpression());
             } else if (es.getExpression() instanceof Assignment) {
-                Assignment as = (Assignment)es.getExpression();
+                Assignment as = (Assignment) es.getExpression();
                 Expression leftHandSide = as.getLeftHandSide();
                 if (leftHandSide instanceof SimpleName) {
                     generateExpression(myMethod, as.getRightHandSide());
                     Integer varix = myMethod.variables.get(leftHandSide.toString());
                     if (varix == null) throw new CompilerException("Assignment to unknown var", es);
-                    myMethod.addOpcode(new Opcode("ST",0,varix));
+                    myMethod.addOpcode(new Opcode("ST", 0, varix));
                 } else {
                     throw new CompilerException("Assignment is non-trivial", es);
                 }
             } else {
-                throw new CompilerException("void expression?",statement);
+                throw new CompilerException("void expression?", statement);
             }
         } else {
             throw new CompilerException("unknown statement", statement);
@@ -294,15 +297,17 @@ public class Compiler {
     private void generateExpression(MyMethod myMethod, Expression expression) {
         if (expression instanceof NumberLiteral) {
             myMethod.addOpcode(new Opcode("LDC", new Integer(expression.toString())).commented("just constant from code"));
+        } else if (expression instanceof BooleanLiteral) {
+            myMethod.addOpcode(new Opcode("LDC", "true".equalsIgnoreCase(expression.toString()) ? 1 : 0).commented("just a boolean constant from code"));
         } else if (expression instanceof PrefixExpression) {
-            PrefixExpression pe = (PrefixExpression)expression;
+            PrefixExpression pe = (PrefixExpression) expression;
             if (pe.getOperator() == PrefixExpression.Operator.MINUS && pe.getOperand() instanceof NumberLiteral) {
                 myMethod.addOpcode(new Opcode("LDC", -new Integer(pe.getOperand().toString())).commented("just negative constant from code"));
             } else {
                 throw new CompilerException("Prefix expression not supported (yet?) ", expression);
             }
         } else if (expression instanceof InfixExpression) {
-            InfixExpression ie = (InfixExpression)expression;
+            InfixExpression ie = (InfixExpression) expression;
             if (ie.getOperator().toString().equals("+")) {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
@@ -386,62 +391,71 @@ public class Compiler {
                 if (ie.getRightOperand().toString().equals("null")) {       // compare with null
                     generateExpression(myMethod, ie.getLeftOperand());
                     myMethod.addOpcode(new Opcode("ATOM"));
-                    myMethod.addOpcode(new Opcode("LDC","1").commented("for negation"));
+                    myMethod.addOpcode(new Opcode("LDC", "1").commented("for negation"));
                     myMethod.addOpcode(new Opcode("SUB"));
 
                 } else {
                     generateExpression(myMethod, ie.getLeftOperand());
                     generateExpression(myMethod, ie.getRightOperand());
                     myMethod.addOpcode(new Opcode("CEQ"));
-                    myMethod.addOpcode(new Opcode("LDC","1").commented("for negation"));
+                    myMethod.addOpcode(new Opcode("LDC", "1").commented("for negation"));
                     myMethod.addOpcode(new Opcode("SUB"));
                 }
             } else {
                 throw new CompilerException("Unknown opcode", expression.getParent());
             }
         } else if (expression instanceof ClassInstanceCreation) {
-            ClassInstanceCreation cic = (ClassInstanceCreation)expression;
+            ClassInstanceCreation cic = (ClassInstanceCreation) expression;
             String className = cleanupTemplates(cic.getType().toString());
             MyTyple myTyple = tuples.get(className);
-            if (myTyple == null) throw new CompilerException("Unable to instantiate unknown tuple: "+className, expression);
+            if (myTyple == null)
+                throw new CompilerException("Unable to instantiate unknown tuple: " + className, expression);
             List<Expression> arguments = cic.arguments();
-            if (myTyple.positions.size() != arguments.size()) throw new CompilerException("Unable to instantiate tuple (size mismatch): "+className, expression);
-            if (myTyple.positions.size() < 2) throw new CompilerException("Tuple must have more than 1 element: "+className, expression);
+            if (myTyple.positions.size() != arguments.size())
+                throw new CompilerException("Unable to instantiate tuple (size mismatch): " + className, expression);
+            if (myTyple.positions.size() < 2)
+                throw new CompilerException("Tuple must have more than 1 element: " + className, expression);
             for (int i = 0; i < arguments.size(); i++) {
                 generateExpression(myMethod, arguments.get(i));
             }
-            for (int i = 0; i < arguments.size()-1; i++) {
+            for (int i = 0; i < arguments.size() - 1; i++) {
                 myMethod.addOpcode(new Opcode("CONS"));
             }
-        } else if (expression instanceof QualifiedName || expression instanceof SimpleName) {
-            QualifiedNameResolved qnr = resolveName(myMethod, (Name)expression);
-            for (Opcode opcode : qnr.accessor) {
-                myMethod.addOpcode(opcode);
+        } else if (expression instanceof Name) {
+            Name name = (Name) expression;
+            Integer constVal = tryResolveConstant(myMethod, name);
+            if (constVal != null) {
+                myMethod.addOpcode(new Opcode("LDC", constVal).commented(name.getFullyQualifiedName()));
+            } else {
+                QualifiedNameResolved qnr = resolveName(myMethod, name);
+                for (Opcode opcode : qnr.accessor) {
+                    myMethod.addOpcode(opcode);
+                }
             }
             // qn.
         } else if (expression instanceof ConditionalExpression) {
-            ConditionalExpression ce = (ConditionalExpression)expression;
+            ConditionalExpression ce = (ConditionalExpression) expression;
             generateExpression(myMethod, ce.getExpression());
             myMethod.addOpcode(new Opcode("SEL", new ExpressionRef(myMethod, ce.getThenExpression()), new ExpressionRef(myMethod, ce.getElseExpression())));
         } else if (expression instanceof NullLiteral) {
             myMethod.addOpcode(new Opcode("LDC", 0).commented("NULL literal"));
         } else if (expression instanceof CastExpression) {
-            CastExpression ca = (CastExpression)expression;
+            CastExpression ca = (CastExpression) expression;
             generateExpression(myMethod, ca.getExpression());
         } else if (expression instanceof ParenthesizedExpression) {
-            ParenthesizedExpression pe = (ParenthesizedExpression)expression;
+            ParenthesizedExpression pe = (ParenthesizedExpression) expression;
             generateExpression(myMethod, pe.getExpression());
         } else if (expression instanceof LambdaExpression) {
-            LambdaExpression le = (LambdaExpression)expression;
+            LambdaExpression le = (LambdaExpression) expression;
             final List parameters = ((LambdaExpression) expression).parameters();
             final ASTNode body = le.getBody();
-            String name = "lambda_"+(lambdaCount++);
-            MyMethod mm = new MyMethod(name, parameters, body);
+            String name = "lambda_" + (lambdaCount++);
+            MyMethod mm = new MyMethod(name, parameters, body, myMethod.importDeclarations);
             mm.parentMethod = myMethod;
             methods.add(mm);
             myMethod.addOpcode(new Opcode("LDF", new FunctionRef(name)));
         } else if (expression instanceof MethodInvocation) {
-            MethodInvocation mi = (MethodInvocation)expression;
+            MethodInvocation mi = (MethodInvocation) expression;
             List<Expression> arguments = mi.arguments();
             for (int i = 0; i < arguments.size(); i++) {
                 Expression expression1 = arguments.get(i);
@@ -466,8 +480,9 @@ public class Compiler {
                 MyMethod userMethod = getMethod(methodName);
                 if (userMethod != null) {
                     generateMethod(userMethod.name, userMethod);
-                    if (userMethod.variables.size() < arguments.size()) throw new CompilerException("User Method call: fewer number of arguments", expression);
-                    for(int i=arguments.size(); i<userMethod.variables.size(); i++) {
+                    if (userMethod.variables.size() < arguments.size())
+                        throw new CompilerException("User Method call: fewer number of arguments", expression);
+                    for (int i = arguments.size(); i < userMethod.variables.size(); i++) {
                         myMethod.addOpcode(new Opcode("LDC 0").commented("local var space"));
                     }
                     myMethod.addOpcode(new Opcode("LDF", new FunctionRef(methodName)));
@@ -494,7 +509,7 @@ public class Compiler {
         MyMethod currentMethod = myMethod;
         Integer varix = null;
         String vartype = null;
-        while(currentMethod != null) {
+        while (currentMethod != null) {
             varix = currentMethod.variables.get(sn.toString());   // index of q
             if (varix != null) {
                 vartype = currentMethod.variableTypes.get(varix);
@@ -506,9 +521,85 @@ public class Compiler {
         if (varix == null) throw new CompilerException("Unable to find variable", sn);
         ArrayList<Opcode> accessor = new ArrayList<>();
         Opcode ld = new Opcode("LD", level, varix);
-        ld.comment = "var "+sn.toString();
+        ld.comment = "var " + sn.toString();
         accessor.add(ld);
         return new QualifiedNameResolved(tuples.get(cleanupTemplates(vartype)), accessor);
+    }
+
+
+    public class Tuple<A, B> {
+        public A a;
+        public B b;
+
+        public Tuple(A a, B b) {
+            this.a = a;
+            this.b = b;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            Tuple tuple = (Tuple) o;
+
+            if (!a.equals(tuple.a)) return false;
+            if (!b.equals(tuple.b)) return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = a.hashCode();
+            result = 31 * result + b.hashCode();
+            return result;
+        }
+    }
+
+
+    HashMap<Tuple<String, ImportPackages>, Class<?>> _knownClassesCache = new HashMap<>();
+
+    private Class<?> findClassByName(String className, ImportPackages packages) {
+        Tuple<String, ImportPackages> key = new Tuple<>(className, packages);
+        if (!_knownClassesCache.containsKey(key)) {
+            Class<?> aClass = null;
+            for (String packageName : packages.packages) {
+                String fullClassName = packageName + "." + className;
+                try {
+                    aClass = Class.forName(fullClassName);
+                } catch (ClassNotFoundException e) {
+                    //ignore
+                }
+                if (aClass == null)
+                    continue;
+                break;
+            }
+            _knownClassesCache.put(key, aClass);
+        }
+        return _knownClassesCache.get(key);
+    }
+
+    private Integer tryResolveConstant(MyMethod myMethod, Name qualifier) {
+        String fullyQualifiedName = qualifier.getFullyQualifiedName();
+        int lastDot = fullyQualifiedName.lastIndexOf('.');
+        if (lastDot == -1)
+            return null;
+        String fieldName = fullyQualifiedName.substring(lastDot + 1);
+        String className = fullyQualifiedName.substring(0, lastDot);
+
+        Class<?> aClass = findClassByName(className, myMethod.importDeclarations);
+        if (aClass == null)
+            return null;
+
+        try {
+            Field field = aClass.getField(fieldName);
+            return field.getInt(null);
+        } catch (NoSuchFieldException e) {
+            throw new CompilerException("Can't find const name " + fullyQualifiedName, qualifier);
+        } catch (IllegalAccessException e) {
+            throw new CompilerException("Can't find const name " + fullyQualifiedName + " or interpret it as integer", qualifier);
+        }
     }
 
     private QualifiedNameResolved resolveName(MyMethod myMethod, Name qualifier) {
@@ -534,23 +625,23 @@ public class Compiler {
             String typleIndex = mt.tuple.types.get(position);
             MyTyple myTyple = tuples.get(typleIndex != null ? typleIndex : "XXXXX@NONEXIST");
             return new QualifiedNameResolved(myTyple, accessor);
-        } else throw new CompilerException("Unsupported (yet?) name",qualifier);
+        } else throw new CompilerException("Unsupported (yet?) name", qualifier);
     }
 
     private void generateTupleAccess(ArrayList<Opcode> accessor, Integer position, int tupleSize) {
         int ix = accessor.size();
         if (position == tupleSize - 1) {
-            for(int i=0; i<tupleSize-2; i++) {
+            for (int i = 0; i < tupleSize - 2; i++) {
                 accessor.add(new Opcode("CDR"));
             }
             accessor.add(new Opcode("CDR"));
         } else {
-            for(int i=0; i<position; i++) {
+            for (int i = 0; i < position; i++) {
                 accessor.add(new Opcode("CDR"));
             }
             accessor.add(new Opcode("CAR"));
         }
-        accessor.get(ix).comment = "generateTupleAccess total="+tupleSize+" pos="+position;
+        accessor.get(ix).comment = "generateTupleAccess total=" + tupleSize + " pos=" + position;
     }
 
     static int lambdaCount = 1000;
@@ -578,7 +669,8 @@ public class Compiler {
     ArrayList<MyMethod> methods = new ArrayList<>();
 
 
-    private void addTypes(TypeDeclaration typeDeclaration) {
+    private void addTypes(Tuple<TypeDeclaration, ImportPackages> tuple) {
+        TypeDeclaration typeDeclaration = tuple.a;
         TypeDeclaration[] types = typeDeclaration.getTypes();
         for (TypeDeclaration type : types) {
             for (Object o : type.modifiers()) {
@@ -595,16 +687,16 @@ public class Compiler {
             for (Object o : method.modifiers()) {
                 if (o instanceof MarkerAnnotation) {
                     if (o.toString().equals("@Compiled")) {
-                        addMethod(method);
+                        addMethod(method, tuple.b);
                     }
                 }
             }
         }
     }
 
-    private void addMethod(MethodDeclaration method) {
+    private void addMethod(MethodDeclaration method, ImportPackages importDeclarations) {
         SimpleName name = method.getName();
-        methods.add(new MyMethod(name.toString(), method.parameters(), method.getBody()));
+        methods.add(new MyMethod(name.toString(), method.parameters(), method.getBody(), importDeclarations));
     }
 
     private void addTuple(TypeDeclaration type) {
@@ -613,10 +705,10 @@ public class Compiler {
         MyTyple mt = new MyTyple(type.getName().toString());
         for (Object o : list) {
             if (o instanceof FieldDeclaration) {
-                FieldDeclaration f = (FieldDeclaration)o;
+                FieldDeclaration f = (FieldDeclaration) o;
                 List fragments = f.fragments();
-                if (fragments.size() != 1){
-                    throw new CompilerException("Invalid field declaration inside class "+type.getName(), type);
+                if (fragments.size() != 1) {
+                    throw new CompilerException("Invalid field declaration inside class " + type.getName(), type);
                 }
                 String fieldName = fragments.get(0).toString();
                 mt.positions.put(fieldName, ix);
@@ -670,7 +762,7 @@ public class Compiler {
             Opcode join = new Opcode("JOIN");
             mtd.addOpcode(join);
             if (comment == null) {
-                comment = "branch@"+(loffs+mtd.offset);
+                comment = "branch@" + (loffs + mtd.offset);
             }
             mtd.opcodes.get(loffs).comment = comment;
             return loffs + mtd.offset;
@@ -732,7 +824,7 @@ public class Compiler {
             }
             String str = rpad(sb.toString().trim(), 20);
             if (comment != null) {
-                str += "; "+comment;
+                str += "; " + comment;
             }
             return str;
 
@@ -749,22 +841,66 @@ public class Compiler {
 
         HashMap<Integer, String> variableTypes = new HashMap<>();
         ArrayList<Opcode> opcodes = new ArrayList<>();
-        public ASTNode body;
+        public final ASTNode body;
+        public final ImportPackages importDeclarations;
 
-        private MyMethod(String name, List<VariableDeclaration> parameters, ASTNode body) {
+        private MyMethod(String name, List<VariableDeclaration> parameters, ASTNode body, ImportPackages importDeclarations) {
             this.parameters = parameters;
             this.body = body;
             this.name = name;
+            this.importDeclarations = importDeclarations;
         }
 
         public void addOpcode(Opcode op) {
             opcodes.add(op);
         }
+
         public int addVariable(String type, String name) {
             int ix = variables.size();
             variables.put(name, ix);
             variableTypes.put(ix, type);
             return ix;
+        }
+    }
+
+    private static class ImportPackages {
+        public final List<String> packages;
+        public final String allPackagesString;
+
+        private ImportPackages(CompilationUnit root) {
+            List<ImportDeclaration> imports = (List<ImportDeclaration>) root.imports();
+            packages = new ArrayList<>(imports.size() + 1);
+
+            StringBuilder allPackages = new StringBuilder();
+            String rootPackageName = root.getPackage().getName().getFullyQualifiedName();
+            allPackages.append(rootPackageName);
+            packages.add(rootPackageName);
+
+
+            for (ImportDeclaration impDecl : imports) {
+                String fullyQualifiedName = impDecl.getName().getFullyQualifiedName();
+                packages.add(fullyQualifiedName);
+                allPackages.append(fullyQualifiedName);
+            }
+            this.allPackagesString = allPackages.toString();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            ImportPackages that = (ImportPackages) o;
+
+            if (allPackagesString != null ? !allPackagesString.equals(that.allPackagesString) : that.allPackagesString != null)
+                return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            return allPackagesString != null ? allPackagesString.hashCode() : 0;
         }
     }
 }
