@@ -3,7 +3,7 @@ package app;
 /**
  * Created by san on 7/25/14.
  */
-public interface Function1 {
+public interface Function1<T,R> {
 
-    Object apply(Object a1);
+    R apply(T a1);
 }

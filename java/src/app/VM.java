@@ -1,5 +1,7 @@
 package app;
 
+import org.eclipse.equinox.internal.p2.metadata.expression.Function;
+
 import java.util.function.BinaryOperator;
 import java.util.function.UnaryOperator;
 
@@ -9,11 +11,11 @@ import java.util.function.UnaryOperator;
 public class VM {
 
     @Compiled
-    class Queue {
-        Cons xs;
-        Cons ys;
+    class Queue<T> {
+        ListCons<T> xs;
+        ListCons<T> ys;
 
-        Queue(Cons xs, Cons ys) {
+        Queue(ListCons<T> xs, ListCons<T> ys) {
             this.xs = xs;
             this.ys = ys;
         }
@@ -30,12 +32,24 @@ public class VM {
         }
     }
 
+
+    public static<D> ListCons<D> cons(D data, ListCons<D> addr) {
+        return new ListCons<D>(data, addr);
+    }
+
     public static Cons cons(Object data, Object addr) {
         return new Cons(data, addr);
     }
 
     public static void debug(Object o) {
         System.out.println("DEBUG: "+o.toString());
+    }
+
+    public static <T> T head(ListCons<T> c) {
+        if (c == null) {
+            throw new RuntimeException("head: null");
+        }
+        return (T)c.data;
     }
 
     public static <T> T head(Cons c) {
@@ -55,76 +69,215 @@ public class VM {
         return (T)c.addr;
     }
 
+    public static<D> ListCons<D> tail(ListCons<D> c) {
+        if (c == null) throw new RuntimeException("tail: null");
+        return (ListCons<D>)c.addr;
+    }
+
     public static Cons tail(Cons c) {
         if (c == null) throw new RuntimeException("tail: null");
         return (Cons)c.addr;
     }
 
+    /** basic map */
     @Compiled
-    public static Cons map(Cons c, Function1 arg) {
-        return cons(arg.apply(head(c)), map(tail(c), arg));
+    public static<T,T2> ListCons<T2> map(ListCons<T> c, Function1<T,T2> arg) {
+        return (c == null) ? null :
+            cons(arg.apply(head(c)), (ListCons<T2>) map(tail(c), arg));
     }
 
+    static class Maybe<T> {
+        int set;
+        T data;
+
+        Maybe(T data, int set) {
+            this.data = data;
+            this.set = set;
+        }
+
+        @Override
+        public String toString() {
+            if (set == 0) {
+                return "Nothing";
+            } else {
+                return "[Just "+data+"]";
+            }
+        }
+    }
+
+     /** map() with index (2nd arg for lambda) */
     @Compiled
-    public static Cons reverse(Cons c) {
+    public static<D,D2> ListCons<D2> mapi(ListCons<D> c, int ix, Function2<D,Integer,D2> arg) {
+        return (c == null) ? null :
+            cons(arg.apply(head(c), ix), (ListCons<D2>) mapi(tail(c), ix + 1, arg));
+    }
+
+    /** concatenates list of maybes into list of values where maybe contains value */
+    public static<D> ListCons<D> cat_maybes(ListCons<Maybe<D>> data) {
+        return catMaybes_acc(data, null);
+    }
+
+    /** concatenates list of lists into one list */
+    public static<D> ListCons<D> concat(ListCons<ListCons<D>> data) {
+        return reverse(concat_acc(data, null));
+    }
+
+    /** concatenates list of lists into one list */
+    public static<D> ListCons<D> concat_set(ListCons<ListCons<D>> data) {
+        return concat_acc(data, null);
+    }
+
+    /** helper for concat */
+    public static<D> ListCons<D> concat_acc(ListCons<ListCons<D>> data, ListCons<D> acc) {
+        return data == null ? acc : concat_acc(tail(data), concat2(head(data), acc));
+    }
+
+    /** concatenates 2 lists (haskell (++)) */
+    public static<D> ListCons<D> concat2(ListCons<D> data, ListCons<D> data2) {
+        return (data == null) ? data2 :
+                (data2 == null ? data :
+                    concat2_acc(reverse(data), data2));
+    }
+
+    /** concatenates 2 lists, unordered */
+    public static<D> ListCons<D> concat2_set(ListCons<D> data, ListCons<D> data2) {
+        return (data == null) ? data2 :
+                (data2 == null ? data :
+                    concat2_acc(data, data2));
+    }
+
+    /** helper for concat2 */
+    public static<D> ListCons<D> concat2_acc(ListCons<D> data, ListCons<D> acc) {
+        return data == null ? acc : concat2_acc(tail(data), cons(head(data), acc));
+    }
+
+    /** constructor for empty maybe */
+    public static <T> Maybe<T> NOTHING() {
+        return new Maybe<>(null, 0);
+    }
+
+    /** constructor for full maybe */
+    public static <T> Maybe<T> JUST(T t) {
+        return new Maybe<>(t, 1);
+    }
+
+    /** helper for catMaybes */
+    public static<D> ListCons<D> catMaybes_acc(ListCons<Maybe<D>> data, ListCons<D> acc) {
+        return data == null ? acc : catMaybes_acc(tail(data), is_nothing(head(data)) == 1 ? acc : cons(from_maybe(head(data)), acc));
+    }
+
+    /** test is maybe is empty */
+    private static <D> int is_nothing(Maybe<D> head) {
+        return 1 - head.set;
+    }
+
+    /** extract value form maybe */
+    private static <D> D from_maybe(Maybe<D> head) {
+        if (head.set == 0) {
+            throw new IllegalArgumentException("Maybe: nothing");
+        } else {
+            return head.data;
+        }
+    }
+
+    /** reverse list */
+    @Compiled
+    public static<D> ListCons<D> reverse(ListCons<D> c) {
         return reverse_acc(c, null);
     }
 
+    /** helper for reverse */
     @Compiled
-    public static Cons reverse_acc(Cons c, Cons acc) {
+    public static<D> ListCons<D> reverse_acc(ListCons<D> c, ListCons<D> acc) {
         return (c == null) ? acc :
             reverse_acc(tail(c), cons(head(c), acc));
     }
 
+    /** fold with constant */
     @Compiled
-    public static Object fold0(Cons c, Object init, Function2 arg) {
-        return arg.apply(init, fold(c, arg));
+    public static<I,R> R fold0(ListCons<I> c, R init, Function2<R, I, R> arg) {
+        return (c == null) ? init :
+                fold0(tail(c), arg.apply(init, head(c)), arg);
     }
 
     @Compiled
-    public static<A,B> Object fold(Cons c, Function2<A,B,A> arg) {
-        return tail(c) == null ? head(c) : fold0(tail(c), head(c), arg);
+    public <T> Queue<T> queue_new() {
+        return new Queue<T>(null, null);
     }
 
     @Compiled
-    public Queue queue_new() {
-        return new Queue(null, null);
+    public <T> Queue<T> queue_enqueue(Queue<T> q, T v) {
+        return new Queue<T>(q.xs, cons(v, q.ys));
     }
 
+    /** check if queue is empty */
     @Compiled
-    public Queue queue_enqueue(Queue q, Object v) {
-        int x = 2;
-        int y = 3;
-        int z = x + y;
-        System.out.println("z="+z);
-        return new Queue(q.xs, cons(v, q.ys));
-    }
-
-    @Compiled
-    public boolean queue_isempty(Queue q) {
+    public <T> boolean queue_isempty(Queue<T> q) {
         return q.xs == null && q.ys == null;
     }
 
+    /** return n-th item in the list */
     @Compiled
-    public Object list_item(Cons list, int index) {
-        if (index < 0) throw new RuntimeException("list_item(list, -1)");
-        return index == 0 ? head(list) : list_item(tail(list), index-1);
+    public Object list_item(Cons list, int n) {
+        if (n < 0) throw new RuntimeException("list_item(list, -1)");
+        return n == 0 ? head(list) : list_item(tail(list), n-1);
     }
 
+    /** return n-th item in the list, with default if it is beyond the list */
     @Compiled
-    public Tuple<Object, Queue> queue_dequeue(Queue q) {
-        Tuple<Object, Queue> retval = null;
+    public Object list_item_def(Cons list, int index, Object deflt) {
+        return (index < 0) ? deflt :
+            index == 0 ? head(list) : list_item(tail(list), index-1);
+    }
+
+    /** remove from queue, return removed item and new queue */
+    @Compiled
+    public <T> Tuple<T, Queue<T>> queue_dequeue(Queue<T> q) {
+        Tuple<T, Queue<T>> retval = null;
         if (q.xs == null) {
             if (q.ys != null) {
-                retval = queue_dequeue(new Queue(reverse(q.ys), null));
+                retval = queue_dequeue(new Queue<T>(reverse(q.ys), null));
             } else {
                 throw new IllegalArgumentException("error dequeue");
             }
-        }
-        if (retval != null) {
-            retval = new Tuple<>(head(q.xs), new Queue(tail(q.xs), q.ys));
+        } else {
+            retval = new Tuple<>(head(q.xs), new Queue<T>(tail(q.xs), q.ys));
         }
         return retval;
+    }
+
+    public static<T> int length(ListCons<T> list) {
+        return elements_counter(list, 0);
+    }
+
+    public static<T> ListCons<T> filter(ListCons<T> list, Function1<T, Integer> pred) {
+        return reverse(filter_acc(list, pred, null));
+    }
+
+    public static<T> int any(ListCons<T> list, Function1<T, Integer> pred) {
+        return list == null? 0 :
+                pred.apply(head(list)) == 1 ? 1:
+                        any(tail(list), pred);
+
+    }
+
+    public static<T> int noneof(ListCons<T> list, Function1<T, Integer> pred) {
+        return list == null? 1 :
+                pred.apply(head(list)) == 1 ? 0:
+                        noneof(tail(list), pred);
+
+    }
+
+    public int empty(Cons d) {
+        return d != null ? 0 : 1;
+    }
+
+    public int notempty(Cons d) {
+        return d != null ? 1 : 0;
+    }
+
+    public static<T> ListCons<T> filter_acc(ListCons<T> list, Function1<T, Integer> pred, ListCons<T> acc) {
+        return list == null ? acc : filter_acc(tail(list), pred, pred.apply(head(list)) == 1 ? cons(head(list), acc) : acc);
     }
 
     /*Map operations*/

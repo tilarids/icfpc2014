@@ -130,7 +130,7 @@ public class Compiler {
         addTypes(parseFile(new File("src/app/VM.java")));
         addTypes(parseFile(new File("src/app/Sample1.java")));
         ArrayList<Opcode> global = new ArrayList<>();
-        MyMethod run = getMethod("run");
+        MyMethod run = getMethod("entryPoint");
         methods.remove(run);
         methods.add(0, run);
         for (int m = 0; m < methods.size(); m++) {
@@ -356,9 +356,19 @@ public class Compiler {
             }
         } else if (expression instanceof SimpleName) {
             SimpleName sn = (SimpleName)expression;
-            Integer varix = myMethod.variables.get(sn.toString());   // index of q
-            if (varix == null) throw new CompilerException("Unable to find variable",expression);
-            Opcode ld = new Opcode("LD", 0, varix);
+            int level = 0;
+            MyMethod currentMethod = myMethod;
+            Integer varix = null;
+            while(currentMethod != null) {
+                varix = currentMethod.variables.get(sn.toString());   // index of q
+                if (varix != null) {
+                    break;
+                }
+                currentMethod = currentMethod.parentMethod;
+                level++;
+            }
+            if (varix == null) throw new CompilerException("Unable to find variable", expression);
+            Opcode ld = new Opcode("LD", level, varix);
             ld.comment = "var "+sn.toString();
             myMethod.addOpcode(ld);
         } else if (expression instanceof QualifiedName) {
@@ -406,6 +416,7 @@ public class Compiler {
             final ASTNode body = le.getBody();
             String name = "lambda_"+(lambdaCount++);
             MyMethod mm = new MyMethod(name, parameters, body);
+            mm.parentMethod = myMethod;
             methods.add(mm);
             myMethod.addOpcode(new Opcode("LDF", new FunctionRef(name)));
         } else if (expression instanceof MethodInvocation) {
@@ -635,6 +646,7 @@ public class Compiler {
         List<VariableDeclaration> parameters;
         int offset;
         String name;
+        MyMethod parentMethod;
 
         HashMap<String, Integer> variables = new HashMap<>();
 
