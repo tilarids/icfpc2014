@@ -550,32 +550,85 @@ public class Sample1 extends VMExtras {
             this.data = data;
         }
     }
+
     @Compiled
-    public GHCState ghcstate_assoc(GHCState state, Cons arg_cons, Cons val_cons) {
-      Integer arg_tag = head(arg_cons);
+    public Integer ghcstate_read_val(GHCState state, Cons val_cons) {
       Integer val_tag = head(val_cons);
       if (val_tag > 3) throw new RuntimeException("value tag is invalid");
-      if (arg_tag > 3) throw new RuntimeException("arg tag is invalid");
-      if (arg_tag == 2) throw new RuntimeException("arg can't be const");
-      Integer val = 
-            val_tag == 0 ? sorted_map_get(state.regs, (Integer)tail(val_cons).data, 0)
+      return val_tag == 0 ? sorted_map_get(state.regs, (Integer)tail(val_cons).data, 0)
           : val_tag == 1 ? sorted_map_get(state.data, sorted_map_get(state.regs, (Integer)tail(val_cons).data, 0), 0)
           : val_tag == 2 ? (Integer)tail(val_cons).data
           : sorted_map_get(state.data, (Integer)tail(val_cons).data, 0);
+    }
+
+    @Compiled
+    public GHCState ghcstate_write_val(GHCState state, Cons arg_cons, Integer val) {
+      Integer arg_tag = head(arg_cons);
+      if (arg_tag > 3) throw new RuntimeException("arg tag is invalid");
+      if (arg_tag == 2) throw new RuntimeException("arg can't be const");
       return 
             arg_tag == 0 ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, (Integer)tail(arg_cons).data, val), state.data)
           : arg_tag == 1 ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, sorted_map_get(state.regs, (Integer)tail(arg_cons).data, 0), val), state.data)
           : new GHCState(state.ghostState, state.regs, sorted_map_assoc(state.data, (Integer)tail(arg_cons).data, val));
     }
+    
+    @Compiled
+    public GHCState ghcstate_assoc(GHCState state, Cons arg_cons, Cons val_cons) {
+      Integer val = ghcstate_read_val(state, val_cons);
+      return ghcstate_write_val(state, arg_cons, val);
+    }
 
+    @Compiled
+    public GHCState processGhostInfoRequest(WorldState world, GHCState state, Integer index, int requestType) {
+      GhostState gs = (GhostState)list_item_def(world.ghosts, index, state.ghostState);
+      Point startPos = new Point(0, 0); // todo: support
+      return 
+            4 == requestType ? new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, startPos.x), 1, startPos.y), state.data)
+          : 5 == requestType ? new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, gs.location.x), 1, gs.location.y), state.data)
+          : new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, gs.vitality), 1, gs.direction), state.data);
+    }
 
+    @Compiled
+    public GHCState processGhostInt(WorldState world, GHCState state, Integer num, Cons arg) {
+      GhostState gs = state.ghostState;
+      Integer currentGhostIndex = 0; // todo: support
+      return 
+            0 == num ? new GHCState(new GhostState(gs.vitality, gs.location, sorted_map_get(state.regs, 0, 0)), state.regs, state.data) 
+          : 1 == num ? new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, world.lambdaManState.location.x), 1, world.lambdaManState.location.y), state.data) 
+          : 2 == num ? new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, world.lambdaManState.location.x), 1, world.lambdaManState.location.y), state.data) 
+          : 3 == num ? new GHCState(gs, sorted_map_assoc(state.regs, 0, currentGhostIndex), state.data) 
+          : 4 == num ? processGhostInfoRequest(world, state, sorted_map_get(state.regs, 0, 0), 4) 
+          : 5 == num ? processGhostInfoRequest(world, state, sorted_map_get(state.regs, 0, 0), 5) 
+          : 6 == num ? processGhostInfoRequest(world, state, sorted_map_get(state.regs, 0, 0), 6) 
+          : 7 == num ? new GHCState(gs, sorted_map_assoc(state.regs, 0, getMapItem(world.map, sorted_map_get(state.regs, 0, 0), sorted_map_get(state.regs, 1, 0))), state.data) 
+          : state; // 8 is unsupported
+    }
+    
     @Compiled
     public Integer runGhostStep(SortedMap<Cons> prog, WorldState world, int lev, GHCState state, Cons step) {
       Integer opcode = head(step);
       ListCons<Cons> args = (ListCons<Cons>)tail(step); 
       return  
             GHCState.MOV == opcode ? runGhost(prog, world, lev, ghcstate_assoc(state, head(args), tail(args)))
-          : -1;
+          : GHCState.INC == opcode ? runGhost(prog, world, lev, ghcstate_write_val(state, head(args), ghcstate_read_val(state, head(args)) + 1))
+          : GHCState.DEC == opcode ? runGhost(prog, world, lev, ghcstate_write_val(state, head(args), ghcstate_read_val(state, head(args)) - 1))
+          : GHCState.ADD == opcode ? runGhost(prog, world, lev, ghcstate_write_val(state, head(args), ghcstate_read_val(state, head(args)) + ghcstate_read_val(state, tail(args))))
+          : GHCState.SUB == opcode ? runGhost(prog, world, lev, ghcstate_write_val(state, head(args), ghcstate_read_val(state, head(args)) - ghcstate_read_val(state, tail(args))))
+          : GHCState.MUL == opcode ? runGhost(prog, world, lev, ghcstate_write_val(state, head(args), ghcstate_read_val(state, head(args)) * ghcstate_read_val(state, tail(args))))
+          : GHCState.DIV == opcode ? runGhost(prog, world, lev, ghcstate_write_val(state, head(args), ghcstate_read_val(state, head(args)) / ghcstate_read_val(state, tail(args))))
+          : GHCState.AND == opcode ? runGhost(prog, world, lev, ghcstate_write_val(state, head(args), ghcstate_read_val(state, head(args)) & ghcstate_read_val(state, tail(args))))
+          : GHCState.OR == opcode ? runGhost(prog, world, lev, ghcstate_write_val(state, head(args), ghcstate_read_val(state, head(args)) | ghcstate_read_val(state, tail(args))))
+          : GHCState.XOR == opcode ? runGhost(prog, world, lev, ghcstate_write_val(state, head(args), ghcstate_read_val(state, head(args)) ^ ghcstate_read_val(state, tail(args))))
+          : GHCState.JLT == opcode ? runGhost(prog, world, lev, 
+                  ghcstate_read_val(state, head(tail(args))) < ghcstate_read_val(state, tail(tail(args))) 
+                      ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, 8, (Integer)head(args).data), state.data)
+                      : state)
+          : GHCState.JGT == opcode ? runGhost(prog, world, lev, 
+                  ghcstate_read_val(state, head(tail(args))) > ghcstate_read_val(state, tail(tail(args))) 
+                      ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, 8, (Integer)head(args).data), state.data)
+                      : state)
+          : GHCState.INT == opcode ? runGhost(prog, world, lev, processGhostInt(world, state, (Integer)head(args).data, tail(args)))
+          : state.ghostState.direction;
     }
     
     @Compiled
