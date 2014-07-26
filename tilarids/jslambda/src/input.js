@@ -1,11 +1,13 @@
-function foo(size) {
+function foo(skip1, skip2, size) {
   while(size) {
-    dbug(size)
+    dbug(load_memory(size))
+    brk()
     size--
   }
-  return 1233;
+  return 7756;
+  insert_vtable(); // don't be afraid to insert tables after return! :)
 } 
 function init() {
-  return foo(5)
+  return init_memory(0, 0, 3, foo)
 }
 
