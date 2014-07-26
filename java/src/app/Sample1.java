@@ -61,8 +61,6 @@ public class Sample1 extends VM {
     @Compiled
     private Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryFactual(WorldState ws) {
         AIState initialState = createInitialState(ws.map);
-        debug(9900000);
-        debug(initialState);
         return new Tuple<>(initialState, (nextaistate, worldState) -> performMove(nextaistate, worldState));
     }
 
@@ -86,10 +84,6 @@ public class Sample1 extends VM {
 
     @Compiled
     private Tuple<AIState, Integer> performMove(AIState aistate, WorldState worldState) {
-        debug(2000010);
-        debug(aistate.parsedStaticMap.junctions);
-        debug(aistate.parsedStaticMap.walkable);
-        debug(aistate.parsedStaticMap.parsedEdges);
         Point location = worldState.lambdaManState.location;
         ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate, location);
         ListCons<EdgeAndCount> collectedPoints = map(edgesForPoint, (e) -> new EdgeAndCount(e, length(collectEdgePills(e, location, worldState.map))));
@@ -284,14 +278,7 @@ public class Sample1 extends VM {
         int a2 = isWalkable(getMapItem(map, y+1, x));
         int a3 = isWalkable(getMapItem(map, y, x-1));
         int a4 = isWalkable(getMapItem(map, y, x+1));
-        debug(8888888);
-        debug(x);
-        debug(y);
-        int sum = a1 + a2 + a3 + a4;
-        int rv = sum > 2 ? 1 : 0;
-        debug(sum);
-        debug(rv);
-        return rv;
+        return a1 + a2 + a3 + a4 > 2 ? 1 : 0;
     }
 
     @Compiled
