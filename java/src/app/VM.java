@@ -470,6 +470,125 @@ public class VM {
     }
 
 
-    /*End of map operations*/
+    @Compiled
+    class SortedMapNode<T> {
+        int count;
+        int key;
+        T val;
+        int lev;
+        SortedMapNode<T> lo;
+        SortedMapNode<T> hi;
 
+        SortedMapNode(int count, int key, T val, int lev, SortedMapNode<T> lo, SortedMapNode<T> hi) {
+            this.count = count;
+            this.key = key;
+            this.val = val;
+            this.lev = lev;
+            this.lo = lo;
+            this.hi = hi;
+        }
+    };
+
+    @Compiled
+    public <T> SortedMapNode<T> sorted_node_new(int key, T val, int lev, SortedMapNode<T> lo, SortedMapNode<T> hi) {
+        return new SortedMapNode<T>(1 + (lo != null ? lo.count : 0) + (hi != null ? hi.count : 0), 
+                                    key, 
+                                    val, 
+                                    lev, 
+                                    lo, 
+                                    hi);
+    }
+
+
+    @Compiled
+    public <T> SortedMapNode<T> sorted_node_with_lev(SortedMapNode<T> node, int lev) {
+        return sorted_node_new(node.key, node.val, lev, node.lo, node.hi);
+    }
+
+    @Compiled
+    public <T> SortedMapNode<T> sorted_node_with_lo_hi(SortedMapNode<T> node, SortedMapNode<T> lo, SortedMapNode<T> hi) {
+        return sorted_node_new(node.key, node.val, node.lev, lo, hi);
+    }
+
+    @Compiled
+    public <T> SortedMapNode<T> sorted_node_with_lo(SortedMapNode<T> node, SortedMapNode<T> lo) {
+        return lo == node.lo ? node : sorted_node_with_lo_hi(node, lo, node.hi);
+    }
+
+    @Compiled
+    public <T> SortedMapNode<T> sorted_node_with_hi(SortedMapNode<T> node, SortedMapNode<T> hi) {
+        return hi == node.hi ? node : sorted_node_with_lo_hi(node, node.lo, hi);
+    }
+
+    // go_lo = key < node.key
+    
+
+    @Compiled
+    public <T> int sorted_node_has(SortedMapNode<T> node, int key) {
+        return node == null ? 0 : (key == node.key ? 1 : sorted_node_has(key < node.key ? node.lo : node.hi, key));
+    }
+
+    @Compiled
+    public <T> T sorted_node_get(SortedMapNode<T> node, int key, T def) {
+        return node == null ? def : (key == node.key ? node.val : sorted_node_get(key < node.key ? node.lo : node.hi, key, def));
+    }
+
+    @Compiled
+    public <T> SortedMapNode<T> sorted_node_put(SortedMapNode<T> node, int key, T val) {
+        return node == 
+            null ? sorted_node_new(key, val, 0, null, null) 
+                 : (key == node.key ? (val == node.val ? node : sorted_node_new(key, val, node.lev, node.lo, node.hi))
+                                    : sorted_node_split(key < node.key ? sorted_node_skew(node, sorted_node_put(node.lo, key, val))
+                                                                       : sorted_node_skew(sorted_node_with_hi(node, sorted_node_put(node.hi, key, val)), null)));
+    }
+
+
+    @Compiled
+    public <T> SortedMapNode<T> sorted_node_skew(SortedMapNode<T> node, SortedMapNode<T> lo) {
+        lo = lo != null ? lo : node.lo;
+        SortedMapNode<T> true_node = sorted_node_with_lo(node, lo);
+        return lo == null ? true_node : (node.lev > lo.lev ? true_node : sorted_node_with_hi(lo, sorted_node_with_lo(node, lo.hi)));
+    }
+
+    @Compiled
+    public <T> SortedMapNode<T> sorted_node_split(SortedMapNode<T> node) {
+        SortedMapNode<T> hi = node.hi;
+        return hi == null ? node : (hi.hi == null ? node : (node.lev > hi.hi.lev ? node : sorted_node_new(hi.key, hi.val, hi.lev + 1, sorted_node_with_hi(node, hi.lo), hi.hi)));
+    }
+    
+    // Int -> T map
+    @Compiled
+    class SortedMap<T> {
+        SortedMapNode<T> node;
+
+        SortedMap(SortedMapNode<T> node) {
+            this.node = node;
+        }
+    }
+
+    @Compiled
+    public <T> int sorted_map_count(SortedMap<T> m) {
+        return m.node != null ? m.node.count : 0;
+    }
+
+    @Compiled
+    public <T> int sorted_map_contains(SortedMap<T> m, int key) {
+        return m.node != null ? sorted_node_has(m.node, key) : 0;
+    }
+
+    @Compiled
+    public <T> T sorted_map_get(SortedMap<T> m, int key, T def) {
+        return m.node != null ? sorted_node_get(m.node, key, def) : def;
+    }
+
+    @Compiled
+    public <T> SortedMap<T> sorted_map_assoc(SortedMap<T> m, int key, T val) {
+        return sorted_map_if_changed(m, m.node, sorted_node_put(m.node, key, val));
+    }
+
+    public <T> SortedMap<T> sorted_map_if_changed(SortedMap<T> thisMap, SortedMapNode<T> node, SortedMapNode<T> another_node) {
+        return node == another_node ?  // same node!
+            thisMap : // no change
+            new SortedMap<T>(another_node); // create new map
+    } 
 }
