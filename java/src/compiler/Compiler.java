@@ -809,7 +809,7 @@ public class Compiler {
             return this;
         }
 
-        String rpad(String s, int max) {
+        public static String rpad(String s, int max) {
             while (s.length() < max) {
                 s = s + " ";
             }
