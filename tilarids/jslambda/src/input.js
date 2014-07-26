@@ -19,26 +19,18 @@ function step(state, world, n, m, lm_status) {
     // 0 is up; 1 is right; 2 is down; 3 is left.
     while (m > j) {
       cell = car(it2)
-      // dbug([666, lm_x, lm_y, i, j, cell, 666]);
 
       if ((lm_x - 1 == i) * (lm_y == j) * cell) {
-        // dbug([606, lm_x, lm_y, i, j, cell, 606]);
         return [state + 1, 0]
       }
 
       if ((lm_x == i) * (lm_y + 1 == j) * cell) {
-        // dbug(1);
-
         return [state + 1, 1]
       }
       if ((lm_x + 1 == i) * (lm_y == j) * cell) {
-                // dbug(2);
-
         return [state + 1, 2]
       }
       if ((lm_x == i) * (lm_y - 1 == j) * cell) {
-                // dbug(3);
-
         return [state + 1, 3]
       }
       it2 = cdr(it2)
