@@ -10,6 +10,7 @@ import org.antlr.runtime.*;
 import org.antlr.runtime.tree.*;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
+
 public class LambdaCompiler {
 
 	public List<String> ruleNames = null;
@@ -24,7 +25,7 @@ public class LambdaCompiler {
 
 	public static class I {  // instruction
 		public enum Type {ERROR, CONS, DUM, LDC, LDF, RAP, RTN, LD, ADD, AP, CAR, CDR, JOIN, SEL, 
-							TSEL, ATOM, CGT, SUB,  MUL, DIV, CEQ, COMMENT, ST, DBUG, BRK};
+							TSEL, ATOM, CGT, SUB,  MUL, DIV, CEQ, COMMENT, ST, DBUG, BRK, CGTE};
 		public I (Type t) {
 			this.type = t;
 		}
@@ -92,6 +93,8 @@ public class LambdaCompiler {
 						  // should be saved here.
 		public int topFrameIndex = 0;
 		public I firstInstr = null;
+		public List<String> variables = new ArrayList<String>();
+		
 		Func(int x, I instr) {
 			this.topFrameIndex = x;
 			this.firstInstr = instr;
@@ -103,11 +106,10 @@ public class LambdaCompiler {
 	public Stack<Map<String, Integer>> variablesStack = new Stack<Map<String, Integer>>();
 	public List<I> readVtable = null;
 	public List<I> writeVtable = null;
-
-	int DEFAULT_SIZE = 15;
-	int TMP_START = 10;
-	int DEFAULT_SKIP = 4;
-	public int currentTmpIndex = TMP_START;
+	public Stack<Func> funcsStack = new Stack<Func>();
+	public int memorySize = 15;
+	public int memorySkip = 0;
+	public int currentTmpIndex = memorySize;
 	
 	public List<I> createVtable(int size, I.Type type) {
 		// SEL y x
@@ -123,7 +125,7 @@ public class LambdaCompiler {
 			instrs.add(0, new I(I.Type.JOIN));			
 			I fun = new I(type);
 			fun.params.add(new IntParam(0));
-			fun.params.add(new IntParam(DEFAULT_SKIP + i));
+			fun.params.add(new IntParam(memorySkip + i));
 			instrs.add(0, fun);
 			I sel = new I(I.Type.TSEL);
 			sel.params.add(new RefParam(instrs.get(2)));
@@ -137,14 +139,14 @@ public class LambdaCompiler {
 	
 	public List<I> getOrCreateReadVtable() {
 		if (null == readVtable) {
-			this.readVtable = createVtable(DEFAULT_SIZE, I.Type.LD);
+			this.readVtable = createVtable(memorySize, I.Type.LD);
 		}
 		return readVtable;
 	}
 
 	public List<I> getOrCreateWriteVtable() {
 		if (null == writeVtable) {
-			this.writeVtable = createVtable(DEFAULT_SIZE, I.Type.ST);
+			this.writeVtable = createVtable(memorySize, I.Type.ST);
 		}
 		return writeVtable;
 	}
@@ -154,7 +156,9 @@ public class LambdaCompiler {
 		if (func.functionBody() == null) {
 			throw new RuntimeException("function body expected");
 		}
-
+		Func theFunc = new Func(topFrameDeclCount, null);
+		funcsStack.push(theFunc);
+		functionMap.put(func_name, theFunc);
 		this.variablesStack.peek().put(func_name, topFrameDeclCount);
 
 		// prepare stack.
@@ -181,8 +185,9 @@ public class LambdaCompiler {
 		if (func.formalParameterList() != null) {
 			this.variablesStack.pop();
 		}
+		funcsStack.pop();
 		// save new function defintion.
-		functionMap.put(func_name, new Func(topFrameDeclCount, function_body.get(0)));
+		theFunc.firstInstr = function_body.get(0);
 		topFrameDeclCount += 1;
 		
 		return function_body;
@@ -195,12 +200,11 @@ public class LambdaCompiler {
 			throw new RuntimeException("array literal expected");
 		}
 		
-		for (ECMAScriptParser.SingleExpressionContext expr : arr.elementList().singleExpression()) {
-			boolean is_first = instrs.size() == 0;
-			instrs.addAll(processSingleExpression(expr));
-			if (!is_first) {
-				instrs.add(new I(I.Type.CONS));
-			}
+		for (int i = 0; i < arr.elementList().singleExpression().size(); ++i) {
+			instrs.addAll(processSingleExpression(arr.elementList().singleExpression(i)));		
+		}
+		for (int i = 0; i < arr.elementList().singleExpression().size() - 1; ++i) {
+			instrs.add(new I(I.Type.CONS));
 		}
 		return instrs;
 	}
@@ -322,7 +326,7 @@ public class LambdaCompiler {
 		ldc_for_vtable.params.add(new IntParam(43));
 		instrs.add(ldc_for_vtable);
 
-		instrs.addAll(this.processDecreaseVariable(tmpIndex));
+		instrs.addAll(this.processIncDecVariable(tmpIndex, I.Type.SUB));
 		
 		I ld_for_tsel = new I(I.Type.LD);
 		ld_for_tsel.params.add(new IntParam(0));
@@ -337,6 +341,20 @@ public class LambdaCompiler {
 		return instrs;
 	}
 	
+	public List<I> addFunctionVariables(String id_name) {  // number of ret results is important.
+		List<I> instrs = new ArrayList<I>();
+		if (!functionMap.containsKey(id_name)) {
+			throw new RuntimeException("expected a func");
+		}
+		Func func = functionMap.get(id_name);
+		for (int i = 0; i < func.variables.size(); ++i) {
+			I ldc = new I(I.Type.LDC);
+			ldc.params.add(new IntParam(0));
+			instrs.add(ldc);
+		}
+		return instrs;
+	}
+	
 	public List<I> processArgumentsExpression(ECMAScriptParser.ArgumentsExpressionContext ast) {
 		List<I> instrs = new ArrayList<I>();
 		if (ast.singleExpression() == null || !(ast.singleExpression() instanceof ECMAScriptParser.IdentifierExpressionContext)) {
@@ -344,11 +362,18 @@ public class LambdaCompiler {
 		}
 		int count = 0;
 		String id_name = ((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()).Identifier().toString(); 
-
 		if (ast.arguments() != null && ast.arguments().argumentList() != null && !id_name.equals("read_memory") && !id_name.equals("write_memory")) {
 			count = ast.arguments().argumentList().singleExpression().size();
-			for (ECMAScriptParser.SingleExpressionContext expr : ast.arguments().argumentList().singleExpression()) {
-				instrs.addAll(processSingleExpression(expr));
+			for (int i = 0; i < ast.arguments().argumentList().singleExpression().size(); ++i) {
+				if (id_name.equals("init_memory")) {
+					if (i == 0) {
+						continue;
+					} else if (i == 1) {
+						this.memorySize = Integer.parseInt(ast.arguments().argumentList().singleExpression(1).getText());
+						continue;
+					}
+				}
+				instrs.addAll(processSingleExpression(ast.arguments().argumentList().singleExpression(i)));
 			}
 		}
 		if (id_name.equals("car")) {
@@ -365,17 +390,19 @@ public class LambdaCompiler {
 			instrs.addAll(this.getOrCreateReadVtable());
 			instrs.addAll(this.getOrCreateWriteVtable());
 		} else if (id_name.equals("init_memory")) {
-//			int N = 22;
-//			int M = 23;
-			for (int i = 0; i < DEFAULT_SIZE; ++i) {
+			ECMAScriptParser.IdentifierExpressionContext identifier = (ECMAScriptParser.IdentifierExpressionContext)ast.arguments().argumentList().singleExpression(0);
+			List<I> varsAdded = this.addFunctionVariables(identifier.Identifier().toString());
+			instrs.addAll(varsAdded);
+			for (int i = 0; i < memorySize * 2; ++i) {
 				I ldc = new I(I.Type.LDC);
 				ldc.params.add(new IntParam(i));
 				instrs.add(ldc);
 			}
-			instrs.addAll(processSingleExpression(ast.arguments().argumentList().singleExpression(count - 1))); // add again
+			instrs.addAll(processIdentifierExpression(identifier)); 
 			I ap = new I(I.Type.AP);
-			ap.params.add(new IntParam(count + DEFAULT_SIZE));
+			ap.params.add(new IntParam(count - 2 + memorySize * 2 + varsAdded.size()));
 			instrs.add(ap);
+			this.memorySkip = count - 2 + varsAdded.size();
 		} else if (id_name.equals("read_memory")) {
 			if (ast.arguments().argumentList().singleExpression().size() != 1) {
 				throw new RuntimeException("should be 1");
@@ -391,9 +418,11 @@ public class LambdaCompiler {
 			Integer variableIndex = this.variablesStack.peek().get(variableName);
 			instrs.addAll(processMemoryAccess(variableIndex, ast.arguments().argumentList().singleExpression(1)));
 		} else {
+			List<I> varsAdded = this.addFunctionVariables(id_name);
+			instrs.addAll(varsAdded);
 			instrs.addAll(processIdentifierExpression((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()));
 			I ap = new I(I.Type.AP);
-			ap.params.add(new IntParam(count));
+			ap.params.add(new IntParam(count + varsAdded.size()));
 			instrs.add(ap);
 		}
 
@@ -421,7 +450,7 @@ public class LambdaCompiler {
 		}
 	}
 
-	public List<I> processDecreaseVariable(int variableIndex) {
+	public List<I> processIncDecVariable(int variableIndex, I.Type type) {
 		List<I> instrs = new ArrayList<I>();
 		I ld = new I(I.Type.LD);
 		ld.params.add(new IntParam(0));
@@ -431,7 +460,7 @@ public class LambdaCompiler {
 		I ldc_one = new I(I.Type.LDC);
 		ldc_one.params.add(new IntParam(1));
 		instrs.add(ldc_one);
-		instrs.add(new I(I.Type.SUB));
+		instrs.add(new I(type));
 
 		I st = new I(I.Type.ST);
 		st.params.add(new IntParam(0));
@@ -446,7 +475,7 @@ public class LambdaCompiler {
 		}
 		String variableName = ((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()).Identifier().toString();
 		Integer variableIndex = this.variablesStack.peek().get(variableName);
-		return processDecreaseVariable(variableIndex);
+		return processIncDecVariable(variableIndex, I.Type.SUB);
 	}
 
 	public List<I> processPostDecreaseExpression(ECMAScriptParser.PostDecreaseExpressionContext ast) {
@@ -455,7 +484,31 @@ public class LambdaCompiler {
 		}
 		String variableName = ((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()).Identifier().toString();
 		Integer variableIndex = this.variablesStack.peek().get(variableName);
-		return processDecreaseVariable(variableIndex);
+		return processIncDecVariable(variableIndex, I.Type.SUB);
+	}
+
+	public List<I> processAssignmentExpression(ECMAScriptParser.AssignmentExpressionContext ast) {
+		List<I> instrs = new ArrayList<I>();
+		if (ast.singleExpression() == null || ast.expressionSequence() == null || ast.expressionSequence().singleExpression().size() != 1) {
+			throw new RuntimeException("malformed");
+		}
+		Integer varIndex = this.variablesStack.peek().get(((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()).Identifier().toString());
+		instrs.addAll(processSingleExpression(ast.expressionSequence().singleExpression(0)));
+		I st = new I(I.Type.ST);
+		st.params.add(new IntParam(0));
+		st.params.add(new IntParam(varIndex));
+		instrs.add(st);
+		return instrs;
+	}
+
+	public List<I> processPostIncrementExpression(ECMAScriptParser.PostIncrementExpressionContext ast) {
+		if (!(ast.singleExpression() instanceof ECMAScriptParser.IdentifierExpressionContext)) {
+			throw new RuntimeException("expected identifier");
+		}
+		String variableName = ((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()).Identifier().toString();
+		Integer variableIndex = this.variablesStack.peek().get(variableName);
+
+		return processIncDecVariable(variableIndex, I.Type.ADD);
 	}
 
 	public List<I> processSingleExpression(ECMAScriptParser.SingleExpressionContext ast) {
@@ -471,6 +524,8 @@ public class LambdaCompiler {
 			return processArgumentsExpression((ECMAScriptParser.ArgumentsExpressionContext)ast);
 		} else if (ast instanceof ECMAScriptParser.GreaterThanExpressionContext) {
 			return processBinaryExpression(((ECMAScriptParser.GreaterThanExpressionContext)ast).singleExpression(), I.Type.CGT);
+		} else if (ast instanceof ECMAScriptParser.GreaterThanEqualsExpressionContext) {
+			return processBinaryExpression(((ECMAScriptParser.GreaterThanEqualsExpressionContext)ast).singleExpression(), I.Type.CGTE);
 		} else if (ast instanceof ECMAScriptParser.SubtractExpressionContext) {
 			return processBinaryExpression(((ECMAScriptParser.SubtractExpressionContext)ast).singleExpression(), I.Type.SUB);
 		} else if (ast instanceof ECMAScriptParser.AddExpressionContext) {
@@ -487,6 +542,10 @@ public class LambdaCompiler {
 			return processPreDecreaseExpression((ECMAScriptParser.PreDecreaseExpressionContext)ast);
 		} else if (ast instanceof ECMAScriptParser.PostDecreaseExpressionContext) {
 			return processPostDecreaseExpression((ECMAScriptParser.PostDecreaseExpressionContext)ast);
+		} else if (ast instanceof ECMAScriptParser.PostIncrementExpressionContext) {
+			return processPostIncrementExpression((ECMAScriptParser.PostIncrementExpressionContext)ast);
+		} else if (ast instanceof ECMAScriptParser.AssignmentExpressionContext) {
+			return processAssignmentExpression((ECMAScriptParser.AssignmentExpressionContext)ast);
 		} else {
 			throw new RuntimeException("unsupported expression " + ast.toStringTree(this.ruleNames));
 		}
@@ -510,32 +569,31 @@ public class LambdaCompiler {
 			throw new RuntimeException("expected expr " + ast.toStringTree(ruleNames));
 		}
 		List<I> cond = processSingleExpression(ast.expressionSequence().singleExpression(0));
-		if (ast.statement().size() != 2) {
-			throw new RuntimeException("expected 2 elems " + ast.statement().toString());
+		if (ast.statement().size() != 2 && ast.statement().size() != 1) {
+			throw new RuntimeException("expected 0<elems<3 but got " +ast.statement().size() +":"+ast.statement().toString());
 		}
 		
 		List<I> true_st = processStatement(ast.statement(0));
-		List<I> false_st = processStatement(ast.statement(1));
+		List<I> false_st;
+		if (ast.statement().size() > 1) {
+			false_st = processStatement(ast.statement(1));
+		} else {
+			false_st = new ArrayList<I>();
+			false_st.add(new I("empty else"));
+		}
 		
-		I ldc = new I(I.Type.LDC);
-		ldc.params.add(new IntParam(1));
-		instrs.add(ldc);
-		I sel = new I(I.Type.TSEL);
-		sel.params.add(new RefParam(cond.get(0)));
-		sel.params.add(new IntParam(0));
-		instrs.add(sel); // unconditional
-		
+		instrs.addAll(processJmp(cond.get(0)));
+		I end_if = new I("end if");
 		instrs.addAll(true_st);
-		instrs.add(new I(I.Type.JOIN));
+		instrs.addAll(processJmp(end_if));
 		instrs.addAll(false_st);
-		instrs.add(new I(I.Type.JOIN));
-
+		instrs.addAll(processJmp(end_if));
 		instrs.addAll(cond);
 		I cond_sel = new I(I.Type.TSEL);
 		cond_sel.params.add(new RefParam(true_st.get(0)));
 		cond_sel.params.add(new RefParam(false_st.get(0)));
 		instrs.add(cond_sel); // conditional
-
+		instrs.add(end_if);
 		return instrs;
 	}
 	
@@ -584,6 +642,23 @@ public class LambdaCompiler {
 		}
 		return processWhileStatement((ECMAScriptParser.WhileStatementContext)ast);
 	}
+
+	public void processVariableStatement(ECMAScriptParser.VariableStatementContext ast) {
+		if (ast.variableDeclarationList() == null) {
+			throw new RuntimeException("expected var list");
+		}
+		for (ECMAScriptParser.VariableDeclarationContext var : ast.variableDeclarationList().variableDeclaration()) {
+			if (var.initialiser() != null) {
+				throw new RuntimeException("unexpected initializer");
+			}
+			String varName = var.Identifier().toString();
+			if (varName.length() == 0) {
+				throw new RuntimeException("unexpected initializer");
+			}
+			funcsStack.peek().variables.add(varName);
+			this.variablesStack.peek().put(varName, this.variablesStack.peek().size());
+		}
+	}
 	
 	public List<I> processStatement(ECMAScriptParser.StatementContext ast) {
 		List<I> instrs = new ArrayList<I>();
@@ -602,6 +677,8 @@ public class LambdaCompiler {
 			instrs.addAll(this.processBlock(ast.block()));
 		} else if (ast.iterationStatement() != null) {
 			instrs.addAll(this.processIterationStatement(ast.iterationStatement()));
+		} else if (ast.variableStatement() != null) {
+			this.processVariableStatement(ast.variableStatement());
 		} else if (ast.emptyStatement() != null) {
 			// do nothing.
 		} else {

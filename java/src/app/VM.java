@@ -96,6 +96,79 @@ public class VM {
         return (Cons)c.addr;
     }
 
+    /**
+     * foldl :: (a -> b -> a) -> a -> [b] -> a
+     * foldl f z []     = z
+     * foldl f z (x:xs) = foldl f (f z x) xs
+     */
+    @Compiled
+    public static <A,B> A foldl(Function2<A,B,A> f, A a, ListCons<B> l) {
+        return l == null ? a : foldl(f, f.apply(a, head(l)), tail(l));
+    }
+
+    /**
+     * foldr :: (a -> b -> b) -> b -> [a] -> b
+     * foldr f z []     = z
+     * foldr f z (x:xs) = f x (foldr f z xs)
+     */
+    @Compiled
+    public static <A,B> B foldr(Function2<A,B,B> f, B a, ListCons<A> l) {
+        return l == null ? a : f.apply(head(l), foldr(f, a, tail(l)));
+    }
+
+    /**
+     * function composition
+     * o :: (b -> c) -> (a -> b) -> a -> c
+     */
+    @Compiled
+    static public <A, B, C> Function1<A, C> o(final Function1<B, C> f, final Function1<A, B> g) {
+        return x -> f.apply(g.apply(x));
+    }
+
+    /**
+     * Partial application.
+     *
+     * @param a The <code>A</code> to which to apply this function.
+     * @return The function partially applied to the given argument.
+     */
+    static public <A, B, C> Function1<B, C> f(final Function2<A, B, C> f, final A a) {
+        return b -> f.apply(a, b);
+    }
+
+    /**
+     * Curries this wrapped function to a wrapped function of arity-1 that returns another wrapped function.
+     */
+    static public <A, B, C> Function1<A, Function1<B, C>> curry(final Function2<A, B, C> f) {
+        return a -> b -> f.apply(a, b);
+    }
+
+    static public <A,B,C> Function2<A,B,C> uncurry(final Function1<A, Function1<B, C>> f) {
+        return (a, b) -> f.apply(a).apply(b);
+    }
+
+    @Compiled
+    static public <A,B,C> Function2<B,A,C> flip(Function2<A,B,C> f) {
+        return (b, a) -> f.apply(a, b);
+    }
+
+    /*
+    reverse = foldl (flip (:)) []
+    */
+//    @Compiled
+//    public static <A> ListCons<A> reverse_(ListCons<A> l) {
+//        return foldl((a, b) -> cons(b, a), null, l);
+//    }
+
+    /*
+    map :: (a -> b) -> [a] -> [b]
+    map f = foldr ((:) . f) []
+    */
+//    @Compiled
+//    public static <A,B> ListCons<B> map_(Function1<A,B> f, ListCons<A> l) {
+////        return foldr(uncurry(o(curry((a, b) -> cons(a, b)), f)), null, l);
+//        return foldr((a, b) -> cons(f.apply(a), b), null, l);
+//    }
+
     /** basic map */
     @Compiled
     public static<T,T2> ListCons<T2> map(ListCons<T> c, Function1<T,T2> arg) {
