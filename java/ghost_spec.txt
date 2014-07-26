@@ -1,3 +1,4 @@
+ghosts::list_of_ghost_programs_assigned_to_every_ghost
 ghost_program::list_of_commands
 command::pair_opcode_listOfOperands
 operand::pair_optype_opvalue
@@ -37,6 +38,6 @@ hlt
 	(
 		(3, ((0, 1), ((1, 2), 0))), ; add b,[c] - command (program head)
 		((14, 0), 0)                ; hlt - list of commands (program tail)
-	), 0
+	), 0 ; single ghost
 )
 
