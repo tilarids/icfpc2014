@@ -84,13 +84,19 @@ public class Sample1 extends VM {
         ListCons<EdgeAndCount> collectedPoints = map(edgesForPoint, (e) -> new EdgeAndCount(e, length(collectEdgePills(e, location, worldState.map))));
         EdgeAndCount ec = maximum_by(collectedPoints, (EdgeAndCount cp) -> cp.count);
         ListCons<Point> pathToWalk = dropWhile(ec.pe.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
-        Point newLocation = head(tail(pathToWalk));
-        int direction =
-                (newLocation.x > location.x) ? 1 :
-                        (newLocation.x < location.x) ? 3 :
-                                (newLocation.y < location.y) ? 0 :
-                                        2;
-        return new Tuple<>(aistate, direction);
+        Tuple<AIState, Integer> retval;
+        if (length(pathToWalk) < 2) {
+            retval = new Tuple<>(aistate, 2);
+        } else {
+            Point newLocation = head(tail(pathToWalk));
+            int direction =
+                    (newLocation.x > location.x) ? 1 :
+                            (newLocation.x < location.x) ? 3 :
+                                    (newLocation.y < location.y) ? 0 :
+                                            2;
+            retval = new Tuple<>(aistate, direction);
+        }
+        return retval;
     }
 
     @Compiled
