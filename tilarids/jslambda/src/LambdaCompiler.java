@@ -101,13 +101,15 @@ public class LambdaCompiler {
 	
 	public int topFrameDeclCount = 0;
 	public Stack<Map<String, Integer>> variablesStack = new Stack<Map<String, Integer>>();
-	public List<I> vtable = null;
+	public List<I> readVtable = null;
+	public List<I> writeVtable = null;
+
 	int DEFAULT_SIZE = 15;
 	int TMP_START = 10;
 	int DEFAULT_SKIP = 4;
 	public int currentTmpIndex = TMP_START;
 	
-	public List<I> createVtable(int size) {
+	public List<I> createVtable(int size, I.Type type) {
 		// SEL y x
 		// x: FUN
 		// JOIN
@@ -119,7 +121,7 @@ public class LambdaCompiler {
 		instrs.add(0, new I(I.Type.JOIN));			
 		for (int i = size - 1; i >=0; --i) {
 			instrs.add(0, new I(I.Type.JOIN));			
-			I fun = new I(I.Type.LD);
+			I fun = new I(type);
 			fun.params.add(new IntParam(0));
 			fun.params.add(new IntParam(DEFAULT_SKIP + i));
 			instrs.add(0, fun);
@@ -133,13 +135,20 @@ public class LambdaCompiler {
 		return instrs;
 	}
 	
-	public List<I> getOrCreateVtable() {
-		if (null == vtable) {
-			this.vtable = createVtable(DEFAULT_SIZE);
+	public List<I> getOrCreateReadVtable() {
+		if (null == readVtable) {
+			this.readVtable = createVtable(DEFAULT_SIZE, I.Type.LD);
 		}
-		return vtable;
+		return readVtable;
 	}
-	
+
+	public List<I> getOrCreateWriteVtable() {
+		if (null == writeVtable) {
+			this.writeVtable = createVtable(DEFAULT_SIZE, I.Type.ST);
+		}
+		return writeVtable;
+	}
+
 	public List<I> processFunctionExpression(ECMAScriptParser.FunctionExpressionContext func) {
 		String func_name = func.Identifier().toString();
 		if (func.functionBody() == null) {
@@ -248,6 +257,85 @@ public class LambdaCompiler {
 		
 		return instrs;
 	}
+	public List<I> processMemoryAccess(int variableIndex, ECMAScriptParser.SingleExpressionContext write_to) {
+		List<I> instrs = new ArrayList<I>();
+		
+		List<I> vtable = write_to != null? this.getOrCreateWriteVtable() : this.getOrCreateReadVtable();
+		Integer tmpIndex = currentTmpIndex;
+		currentTmpIndex++;
+		// ST X -> currentTmpIndex
+		// LDC 0 --> end
+		// jmp addr
+		// false:
+		//   write_to <-- this will be written by vtable
+		// LDC 1
+		// SEL vtable 0
+		// jmp rtn
+		// true:
+		// LDC 43 -- for vtable
+		// X' = X' - 1
+		// LD X' -- for tsel
+		// addr: TSEL true false
+		// rtn:
+		
+		I addr_tsel = new I(I.Type.TSEL);
+		
+		I load_x = new I(I.Type.LD);
+		load_x.params.add(new IntParam(0));
+		load_x.params.add(new IntParam(variableIndex));
+		instrs.add(load_x);
+		
+		I store_tmp = new I(I.Type.ST);
+		store_tmp.params.add(new IntParam(0));
+		store_tmp.params.add(new IntParam(tmpIndex));
+		instrs.add(store_tmp);
+		if (write_to != null) {
+			instrs.addAll(processSingleExpression(write_to));
+		}
+
+		I ldc_stop_zero = new I(I.Type.LDC);
+		ldc_stop_zero.params.add(new IntParam(0));
+		instrs.add(ldc_stop_zero);
+
+		I load_x2 = new I(I.Type.LD);
+		load_x2.params.add(new IntParam(0));
+		load_x2.params.add(new IntParam(variableIndex));
+		instrs.add(load_x2);
+
+		instrs.addAll(processJmp(addr_tsel));
+					
+		I false_label = new I("false label in mem access");
+		instrs.add(false_label);
+		I false_ldc = new I(I.Type.LDC);
+		false_ldc.params.add(new IntParam(42));
+		instrs.add(false_ldc);
+		
+		I sel1 = new I(I.Type.SEL);
+		sel1.params.add(new RefParam(vtable.get(0)));
+		sel1.params.add(new IntParam(0));
+		instrs.add(sel1);
+
+		I rtn = new I("return in mem access");
+		instrs.addAll(processJmp(rtn));
+		
+		I ldc_for_vtable = new I(I.Type.LDC);
+		ldc_for_vtable.params.add(new IntParam(43));
+		instrs.add(ldc_for_vtable);
+
+		instrs.addAll(this.processDecreaseVariable(tmpIndex));
+		
+		I ld_for_tsel = new I(I.Type.LD);
+		ld_for_tsel.params.add(new IntParam(0));
+		ld_for_tsel.params.add(new IntParam(tmpIndex));
+		instrs.add(ld_for_tsel);
+
+		addr_tsel.params.add(new RefParam(ldc_for_vtable));
+		addr_tsel.params.add(new RefParam(false_label));
+		
+		instrs.add(addr_tsel);
+		instrs.add(rtn);
+		return instrs;
+	}
 	
 	public List<I> processArgumentsExpression(ECMAScriptParser.ArgumentsExpressionContext ast) {
 		List<I> instrs = new ArrayList<I>();
@@ -255,13 +343,14 @@ public class LambdaCompiler {
 			throw new RuntimeException("expected function call");
 		}
 		int count = 0;
-		if (ast.arguments() != null && ast.arguments().argumentList() != null) {
+		String id_name = ((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()).Identifier().toString(); 
+
+		if (ast.arguments() != null && ast.arguments().argumentList() != null && !id_name.equals("read_memory") && !id_name.equals("write_memory")) {
 			count = ast.arguments().argumentList().singleExpression().size();
 			for (ECMAScriptParser.SingleExpressionContext expr : ast.arguments().argumentList().singleExpression()) {
 				instrs.addAll(processSingleExpression(expr));
 			}
 		}
-		String id_name = ((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()).Identifier().toString(); 
 		if (id_name.equals("car")) {
 			instrs.add(new I(I.Type.CAR));
 		} else if (id_name.equals("cdr")) {
@@ -272,8 +361,9 @@ public class LambdaCompiler {
 			instrs.add(new I(I.Type.BRK));
 		} else if (id_name.equals("dbug")) {
 			instrs.add(new I(I.Type.DBUG));
-		} else if (id_name.equals("insert_vtable")) {
-			instrs.addAll(this.getOrCreateVtable());
+		} else if (id_name.equals("insert_vtables")) {
+			instrs.addAll(this.getOrCreateReadVtable());
+			instrs.addAll(this.getOrCreateWriteVtable());
 		} else if (id_name.equals("init_memory")) {
 //			int N = 22;
 //			int M = 23;
@@ -286,80 +376,20 @@ public class LambdaCompiler {
 			I ap = new I(I.Type.AP);
 			ap.params.add(new IntParam(count + DEFAULT_SIZE));
 			instrs.add(ap);
-		} else if (id_name.equals("load_memory")) {
+		} else if (id_name.equals("read_memory")) {
 			if (ast.arguments().argumentList().singleExpression().size() != 1) {
 				throw new RuntimeException("should be 1");
 			}
 			String variableName = ((ECMAScriptParser.IdentifierExpressionContext)ast.arguments().argumentList().singleExpression(0)).Identifier().toString();
 			Integer variableIndex = this.variablesStack.peek().get(variableName);
-			List<I> vtable = this.getOrCreateVtable();
-			Integer tmpIndex = currentTmpIndex;
-			currentTmpIndex++;
-			// ST X -> currentTmpIndex
-			// LDC 0 --> end
-			// jmp addr
-			// false:
-			// LDC 1
-			// SEL vtable 0
-			// jmp rtn
-			// true:
-			// LDC 43 -- for vtable
-			// X' = X' - 1
-			// LD X' -- for tsel
-			// addr: TSEL true false
-			// rtn:
-			
-			I addr_tsel = new I(I.Type.TSEL);
-			
-			I load_x = new I(I.Type.LD);
-			load_x.params.add(new IntParam(0));
-			load_x.params.add(new IntParam(variableIndex));
-			instrs.add(load_x);
-			
-			I store_tmp = new I(I.Type.ST);
-			store_tmp.params.add(new IntParam(0));
-			store_tmp.params.add(new IntParam(tmpIndex));
-			instrs.add(store_tmp);
-
-			I ldc_stop_zero = new I(I.Type.LDC);
-			ldc_stop_zero.params.add(new IntParam(0));
-			instrs.add(ldc_stop_zero);
-
-			I load_x2 = new I(I.Type.LD);
-			load_x2.params.add(new IntParam(0));
-			load_x2.params.add(new IntParam(variableIndex));
-			instrs.add(load_x2);
-
-			instrs.addAll(processJmp(addr_tsel));
-						
-			I false_ldc = new I(I.Type.LDC);
-			false_ldc.params.add(new IntParam(42));
-			instrs.add(false_ldc);
-			
-			I sel1 = new I(I.Type.SEL);
-			sel1.params.add(new RefParam(vtable.get(0)));
-			sel1.params.add(new IntParam(0));
-			instrs.add(sel1);
-
-			I rtn = new I("return in load_memory");
-			instrs.addAll(processJmp(rtn));
-			
-			I ldc_for_vtable = new I(I.Type.LDC);
-			ldc_for_vtable.params.add(new IntParam(43));
-			instrs.add(ldc_for_vtable);
-
-			instrs.addAll(this.processDecreaseVariable(tmpIndex));
-			
-			I ld_for_tsel = new I(I.Type.LD);
-			ld_for_tsel.params.add(new IntParam(0));
-			ld_for_tsel.params.add(new IntParam(tmpIndex));
-			instrs.add(ld_for_tsel);
-
-			addr_tsel.params.add(new RefParam(ldc_for_vtable));
-			addr_tsel.params.add(new RefParam(false_ldc));
-			
-			instrs.add(addr_tsel);
-			instrs.add(rtn);
+			instrs.addAll(processMemoryAccess(variableIndex, null));
+		} else if (id_name.equals("write_memory")) {
+			if (ast.arguments().argumentList().singleExpression().size() != 2) {
+				throw new RuntimeException("should be 2");
+			}
+			String variableName = ((ECMAScriptParser.IdentifierExpressionContext)ast.arguments().argumentList().singleExpression(0)).Identifier().toString();
+			Integer variableIndex = this.variablesStack.peek().get(variableName);
+			instrs.addAll(processMemoryAccess(variableIndex, ast.arguments().argumentList().singleExpression(1)));
 		} else {
 			instrs.addAll(processIdentifierExpression((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()));
 			I ap = new I(I.Type.AP);

@@ -1,13 +1,17 @@
-function foo(skip1, skip2, size) {
+function foo(skip1, skip2, size, size2) {
   while(size) {
-    dbug(load_memory(size))
-    brk()
+    write_memory(size, size * 5)
     size--
   }
-  return 7756;
-  insert_vtable(); // don't be afraid to insert tables after return! :)
+
+  while(size2) {
+    dbug(read_memory(size2))
+    size2--
+  }
+  return 7757;
+  insert_vtables(); // don't be afraid to insert tables after return! :)
 } 
 function init() {
-  return init_memory(0, 0, 3, foo)
+  return init_memory(0, 0, 3, 3, foo)
 }
 
