@@ -15,6 +15,7 @@ import java.util.function.Supplier;
  */
 
 public class Preprocessor {
+    private static final int COMMENT_PADDING = 30;
 
     public static void main(String[] args) {
 
@@ -98,13 +99,6 @@ public class Preprocessor {
             return new GHCCode(src).generateAsm(annotateWithLineNumbers);
         }
 
-//        public int getLabelPosition(String label) {
-//            Integer pos = labelPos.get(label);
-//            if (pos == null)
-//                throw new InvalidStateException("Unknown label '" + label + "'");
-//            return pos;
-//        }
-
         public String containsLabel(String asm) {
             for (Map.Entry<String, Integer> p : labelPos.entrySet()) {
                 if (asm.contains(p.getKey()))
@@ -113,20 +107,14 @@ public class Preprocessor {
             return null;
         }
 
-        public String replaceLabelsWithAddr(String asm) {
-            String prev;
-            String next = asm;
-            boolean hasComment = (asm.indexOf(';') != -1);
+        public String replaceLabelsWithAddr(String asm, RealGHCInstruction realInstr) {
             for (Map.Entry<String, Integer> p : labelPos.entrySet()) {
-                prev = next;
-                next = prev.replace(p.getKey(), p.getValue().toString());
-                if (!prev.equals(next)) {
-                    if (!hasComment)
-                        next += " ; ";
-                    next += "=>" + p.getKey();
+                if (asm.contains(p.getKey())) {
+                    realInstr.appendComment("=>" + p.getKey());
+                    return asm.replace(p.getKey(), p.getValue().toString());
                 }
             }
-            return next;
+            return asm;
         }
 
 
@@ -210,10 +198,10 @@ public class Preprocessor {
         }
 
         public String toAsmString(GHCCode code) {
-            String realInstructionAsm = code.replaceLabelsWithAddr(getRealInstructionAsm());
-            if (comment != null)
-                return Compiler.Opcode.rpad(realInstructionAsm, 20) + comment;
-            else
+            String realInstructionAsm = code.replaceLabelsWithAddr(getRealInstructionAsm(), this);
+            if (comment != null) {
+                return Compiler.Opcode.rpad(realInstructionAsm, COMMENT_PADDING) + comment;
+            } else
                 return realInstructionAsm;
         }
 
@@ -284,6 +272,7 @@ public class Preprocessor {
 
         CallInstruction(String raw) {
             super(raw);
+            setUsedLabel(raw.substring(CMD_NAME.length()).trim());
         }
 
         @Override
