@@ -146,19 +146,21 @@ public class Preprocessor {
         }
 
 
-        private GHCInstruction parseInstruction(String srcLine0) {
-            String srcLine = srcLine0.toLowerCase();
-            if (srcLine.contains(":")) {
-                return new LabelInstruction(srcLine0);
-            } else if (srcLine.startsWith(PushInstruction.CMD_NAME)) {
-                return new PushInstruction(srcLine0);
-            } else if (srcLine.startsWith(PopInstruction.CMD_NAME)) {
-                return new PopInstruction(srcLine0);
-            } else if (srcLine.startsWith(CallInstruction.CMD_NAME)) {
-                return new CallInstruction(srcLine0);
-            } else if (srcLine.startsWith(ReturnInstruction.CMD_NAME)) {
-                return new ReturnInstruction(srcLine0);
-            } else
+        private GHCInstruction parseInstruction(String srcLine) {
+            String lower = srcLine.toLowerCase().trim();
+            if (lower.contains(":")) {
+                return new LabelInstruction(srcLine);
+            } else if (lower.startsWith(PushInstruction.CMD_NAME)) {
+                return new PushInstruction(srcLine);
+            } else if (lower.startsWith(PopInstruction.CMD_NAME)) {
+                return new PopInstruction(srcLine);
+            } else if (lower.startsWith(CallInstruction.CMD_NAME)) {
+                return new CallInstruction(srcLine);
+            } else if (lower.startsWith(ReturnInstruction.CMD_NAME)) {
+                return new ReturnInstruction(srcLine);
+            } else if (lower.startsWith(GetCurPosInstruction.CMD_NAME))
+                return new GetCurPosInstruction(srcLine);
+            else
                 return new SimpleGHCInstruction(srcLine);
         }
     }
@@ -369,4 +371,23 @@ public class Preprocessor {
             return actual;
         }
     }
+
+
+    static class GetCurPosInstruction extends GHCInstruction {
+        public static final String CMD_NAME = "get_cur_pos";
+
+        GetCurPosInstruction(String raw) {
+            super(raw);
+        }
+
+        @Override
+        public List<RealGHCInstruction> getRealInstructions() {
+            String regName = this.srcInstruction.replace(CMD_NAME, "").trim();
+            List<RealGHCInstruction> actual = new ArrayList<>();
+            actual.add(new SimpleGHCInstruction("int 3", srcInstruction));
+            actual.add(new SimpleGHCInstruction("int 5", ""));
+            return actual;
+        }
+    }
+
 }
