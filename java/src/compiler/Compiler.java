@@ -214,6 +214,9 @@ public class Compiler {
 
     private void generateStatement(MyMethod myMethod, Statement statement) {
         if (statement instanceof VariableDeclarationStatement) {
+            if (!(statement.getParent().getParent() instanceof MethodDeclaration)) {
+                throw new CompilerException("Vardecl must be in method-level only, not in blocks", statement);
+            }
             VariableDeclarationStatement vds = (VariableDeclarationStatement)statement;
             List fragments = vds.fragments();
             if (fragments.size() != 1) {
@@ -304,26 +307,56 @@ public class Compiler {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
                 myMethod.addOpcode(new Opcode("ADD"));
+                if (ie.hasExtendedOperands()) {
+                    List<Expression> extendedOperands = ie.extendedOperands();
+                    for (int i = 0; i < extendedOperands.size(); i++) {
+                        generateExpression(myMethod, extendedOperands.get(i));
+                        myMethod.addOpcode(new Opcode("ADD"));
+                    }
+                }
             } else if (ie.getOperator().toString().equals("-")) {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
                 myMethod.addOpcode(new Opcode("SUB"));
+                if (ie.hasExtendedOperands()) throw new CompilerException("Extended operand sorry", expression);
             } else if (ie.getOperator().toString().equals("*")) {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
                 myMethod.addOpcode(new Opcode("MUL"));
+                if (ie.hasExtendedOperands()) {
+                    List<Expression> extendedOperands = ie.extendedOperands();
+                    for (int i = 0; i < extendedOperands.size(); i++) {
+                        generateExpression(myMethod, extendedOperands.get(i));
+                        myMethod.addOpcode(new Opcode("MUL"));
+                    }
+                }
             } else if (ie.getOperator().toString().equals("&&")) {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
                 myMethod.addOpcode(new Opcode("MUL"));
+                if (ie.hasExtendedOperands()) {
+                    List<Expression> extendedOperands = ie.extendedOperands();
+                    for (int i = 0; i < extendedOperands.size(); i++) {
+                        generateExpression(myMethod, extendedOperands.get(i));
+                        myMethod.addOpcode(new Opcode("MUL"));
+                    }
+                }
             } else if (ie.getOperator().toString().equals("||")) {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
                 myMethod.addOpcode(new Opcode("ADD"));
+                if (ie.hasExtendedOperands()) {
+                    List<Expression> extendedOperands = ie.extendedOperands();
+                    for (int i = 0; i < extendedOperands.size(); i++) {
+                        generateExpression(myMethod, extendedOperands.get(i));
+                        myMethod.addOpcode(new Opcode("ADD"));
+                    }
+                }
             } else if (ie.getOperator().toString().equals("/")) {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
                 myMethod.addOpcode(new Opcode("DIV"));
+                if (ie.hasExtendedOperands()) throw new CompilerException("Extended operand sorry", expression);
             } else if (ie.getOperator().toString().equals(">")) {
                 generateExpression(myMethod, ie.getLeftOperand());
                 generateExpression(myMethod, ie.getRightOperand());
@@ -507,7 +540,7 @@ public class Compiler {
     private void generateTupleAccess(ArrayList<Opcode> accessor, Integer position, int tupleSize) {
         int ix = accessor.size();
         if (position == tupleSize - 1) {
-            for(int i=0; i<=tupleSize-2; i++) {
+            for(int i=0; i<tupleSize-2; i++) {
                 accessor.add(new Opcode("CDR"));
             }
             accessor.add(new Opcode("CDR"));

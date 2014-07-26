@@ -44,7 +44,7 @@ public class Sample1 extends VM {
 
     @Compiled
     public Tuple<AIState,Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, Object undocumented) {
-        return new Tuple<>(createInitialState(ws.map), (nextaistate, worldState) -> performMove(nextaistate, worldState));
+        return entryFactual(ws);
 //        int x = location.a;
 //        int y = location.b;
 
@@ -58,6 +58,13 @@ public class Sample1 extends VM {
 
     }
 
+    @Compiled
+    private Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryFactual(WorldState ws) {
+        AIState initialState = createInitialState(ws.map);
+        debug(9900000);
+        debug(initialState);
+        return new Tuple<>(initialState, (nextaistate, worldState) -> performMove(nextaistate, worldState));
+    }
 
 
     @Compiled
@@ -79,17 +86,23 @@ public class Sample1 extends VM {
 
     @Compiled
     private Tuple<AIState, Integer> performMove(AIState aistate, WorldState worldState) {
+        debug(2000010);
+        debug(aistate.parsedStaticMap.junctions);
+        debug(aistate.parsedStaticMap.walkable);
+        debug(aistate.parsedStaticMap.parsedEdges);
         Point location = worldState.lambdaManState.location;
         ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate, location);
         ListCons<EdgeAndCount> collectedPoints = map(edgesForPoint, (e) -> new EdgeAndCount(e, length(collectEdgePills(e, location, worldState.map))));
         EdgeAndCount ec = maximum_by(collectedPoints, (EdgeAndCount cp) -> cp.count);
         ListCons<Point> pathToWalk = dropWhile(ec.pe.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
         Tuple<AIState, Integer> retval;
+        Point newLocation;
+        int direction;
         if (length(pathToWalk) < 2) {
             retval = new Tuple<>(aistate, 2);
         } else {
-            Point newLocation = head(tail(pathToWalk));
-            int direction =
+            newLocation = head(tail(pathToWalk));
+            direction =
                     (newLocation.x > location.x) ? 1 :
                             (newLocation.x < location.x) ? 3 :
                                     (newLocation.y < location.y) ? 0 :
@@ -271,7 +284,14 @@ public class Sample1 extends VM {
         int a2 = isWalkable(getMapItem(map, y+1, x));
         int a3 = isWalkable(getMapItem(map, y, x-1));
         int a4 = isWalkable(getMapItem(map, y, x+1));
-        return a1+a2+a3+a4 > 2 ? 1 : 0;
+        debug(8888888);
+        debug(x);
+        debug(y);
+        int sum = a1 + a2 + a3 + a4;
+        int rv = sum > 2 ? 1 : 0;
+        debug(sum);
+        debug(rv);
+        return rv;
     }
 
     @Compiled
@@ -286,23 +306,30 @@ public class Sample1 extends VM {
         if (queue_isempty(pointQueue)) {
             retval = acc;
         } else {
-            Tuple<ListCons<Point>, Queue<ListCons<Point>>> emptier = queue_dequeue(pointQueue);
-            ListCons<Point> thisRoute = emptier.a;
-            Point weAreHere = head(thisRoute);
-            ListCons<Point> possibleDestinations =
-                    cons(new Point(weAreHere.x + 1, weAreHere.y),
-                            cons(new Point(weAreHere.x - 1, weAreHere.y),
-                                    cons(new Point(weAreHere.x, weAreHere.y + 1),
-                                            cons(new Point(weAreHere.x, weAreHere.y - 1), null))
-                            )
-                    );
-            ListCons<Point> exits = filter(possibleDestinations, (Point d) -> isWalkable2(map, d) * noneof(visited, (Point v) -> v.x == d.x && v.y == d.y ? 1 : 0));// here * === &&
-            ListCons<Point> arriveds = filter(exits, (Point e) -> any(destinations, (Point d) -> d.x == e.x && d.y == e.y ? 1 : 0));
-            ListCons<Point> continueds = filter(exits, (Point e) -> noneof(arriveds, (Point d) -> d.x == e.x && d.y == e.y ? 1 : 0));
-            ListCons<ListCons<Point>> exitRoutes = map(continueds, (Point e) -> cons(e, thisRoute));
-            Queue<ListCons<Point>> filledQueue = fold0(exitRoutes, emptier.b, (r, i) -> queue_enqueue(r, i));
-            retval = waveFromPointToNearestJunction(map, filledQueue, destinations, concat2_set(visited, exits), concat2_set(acc, map(arriveds, (e) -> cons(e, thisRoute))));
+            retval = waveFromPointToNearestJunction0(map, pointQueue, destinations, visited, acc);
         }
+        return retval;
+    }
+
+    @Compiled
+    private ListCons<ListCons<Point>> waveFromPointToNearestJunction0(ListCons<ListCons<Integer>> map, Queue<ListCons<Point>> pointQueue, ListCons<Point> destinations, ListCons<Point> visited, ListCons<ListCons<Point>> acc) {
+        ListCons<ListCons<Point>> retval;
+        Tuple<ListCons<Point>, Queue<ListCons<Point>>> emptier = queue_dequeue(pointQueue);
+        ListCons<Point> thisRoute = emptier.a;
+        Point weAreHere = head(thisRoute);
+        ListCons<Point> possibleDestinations =
+                cons(new Point(weAreHere.x + 1, weAreHere.y),
+                        cons(new Point(weAreHere.x - 1, weAreHere.y),
+                                cons(new Point(weAreHere.x, weAreHere.y + 1),
+                                        cons(new Point(weAreHere.x, weAreHere.y - 1), null))
+                        )
+                );
+        ListCons<Point> exits = filter(possibleDestinations, (Point d) -> isWalkable2(map, d) * noneof(visited, (Point v) -> v.x == d.x && v.y == d.y ? 1 : 0));// here * === &&
+        ListCons<Point> arriveds = filter(exits, (Point e) -> any(destinations, (Point d) -> d.x == e.x && d.y == e.y ? 1 : 0));
+        ListCons<Point> continueds = filter(exits, (Point e) -> noneof(arriveds, (Point d) -> d.x == e.x && d.y == e.y ? 1 : 0));
+        ListCons<ListCons<Point>> exitRoutes = map(continueds, (Point e) -> cons(e, thisRoute));
+        Queue<ListCons<Point>> filledQueue = fold0(exitRoutes, emptier.b, (r, i) -> queue_enqueue(r, i));
+        retval = waveFromPointToNearestJunction(map, filledQueue, destinations, concat2_set(visited, exits), concat2_set(acc, map(arriveds, (e) -> cons(e, thisRoute))));
         return retval;
     }
 
@@ -320,14 +347,8 @@ public class Sample1 extends VM {
     private ParsedStaticMap parseMap(ListCons<ListCons<Integer>> m) {
         ListCons<ListCons<Point>> toConcat = mapi(m, 0, (row, rowy) -> my_cat_maybes(collectWalkableXY(row, rowy)));
         ListCons<Point> walkable = concat(toConcat);
-        debug(200001);
-        debug(walkable);
         ListCons<Point> junctions = filter(walkable, (Point w) -> isJunction(m, w.x, w.y));
-        debug(200002);
-        debug(junctions);
         ListCons<ParsedEdge> allParsedEdges = concat(map(junctions, (j) -> findNeighbourJunctions(m, j, junctions)));
-        debug(200003);
-        debug(allParsedEdges);
         // renumber them.
         allParsedEdges = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.edge, pe.count, pe.a, pe.b, ix));
         return new ParsedStaticMap(walkable, junctions, allParsedEdges, null, null);
@@ -336,10 +357,6 @@ public class Sample1 extends VM {
     @Compiled
     private ListCons<Point> my_cat_maybes(ListCons<Maybe<Point>> maybeListCons) {
         ListCons<Point> rv = cat_maybes(maybeListCons);
-        debug(30000010);
-        debug(maybeListCons);
-        debug(30000020);
-        debug(rv);
         return rv;
     }
 
