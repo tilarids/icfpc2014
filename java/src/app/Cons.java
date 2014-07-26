@@ -13,5 +13,8 @@ public class Cons {
         this.addr = addr;
     }
 
-
+    @Override
+    public String toString() {
+        return "(CONS "+data+" "+addr+")";
+    }
 }

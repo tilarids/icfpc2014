@@ -86,7 +86,7 @@ public class Compiler {
     }
 
     public TypeDeclaration visitString(File file, String source) {
-        ASTParser parser = ASTParser.newParser(AST.JLS3);
+        ASTParser parser = ASTParser.newParser(AST.JLS8);
 
         @SuppressWarnings( "unchecked" )
         Map<String,String> options = JavaCore.getOptions();
@@ -120,6 +120,7 @@ public class Compiler {
             System.out.println("ERROR!! ");
             System.out.println("ERROR!! ");
             System.out.println("ERROR: "+sourceFile+"("+line+","+col+"): "+e.getMessage());
+            System.out.println("ERROR:     => "+e.node);
             System.out.println("ERROR!! ");
         }
 
@@ -128,10 +129,14 @@ public class Compiler {
     private void run() throws IOException {
         addTypes(parseFile(new File("src/app/VM.java")));
         addTypes(parseFile(new File("src/app/Sample1.java")));
-        Collection<MyMethod> values = methods.values();
         ArrayList<Opcode> global = new ArrayList<>();
-        for (String name : methods.keySet()) {
-            MyMethod method = generateMethod(name, global.size());
+        MyMethod run = getMethod("run");
+        methods.remove(run);
+        methods.add(0, run);
+        for (int m = 0; m < methods.size(); m++) {
+            MyMethod method = methods.get(m);
+            method.offset = global.size();
+            generateMethod(method.name, method);
             ArrayList<Opcode> opcodes = method.opcodes;
             for (int oi = 0; oi < opcodes.size(); oi++) {
                 Opcode opcode = opcodes.get(oi);
@@ -146,14 +151,19 @@ public class Compiler {
             global.addAll(method.opcodes);
         }
 
-        for (MyMethod myMethod : values) {
-            for (Opcode opcode : myMethod.opcodes) {
+        for (int m = 0; m < methods.size(); m++) {
+            MyMethod method = methods.get(m);
+            for (Opcode opcode : method.opcodes) {
                 for (int i = 0; i < opcode.arguments.length; i++) {
                     Object argument = opcode.arguments[i];
                     if (argument instanceof FunctionRef) {
                         FunctionRef fr = (FunctionRef)argument;
                         opcode.arguments[i] = fr.resolve();
-                        opcode.comment = " @"+fr.name;
+                        if (opcode.comment == null) {
+                            opcode.comment = " @" + fr.name;
+                        } else {
+                            opcode.comment = opcode.comment + ", ALSO: @" + fr.name;
+                        }
                     }
                 }
             }
@@ -161,29 +171,36 @@ public class Compiler {
 
         for (int i = 0; i < global.size(); i++) {
             Opcode opcode = global.get(i);
-            System.out.println(String.format("%5d %s", i, opcode.toString()));
+            System.out.println(String.format("%s", opcode.toString()));
         }
     }
 
-    private MyMethod generateMethod(String key, int offset) {
-        MyMethod myMethod = methods.get(key);
-        myMethod.offset = offset;
-        MethodDeclaration decl = myMethod.decl;
-        List<VariableDeclaration> parameters = decl.parameters();
-        for (VariableDeclaration parameter : parameters) {
-            if (parameter instanceof SingleVariableDeclaration) {
-                SingleVariableDeclaration svd = (SingleVariableDeclaration)parameter;
-                myMethod.addVariable(svd.getType().toString(), parameter.getName().toString());
+    private MyMethod generateMethod(String name, MyMethod myMethod) {
+        if (myMethod.opcodes.size() == 0) {
+            List<VariableDeclaration> parameters = myMethod.parameters;
+            for (VariableDeclaration parameter : parameters) {
+                if (parameter instanceof SingleVariableDeclaration) {
+                    SingleVariableDeclaration svd = (SingleVariableDeclaration) parameter;
+                    myMethod.addVariable(svd.getType().toString(), parameter.getName().toString());
+                } else {
+                    throw new CompilerException("Must be single variable declaration in parameter!", parameter);
+                }
+            }
+            ASTNode b = myMethod.body;
+            if (b instanceof Block) {
+                Block body = (Block) b;
+                List<Statement> statements = body.statements();
+                for (Statement statement : statements) {
+                    generateStatement(myMethod, statement);
+                }
+                myMethod.opcodes.get(0).comment = " <== " + name + "  " + parameters;
+            } else if (b instanceof Expression) {
+                generateExpression(myMethod, (Expression) b);
+                myMethod.addOpcode(new Opcode("RTN"));
             } else {
-                throw new CompilerException("Must be single variable declaration in parameter!", decl);
+                System.out.println("Oh");
             }
         }
-        Block body = decl.getBody();
-        List<Statement> statements = body.statements();
-        for (Statement statement : statements) {
-            generateStatement(myMethod, statement);
-        }
-        myMethod.opcodes.get(0).comment = " <== " + key+"  "+parameters;
         return myMethod;
     }
 
@@ -230,6 +247,8 @@ public class Compiler {
 
             if (es.toString().startsWith("System.out.print")) {
                 // ok
+            } else if (es.getExpression() instanceof MethodInvocation && ((MethodInvocation)es.getExpression()).getName().toString().equals("debug")) {
+                generateExpression(myMethod, es.getExpression());
             } else if (es.getExpression() instanceof Assignment) {
                 Assignment as = (Assignment)es.getExpression();
                 Expression leftHandSide = as.getLeftHandSide();
@@ -251,7 +270,7 @@ public class Compiler {
 
     private void generateExpression(MyMethod myMethod, Expression expression) {
         if (expression instanceof NumberLiteral) {
-            myMethod.addOpcode(new Opcode("LDC", new Integer(expression.toString())));
+            myMethod.addOpcode(new Opcode("LDC", new Integer(expression.toString())).commented("just constant from code"));
             return;
         }
         if (expression instanceof InfixExpression) {
@@ -309,14 +328,14 @@ public class Compiler {
                 if (ie.getRightOperand().toString().equals("null")) {       // compare with null
                     generateExpression(myMethod, ie.getLeftOperand());
                     myMethod.addOpcode(new Opcode("ATOM"));
-                    myMethod.addOpcode(new Opcode("LDC","1"));
+                    myMethod.addOpcode(new Opcode("LDC","1").commented("for negation"));
                     myMethod.addOpcode(new Opcode("SUB"));
 
                 } else {
                     generateExpression(myMethod, ie.getLeftOperand());
                     generateExpression(myMethod, ie.getRightOperand());
                     myMethod.addOpcode(new Opcode("CEQ"));
-                    myMethod.addOpcode(new Opcode("LDC","1"));
+                    myMethod.addOpcode(new Opcode("LDC","1").commented("for negation"));
                     myMethod.addOpcode(new Opcode("SUB"));
                 }
             } else {
@@ -339,7 +358,9 @@ public class Compiler {
             SimpleName sn = (SimpleName)expression;
             Integer varix = myMethod.variables.get(sn.toString());   // index of q
             if (varix == null) throw new CompilerException("Unable to find variable",expression);
-            myMethod.addOpcode(new Opcode("LD",0, varix));
+            Opcode ld = new Opcode("LD", 0, varix);
+            ld.comment = "var "+sn.toString();
+            myMethod.addOpcode(ld);
         } else if (expression instanceof QualifiedName) {
             QualifiedName qn = (QualifiedName)expression;
             Name qualifier = qn.getQualifier();
@@ -357,9 +378,9 @@ public class Compiler {
                 if (indexInTuple == null) throw new CompilerException("Unable to find variable in given tuple: "+qualifier, expression);
 
                 // arg 2 for list_item
-                myMethod.addOpcode(new Opcode("LDC",indexInTuple));
+                myMethod.addOpcode(new Opcode("LDC", indexInTuple).commented("field index in tuple: "+typeName+"::"+name));
                 // arg 1 for list_item
-                myMethod.addOpcode(new Opcode("LD",0, varix));
+                myMethod.addOpcode(new Opcode("LD", 0, varix).commented("var "+qualifier.toString()));
                 // call function
                 myMethod.addOpcode(new Opcode("LDF", new FunctionRef("list_item")));
                 myMethod.addOpcode(new Opcode("AP", 2));
@@ -372,17 +393,25 @@ public class Compiler {
             generateExpression(myMethod, ce.getExpression());
             myMethod.addOpcode(new Opcode("SEL", new ExpressionRef(myMethod, ce.getThenExpression()), new ExpressionRef(myMethod, ce.getElseExpression())));
         } else if (expression instanceof NullLiteral) {
-            myMethod.addOpcode(new Opcode("LDC", 0));
+            myMethod.addOpcode(new Opcode("LDC", 0).commented("NULL literal"));
         } else if (expression instanceof CastExpression) {
             CastExpression ca = (CastExpression)expression;
             generateExpression(myMethod, ca.getExpression());
         } else if (expression instanceof ParenthesizedExpression) {
             ParenthesizedExpression pe = (ParenthesizedExpression)expression;
             generateExpression(myMethod, pe.getExpression());
+        } else if (expression instanceof LambdaExpression) {
+            LambdaExpression le = (LambdaExpression)expression;
+            final List parameters = ((LambdaExpression) expression).parameters();
+            final ASTNode body = le.getBody();
+            String name = "lambda_"+(lambdaCount++);
+            MyMethod mm = new MyMethod(name, parameters, body);
+            methods.add(mm);
+            myMethod.addOpcode(new Opcode("LDF", new FunctionRef(name)));
         } else if (expression instanceof MethodInvocation) {
             MethodInvocation mi = (MethodInvocation)expression;
             List<Expression> arguments = mi.arguments();
-            for (int i = arguments.size() - 1; i >= 0; i--) {
+            for (int i = 0; i < arguments.size(); i++) {
                 Expression expression1 = arguments.get(i);
                 generateExpression(myMethod, expression1);
             }
@@ -397,12 +426,18 @@ public class Compiler {
                 myMethod.addOpcode(new Opcode("CAR"));
             } else if (methodName.toString().equals("second")) {
                 myMethod.addOpcode(new Opcode("CDR"));
+            } else if (methodName.toString().equals("debug")) {
+                myMethod.addOpcode(new Opcode("DBUG"));
             } else {
-                MyMethod userMethod = methods.get(methodName);
+                MyMethod userMethod = getMethod(methodName);
                 if (userMethod != null) {
-                    if (userMethod.decl.parameters().size() != arguments.size()) throw new CompilerException("User Method call: wrong number of arguments", expression);
+                    generateMethod(userMethod.name, userMethod);
+                    if (userMethod.variables.size() < arguments.size()) throw new CompilerException("User Method call: fewer number of arguments", expression);
+                    for(int i=arguments.size(); i<userMethod.variables.size(); i++) {
+                        myMethod.addOpcode(new Opcode("LDC 0").commented("local var space"));
+                    }
                     myMethod.addOpcode(new Opcode("LDF", new FunctionRef(methodName)));
-                    myMethod.addOpcode(new Opcode("AP", arguments.size()));
+                    myMethod.addOpcode(new Opcode("AP", userMethod.variables.size()));
                 } else if (methodName.equals("apply")) {
                     if (mi.getExpression() != null) {
                         generateExpression(myMethod, mi.getExpression());
@@ -420,6 +455,8 @@ public class Compiler {
         // expression.resolveTypeBinding();
     }
 
+    static int lambdaCount = 1000;
+
     private String cleanupTemplates(String s) {
         if (s.contains("<")) {
             return s.substring(0, s.indexOf("<"));
@@ -434,7 +471,7 @@ public class Compiler {
 
     HashMap<String, MyTyple> tuples = new HashMap<>();
 
-    HashMap<String, MyMethod> methods = new HashMap<>();
+    ArrayList<MyMethod> methods = new ArrayList<>();
 
 
     private void addTypes(TypeDeclaration typeDeclaration) {
@@ -463,7 +500,7 @@ public class Compiler {
 
     private void addMethod(MethodDeclaration method) {
         SimpleName name = method.getName();
-        methods.put(name.toString(), new MyMethod(method));
+        methods.add(new MyMethod(name.toString(), method.parameters(), method.getBody()));
     }
 
     private void addTuple(TypeDeclaration type) {
@@ -494,9 +531,16 @@ public class Compiler {
         }
 
         public int resolve() {
-            MyMethod myMethod = methods.get(name);
+            MyMethod myMethod = getMethod(name);
             return myMethod.offset;
         }
+    }
+
+    private MyMethod getMethod(String name) {
+        for (MyMethod method : methods) {
+            if (method.name.equals(name)) return method;
+        }
+        return null;
     }
 
     interface FutureReference {
@@ -557,6 +601,11 @@ public class Compiler {
             this.arguments = arguments;
         }
 
+        Opcode commented(String comment) {
+            this.comment = comment;
+            return this;
+        }
+
         String rpad(String s, int max) {
             while (s.length() < max) {
                 s = s + " ";
@@ -583,16 +632,20 @@ public class Compiler {
     }
 
     private class MyMethod {
-        MethodDeclaration decl;
+        List<VariableDeclaration> parameters;
         int offset;
+        String name;
 
         HashMap<String, Integer> variables = new HashMap<>();
 
         HashMap<Integer, String> variableTypes = new HashMap<>();
         ArrayList<Opcode> opcodes = new ArrayList<>();
+        public ASTNode body;
 
-        private MyMethod(MethodDeclaration decl) {
-            this.decl = decl;
+        private MyMethod(String name, List<VariableDeclaration> parameters, ASTNode body) {
+            this.parameters = parameters;
+            this.body = body;
+            this.name = name;
         }
 
         public void addOpcode(Opcode op) {
