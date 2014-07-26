@@ -25,7 +25,7 @@ public class LambdaCompiler {
 
 	public static class I {  // instruction
 		public enum Type {ERROR, CONS, DUM, LDC, LDF, RAP, RTN, LD, ADD, AP, CAR, CDR, JOIN, SEL, 
-							TSEL, ATOM, CGT, SUB,  MUL, DIV, CEQ, COMMENT, ST, DBUG};
+							TSEL, ATOM, CGT, SUB,  MUL, DIV, CEQ, COMMENT, ST, DBUG, BRK};
 		public I (Type t) {
 			this.type = t;
 		}
@@ -103,8 +103,11 @@ public class LambdaCompiler {
 	public int topFrameDeclCount = 0;
 	public Stack<Map<String, Integer>> variablesStack = new Stack<Map<String, Integer>>();
 	public List<I> vtable = null;
-	int DEFAULT_SIZE = 10;
+	int DEFAULT_SIZE = 15;
+	int TMP_START = 10;
 	int DEFAULT_SKIP = 4;
+	public int currentTmpIndex = TMP_START;
+	
 	public List<I> createVtable(int size) {
 		// SEL y x
 		// x: FUN
@@ -114,14 +117,15 @@ public class LambdaCompiler {
 		// load mem
 		List<I> instrs = new ArrayList<I>();
 		instrs.add(new I(" vtable end "));
+		instrs.add(0, new I(I.Type.JOIN));			
 		for (int i = size - 1; i >=0; --i) {
 			instrs.add(0, new I(I.Type.JOIN));			
 			I fun = new I(I.Type.LD);
 			fun.params.add(new IntParam(0));
 			fun.params.add(new IntParam(DEFAULT_SKIP + i));
 			instrs.add(0, fun);
-			I sel = new I(I.Type.SEL);
-			sel.params.add(new RefParam(instrs.get(1)));
+			I sel = new I(I.Type.TSEL);
+			sel.params.add(new RefParam(instrs.get(2)));
 			sel.params.add(new RefParam(fun));
 			instrs.add(0, sel);
 		}
@@ -232,6 +236,20 @@ public class LambdaCompiler {
 		return instrs;
 	}
 	
+	public List<I> processJmp(I dest) {
+		List<I> instrs = new ArrayList<I>();
+		I ldc1 = new I(I.Type.LDC);
+		ldc1.params.add(new IntParam(1));
+		instrs.add(ldc1);
+		
+		I tsel = new I(I.Type.TSEL);
+		tsel.params.add(new RefParam(dest));
+		tsel.params.add(new IntParam(0));
+		instrs.add(tsel);
+		
+		return instrs;
+	}
+	
 	public List<I> processArgumentsExpression(ECMAScriptParser.ArgumentsExpressionContext ast) {
 		List<I> instrs = new ArrayList<I>();
 		if (ast.singleExpression() == null || !(ast.singleExpression() instanceof ECMAScriptParser.IdentifierExpressionContext)) {
@@ -251,6 +269,8 @@ public class LambdaCompiler {
 			instrs.add(new I(I.Type.CDR));
 		} else if (id_name.equals("atom")) {
 			instrs.add(new I(I.Type.ATOM));
+		} else if (id_name.equals("brk")) {
+			instrs.add(new I(I.Type.BRK));
 		} else if (id_name.equals("dbug")) {
 			instrs.add(new I(I.Type.DBUG));
 		} else if (id_name.equals("insert_vtable")) {
@@ -274,63 +294,70 @@ public class LambdaCompiler {
 			String variableName = ((ECMAScriptParser.IdentifierExpressionContext)ast.arguments().argumentList().singleExpression(0)).Identifier().toString();
 			Integer variableIndex = this.variablesStack.peek().get(variableName);
 			List<I> vtable = this.getOrCreateVtable();
+			Integer tmpIndex = currentTmpIndex;
+			currentTmpIndex++;
+			// ST X -> currentTmpIndex
+			// LDC 0 --> end
 			// jmp addr
 			// false:
 			// LDC 1
 			// SEL vtable 0
 			// jmp rtn
 			// true:
-			// LD X
-			// ST X - 1
-			// LD X
+			// LDC 43 -- for vtable
+			// X' = X' - 1
+			// LD X' -- for tsel
 			// addr: TSEL true false
 			// rtn:
 			
-			I ldc1 = new I(I.Type.LDC);
-			ldc1.params.add(new IntParam(1));
-			instrs.add(ldc1);
-			
 			I addr_tsel = new I(I.Type.TSEL);
 			
-			I tsel1 = new I(I.Type.TSEL);
-			tsel1.params.add(new RefParam(addr_tsel));
-			tsel1.params.add(new IntParam(0));
-			instrs.add(tsel1);
+			I load_x = new I(I.Type.LD);
+			load_x.params.add(new IntParam(0));
+			load_x.params.add(new IntParam(variableIndex));
+			instrs.add(load_x);
 			
-			I ldc2 = new I(I.Type.LDC);
-			ldc2.params.add(new IntParam(2));
-			instrs.add(ldc2);
+			I store_tmp = new I(I.Type.ST);
+			store_tmp.params.add(new IntParam(0));
+			store_tmp.params.add(new IntParam(tmpIndex));
+			instrs.add(store_tmp);
+
+			I ldc_stop_zero = new I(I.Type.LDC);
+			ldc_stop_zero.params.add(new IntParam(0));
+			instrs.add(ldc_stop_zero);
+
+			I load_x2 = new I(I.Type.LD);
+			load_x2.params.add(new IntParam(0));
+			load_x2.params.add(new IntParam(variableIndex));
+			instrs.add(load_x2);
+
+			instrs.addAll(processJmp(addr_tsel));
+						
+			I false_ldc = new I(I.Type.LDC);
+			false_ldc.params.add(new IntParam(42));
+			instrs.add(false_ldc);
 			
 			I sel1 = new I(I.Type.SEL);
 			sel1.params.add(new RefParam(vtable.get(0)));
 			sel1.params.add(new IntParam(0));
 			instrs.add(sel1);
-			
-			I ldc3 = new I(I.Type.LDC);
-			ldc3.params.add(new IntParam(3));
-			instrs.add(ldc3);
-			
+
 			I rtn = new I("return in load_memory");
+			instrs.addAll(processJmp(rtn));
 			
-			I tsel2 = new I(I.Type.TSEL);
-			tsel2.params.add(new RefParam(rtn));
-			tsel2.params.add(new IntParam(0));
-			instrs.add(tsel2);
-			
-			I ld1 = new I(I.Type.LD);
-			ld1.params.add(new IntParam(0));
-			ld1.params.add(new IntParam(variableIndex));
-			instrs.add(ld1);
+			I ldc_for_vtable = new I(I.Type.LDC);
+			ldc_for_vtable.params.add(new IntParam(43));
+			instrs.add(ldc_for_vtable);
 
-			instrs.addAll(this.processDecreaseVariable(variableIndex));
+			instrs.addAll(this.processDecreaseVariable(tmpIndex));
 			
-			I ld3 = new I(I.Type.LD);
-			ld3.params.add(new IntParam(0));
-			ld3.params.add(new IntParam(variableIndex));
-			instrs.add(ld3);
+			I ld_for_tsel = new I(I.Type.LD);
+			ld_for_tsel.params.add(new IntParam(0));
+			ld_for_tsel.params.add(new IntParam(tmpIndex));
+			instrs.add(ld_for_tsel);
 
-			addr_tsel.params.add(new RefParam(ld1));
-			addr_tsel.params.add(new RefParam(ldc1));
+			addr_tsel.params.add(new RefParam(ldc_for_vtable));
+			addr_tsel.params.add(new RefParam(false_ldc));
 			
 			instrs.add(addr_tsel);
 			instrs.add(rtn);
@@ -498,29 +525,27 @@ public class LambdaCompiler {
 		if (ast.statement() == null || ast.expressionSequence() == null || ast.expressionSequence().singleExpression().size() != 1) {
 			throw new RuntimeException("malformed while");
 		}
+		// JMP addr
+		// stmt
+		//   expr
+		// addr:
+		// TSEL stmt while_end
+		// while_end:
 		List<I> stmt = processStatement(ast.statement());
 		List<I> expr = processSingleExpression(ast.expressionSequence().singleExpression(0));
 		List<I> instrs = new ArrayList<I>();
-		
-		I ldc = new I(I.Type.LDC);
-		ldc.params.add(new IntParam(1));
-		instrs.add(ldc);
-		
-		I uncond_sel = new I(I.Type.TSEL);
-		uncond_sel.params.add(new RefParam(expr.get(0)));
-		uncond_sel.params.add(new IntParam(0));
 
-		instrs.add(uncond_sel);
+		instrs.addAll(processJmp(expr.get(0)));
 		
 		instrs.addAll(stmt);
-		I join = new I(I.Type.JOIN);
-		instrs.add(join);
 		instrs.addAll(expr);
-				
-		I cond_sel = new I(I.Type.SEL);
-		cond_sel.params.add(new RefParam(stmt.get(0)));
-		cond_sel.params.add(new RefParam(join));
-		instrs.add(cond_sel);
+		
+		I while_end = new I("while end");
+		I cond_tsel = new I(I.Type.TSEL);
+		cond_tsel.params.add(new RefParam(stmt.get(0)));
+		cond_tsel.params.add(new RefParam(while_end));
+		instrs.add(cond_tsel);
+		instrs.add(while_end);
 		return instrs;
 	}
 	

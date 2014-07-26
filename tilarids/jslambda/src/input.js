@@ -1,14 +1,11 @@
-function new_step(state, world, size) {
+function foo(size) {
   while(size) {
-    dbug(load_memory(size))
+    dbug(size)
     size--
   }
-  insert_vtable();
+  return 1233;
 } 
-function new_step_impl(state, tuple4) {
-  return init_memory(state, car(tuple4), 5, new_step)
-}
 function init() {
-  return [0, new_step_impl]
+  return foo(5)
 }
 
