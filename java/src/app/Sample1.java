@@ -67,13 +67,13 @@ public class Sample1 extends VM {
     @Compiled
     private ListCons<Point> collectEdgePills(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map) {
         ListCons<Point> pathOnEdge = dropWhile(edge.edge, (Point p) -> p.x != start.x || p.y != start.y ? 1 : 0);
-        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == 2 ? 1 : 0);
+        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == CT.PILL ? 1 : 0);
     }
 
     @Compiled
     private ListCons<Point> collectEdgeGhosts(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map) {
         ListCons<Point> pathOnEdge = dropWhile(edge.edge, (Point p) -> p.x != start.x || p.y != start.y ? 1 : 0);
-        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == 6 ? 1 : 0);
+        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == CT.GHOST ? 1 : 0);
     }
 
 
@@ -482,8 +482,8 @@ public class Sample1 extends VM {
             String row = rows[i1];
             ListCons<Integer> lst = null;
             for (int i = row.length() - 1; i >= 0; i--) {
-                CT charValue = CT.convertMapCharacter(row.charAt(i));
-                lst = cons(charValue.getValue(), lst);
+                int charValue = CT.convertMapCharacter(row.charAt(i));
+                lst = cons(charValue, lst);
                 if (charValue == CT.LAMBDA) {
                     human.x = i;
                     human.y = i1;
