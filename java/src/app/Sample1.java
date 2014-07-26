@@ -52,11 +52,12 @@ public class Sample1 extends VM {
 
     @Compiled
     public Object run(Cons map, Tuple<Integer,Integer> location, Integer direction, Integer lives, Integer score) {
+        if (test1() == 0) {
+            debug(28);
+        }
 //        int x = location.a;
 //        int y = location.b;
 
-        Integer q = (Integer)fold(cons(5, cons(6, null)), (a, b) -> (Integer)a + (Integer)b);
-        System.out.println("q="+q);
 
 //        CT left = getMapItem(map, y, x-1);
 //        CT right = getMapItem(map, y, x+1);
@@ -66,6 +67,16 @@ public class Sample1 extends VM {
 
 
         return null;
+    }
+
+    @Compiled
+    private int test1() {
+        Cons list = cons(1, cons(2, cons(3, null)));
+        Integer q = (Integer)fold(list, (Integer a, Integer b) -> a + b);
+        debug(q);
+        Cons qq = reverse(list);
+        debug(qq);
+        return 1;
     }
 
 

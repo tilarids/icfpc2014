@@ -34,10 +34,16 @@ public class VM {
         return new Cons(data, addr);
     }
 
+    public static void debug(Object o) {
+        System.out.println("DEBUG: "+o.toString());
+    }
+
     public static <T> T head(Cons c) {
         if (c == null) throw new RuntimeException("head: null");
         return (T)c.data;
     }
+
+
 
     public static <T> T first(Cons c) {
         if (c == null) throw new RuntimeException("first: null");
@@ -61,9 +67,13 @@ public class VM {
 
     @Compiled
     public static Cons reverse(Cons c) {
-        return (c == null) ? null :
-            (tail(c) == null) ?  c :
-                cons(reverse(tail(c)), head(c));
+        return reverse_acc(c, null);
+    }
+
+    @Compiled
+    public static Cons reverse_acc(Cons c, Cons acc) {
+        return (c == null) ? acc :
+            reverse_acc(tail(c), cons(head(c), acc));
     }
 
     @Compiled
@@ -72,7 +82,7 @@ public class VM {
     }
 
     @Compiled
-    public static Object fold(Cons c, Function2 arg) {
+    public static<A,B> Object fold(Cons c, Function2<A,B,A> arg) {
         return tail(c) == null ? head(c) : fold0(tail(c), head(c), arg);
     }
 

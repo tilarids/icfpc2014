@@ -7,7 +7,6 @@ import java.util.Map.Entry;
 
 import org.antlr.runtime.*;
 import org.antlr.runtime.tree.*;
-import org.antlr.stringtemplate.*;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 public class LambdaCompiler {

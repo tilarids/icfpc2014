@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/java.iml" filepath="$PROJECT_DIR$/.idea/java.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../tilarids/jslambda/jslambda.iml" filepath="$PROJECT_DIR$/../tilarids/jslambda/jslambda.iml" />
     </modules>
   </component>
 </project>

@@ -2,6 +2,7 @@
   <library name="lib">
     <CLASSES>
       <root url="file://$PROJECT_DIR$/lib" />
+      <root url="jar://$PROJECT_DIR$/../tilarids/jslambda/src/antlr-4.4-complete.jar!/" />
     </CLASSES>
     <JAVADOC />
     <SOURCES>
