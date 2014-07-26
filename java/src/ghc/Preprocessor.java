@@ -166,7 +166,9 @@ public class Preprocessor {
 
         protected GHCInstruction(String srcInstruction, String comment) {
             this.srcInstruction = srcInstruction;
-            this.comment = comment;
+            // appendComment also add ";" if required
+            //this.comment = comment;
+            appendComment(comment);
         }
 
         public String getSrcInstruction() {
