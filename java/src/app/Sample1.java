@@ -72,6 +72,12 @@ public class Sample1 extends VM {
     }
 
     @Compiled
+    private ListCons<Point> collectAnyEdgePills(ParsedEdge edge, ListCons<ListCons<Integer>> map) {
+        ListCons<Point> pathOnEdge = edge.edge;
+        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == 2 ? 1:0);
+    }
+
+    @Compiled
     class EdgeAndCount {
         ParsedEdge pe;
         int count;
@@ -92,9 +98,13 @@ public class Sample1 extends VM {
         Tuple<AIState, Integer> retval;
         Point newLocation;
         int direction;
-        if (length(pathToWalk) < 2) {
-            retval = new Tuple<>(aistate, 2);
-        } else {
+        ParsedEdge startEdge;
+        if (length(pathToWalk) < 2 || ec.count == 0) {
+            startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
+            pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
+            System.out.println("Chosen long way: "+startEdge.toString());
+        }
+        if (length(pathToWalk) >= 2) {
             newLocation = head(tail(pathToWalk));
             direction =
                     (newLocation.x > location.x) ? 1 :
@@ -102,8 +112,71 @@ public class Sample1 extends VM {
                                     (newLocation.y < location.y) ? 0 :
                                             2;
             retval = new Tuple<>(aistate, direction);
+        } else {
+            retval = new Tuple<>(aistate, 2);
         }
         return retval;
+    }
+
+    @Compiled
+    private ListCons<ListCons<ParsedEdge>> waveFromEdgeToNearestEdges(
+            AIState aistate,
+            WorldState worldState,
+            Queue<ListCons<ParsedEdge>> edgeQueue,
+            ListCons<Integer> visited,
+            ListCons<ListCons<ParsedEdge>> acc) {
+        ListCons<ListCons<ParsedEdge>> retval;
+        if (queue_isempty(edgeQueue)) {
+            retval = acc;
+        } else {
+            retval = waveFromEdgeToNearestEdges0(aistate, worldState, edgeQueue, visited, acc);
+        }
+        return retval;
+    }
+
+    @Compiled
+    private ListCons<ListCons<ParsedEdge>> waveFromEdgeToNearestEdges0(AIState aistate, WorldState worldState, Queue<ListCons<ParsedEdge>> edgeQueue, ListCons<Integer> visited, ListCons<ListCons<ParsedEdge>> acc) {
+        ListCons<ListCons<ParsedEdge>> retval;
+        Tuple<ListCons<ParsedEdge>, Queue<ListCons<ParsedEdge>>> reduced = queue_dequeue(edgeQueue);
+        ListCons<ParsedEdge> lookingEdge = reduced.a;
+        ListCons<ParsedEdge> following = findFollowingEdges(aistate.parsedStaticMap.parsedEdges, lookingEdge);
+        following = filter(following, (ParsedEdge f) -> noneof(visited, (v) -> (v == f.edgeNumber) ? 1 : 0));
+        int foundAnyDots = any(following, (pe) -> length(collectAnyEdgePills(pe, worldState.map)) > 0 ? 1 : 0);
+        ListCons<Integer> nvisited = concat2_set(visited, map(following, (ParsedEdge f) -> f.edgeNumber));
+        ListCons<ListCons<ParsedEdge>> newRoutes = map(following, (ParsedEdge next) -> cons(next, lookingEdge));
+        Queue<ListCons<ParsedEdge>> newqq = fold0(newRoutes, reduced.b, (Queue<ListCons<ParsedEdge>> qq, ListCons<ParsedEdge> nr) -> queue_enqueue(qq, nr));
+        ListCons<ListCons<ParsedEdge>> newAcc = cons(lookingEdge, acc);
+        retval = foundAnyDots == 1? newAcc : waveFromEdgeToNearestEdges(aistate, worldState, newqq, nvisited, newAcc);
+        return retval;
+    }
+
+    /** find edges linked to given one */
+    @Compiled
+    private ListCons<ParsedEdge> findFollowingEdges(ListCons<ParsedEdge> parsedEdges, ListCons<ParsedEdge> lookingEdge) {
+        return filter(parsedEdges, (ParsedEdge pe)->pointEquals(pe.a, endingPointOfEdgeRoute(lookingEdge)));
+    }
+
+    @Compiled
+    private Integer pointEquals(Point a, Point b) {
+        return (a.x == b.x && a.y == b.y) ? 1: 0;
+    }
+
+    @Compiled
+    private Point endingPointOfEdgeRoute(ListCons<ParsedEdge> lookingEdge) {
+        ParsedEdge lastEdge = head(lookingEdge);
+        return lastEdge.b;
+    }
+
+    @Compiled
+    private ParsedEdge findBestDistantEdge(ListCons<ParsedEdge> currentEdges, AIState aistate, WorldState worldState) {
+        Queue<ListCons<ParsedEdge>> q = queue_new();
+        q = fold0(currentEdges, q, (Queue<ListCons<ParsedEdge>> qq, ParsedEdge e) -> queue_enqueue(qq, cons(e, null)));
+        ListCons<ListCons<ParsedEdge>> reverseDests = reverse(waveFromEdgeToNearestEdges(aistate, worldState, q, map(currentEdges, (ParsedEdge e) -> e.edgeNumber), null));
+        ListCons<ListCons<ParsedEdge>> sortedRoutes = filter(reverseDests, (r) -> (any(r, (r0) -> length(collectAnyEdgePills(r0, worldState.map)) > 0 ? 1:0) > 0 && length(r) > 2) ? 1:0);
+
+        ListCons<ParsedEdge> someRoute = head(sortedRoutes);
+        ParsedEdge myStart = head(reverse(someRoute));
+        return myStart;
     }
 
     @Compiled
@@ -192,6 +265,11 @@ public class Sample1 extends VM {
             this.a = a;
             this.b = b;
             this.edgeNumber = edgeNumber;
+        }
+
+        @Override
+        public String toString() {
+            return "[Edge: form="+a+" to="+b+" count="+count+" id="+edgeNumber+"]";
         }
     }
 
