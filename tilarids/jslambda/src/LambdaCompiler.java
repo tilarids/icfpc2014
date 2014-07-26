@@ -487,6 +487,20 @@ public class LambdaCompiler {
 		return processDecreaseVariable(variableIndex);
 	}
 
+	public List<I> processAssignmentExpression(ECMAScriptParser.AssignmentExpressionContext ast) {
+		List<I> instrs = new ArrayList<I>();
+		if (ast.singleExpression() == null || ast.expressionSequence() == null || ast.expressionSequence().singleExpression().size() != 1) {
+			throw new RuntimeException("malformed");
+		}
+		Integer varIndex = this.variablesStack.peek().get(((ECMAScriptParser.IdentifierExpressionContext)ast.singleExpression()).Identifier().toString());
+		instrs.addAll(processSingleExpression(ast.expressionSequence().singleExpression(0)));
+		I st = new I(I.Type.ST);
+		st.params.add(new IntParam(0));
+		st.params.add(new IntParam(varIndex));
+		instrs.add(st);
+		return instrs;
+	}
+	
 	public List<I> processSingleExpression(ECMAScriptParser.SingleExpressionContext ast) {
 		if (ast instanceof ECMAScriptParser.FunctionExpressionContext) {
 			return processFunctionExpression((ECMAScriptParser.FunctionExpressionContext)ast);
@@ -516,6 +530,8 @@ public class LambdaCompiler {
 			return processPreDecreaseExpression((ECMAScriptParser.PreDecreaseExpressionContext)ast);
 		} else if (ast instanceof ECMAScriptParser.PostDecreaseExpressionContext) {
 			return processPostDecreaseExpression((ECMAScriptParser.PostDecreaseExpressionContext)ast);
+		} else if (ast instanceof ECMAScriptParser.AssignmentExpressionContext) {
+			return processAssignmentExpression((ECMAScriptParser.AssignmentExpressionContext)ast);
 		} else {
 			throw new RuntimeException("unsupported expression " + ast.toStringTree(this.ruleNames));
 		}
