@@ -1,31 +1,17 @@
-mov h,pc
-mov pc,4
-int 8
+mov a,1
+add b,1
+push a
+int 8 ; debug
+call f1
+pop a
+int 8 ; debug
 hlt
-int 3
-int 5
-mov d,a ; keep a
-mov c,0 ; sum walls
-sub b,1
-int 7; get cur. cell value
-jgt 12,a,0 ; skip1
-add c,1 ; wall found
-add b,2 ; skip1:
-mov a,d ; restore a
-int 7; get cur. cell value
-jgt 17,a,0 ; skip2
-add c,1 ; wall found
-sub b,1 ; restore original b ; skip2:
-sub d,1
-mov a,d
-int 7; get cur. cell value
-jgt 23,a,0 ; skip3
-add c,1 ; wall found
-add d,2 ; skip3:
-mov a,d
-int 7; get cur. cell value
-jgt 28,a,0 ; skip4
-add c,1 ; wall found
-mov a,c ; skip4:
-add h,2 ; return
-mov pc,h
+f1:
+int 8
+mov a,2
+call f2
+ret
+f2:
+int 8
+mov a, 3
+ret
