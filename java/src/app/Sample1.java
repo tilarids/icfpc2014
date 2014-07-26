@@ -80,7 +80,8 @@ public class Sample1 extends VM {
     @Compiled
     private ListCons<Point> collectAnyEdgePills(ParsedEdge edge, ListCons<ListCons<Integer>> map) {
         ListCons<Point> pathOnEdge = edge.edge;
-        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == CT.PILL ? 1 : 0);
+        ListCons<Point> rv = filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == CT.PILL ? 1 : 0);
+        return rv;
     }
 
     @Compiled
@@ -110,11 +111,17 @@ public class Sample1 extends VM {
         int direction;
         ParsedEdge startEdge;
         if (length(pathToWalk) < 2 || ec.count == 0) { // nothing close to me
+            long l = System.nanoTime();
             startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
+            l = System.nanoTime() - l;
+            System.out.println("Search time: "+l);
+            if (l > 1000000) {
+                findBestDistantEdge(edgesForPoint, aistate, worldState);
+            }
             pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
             System.out.println("Chosen long way: " + startEdge.toString());
         }
-        if (ec.count == 0 && false) {
+        if (ec.count == 0 && 1 == 2) {
             // ensure that we don't stuck when there is no pills nearby. just go somewhere (and don't go back)
             // branch svg
             direction = isWalkable3(worldState.map, location.x, location.y - 1) == 1 && aistate.lastDirection != Direction.DOWN ?
@@ -164,12 +171,12 @@ public class Sample1 extends VM {
         ListCons<ParsedEdge> lookingEdge = reduced.a;
         ListCons<ParsedEdge> following = findFollowingEdges(aistate.parsedStaticMap.parsedEdges, lookingEdge);
         following = filter(following, (ParsedEdge f) -> noneof(visited, (v) -> (v == f.edgeNumber) ? 1 : 0));
-        int foundAnyDots = any(following, (pe) -> length(collectAnyEdgePills(pe, worldState.map)) > 0 ? 1 : 0);
+        ListCons<ParsedEdge> withDots = filter(following, (pe) -> length(collectAnyEdgePills(pe, worldState.map)) > 0 ? 1 : 0);
         ListCons<Integer> nvisited = concat2_set(visited, map(following, (ParsedEdge f) -> f.edgeNumber));
         ListCons<ListCons<ParsedEdge>> newRoutes = map(following, (ParsedEdge next) -> cons(next, lookingEdge));
         Queue<ListCons<ParsedEdge>> newqq = fold0(newRoutes, reduced.b, (Queue<ListCons<ParsedEdge>> qq, ListCons<ParsedEdge> nr) -> queue_enqueue(qq, nr));
-        ListCons<ListCons<ParsedEdge>> newAcc = cons(lookingEdge, acc);
-        retval = foundAnyDots == 1 ? newAcc : waveFromEdgeToNearestEdges(aistate, worldState, newqq, nvisited, newAcc);
+        ListCons<ListCons<ParsedEdge>> newAcc = concat2_set(newRoutes, acc);
+        retval = length(withDots) > 0? newAcc : waveFromEdgeToNearestEdges(aistate, worldState, newqq, nvisited, newAcc);
         return retval;
     }
 
@@ -197,8 +204,7 @@ public class Sample1 extends VM {
         Queue<ListCons<ParsedEdge>> q = queue_new();
         q = fold0(currentEdges, q, (Queue<ListCons<ParsedEdge>> qq, ParsedEdge e) -> queue_enqueue(qq, cons(e, null)));
         ListCons<ListCons<ParsedEdge>> reverseDests = reverse(waveFromEdgeToNearestEdges(aistate, worldState, q, map(currentEdges, (ParsedEdge e) -> e.edgeNumber), null));
-        ListCons<ListCons<ParsedEdge>> sortedRoutes = filter(reverseDests, (r) -> (any(r, (r0) -> length(collectAnyEdgePills(r0, worldState.map)) > 0 ? 1 : 0) > 0 && length(r) > 2) ? 1 : 0);
-
+        ListCons<ListCons<ParsedEdge>> sortedRoutes = filter(reverseDests, (r) -> (any(r, (r0) -> length(collectAnyEdgePills(r0, worldState.map)) > 0 ? 1 : 0) > 0 && length(r) >= 2) ? 1 : 0);
         ListCons<ParsedEdge> someRoute = head(sortedRoutes);
         ParsedEdge myStart = head(reverse(someRoute));
         return myStart;
@@ -566,7 +572,35 @@ public class Sample1 extends VM {
     }
 
     private static void printMap(String theMap) {
-        System.out.println(theMap);
+        String[] rows = theMap.split("\n");
+        int width = rows[0].length();
+        System.out.print("      ");
+        for(int x = 0; x<width; x++) {
+            if ((x % 2 ) == 0) {
+                System.out.print(String.format("%02d", x));
+            } else {
+                System.out.print("  ");
+            }
+        }
+        System.out.println();
+        System.out.print("      ");
+        for(int x = 0; x<width; x++) {
+            if ((x % 2) != 0) {
+                System.out.print(String.format("%02d", x));
+            } else {
+                System.out.print("  ");
+            }
+        }
+        System.out.println();
+        for (int y = 0; y < rows.length; y++) {
+            System.out.print(String.format("%3d - ", y));
+            String row = rows[y];
+            for (int i = 0; i < row.length(); i++) {
+                char c = row.charAt(i);
+                System.out.print(("" + c) + c);
+            }
+            System.out.println();
+        }
     }
 
     private static String replaceMap(String theMap, int nx, int ny, char c) {
