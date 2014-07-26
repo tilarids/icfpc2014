@@ -1,0 +1,48 @@
+<head>
+	<script src='http://code.jquery.com/jquery-2.1.1.min.js'></script>
+</head>
+<body>
+	<iframe id='game' name= 'game' style='height:99%; width:90%' src='game.html'></iframe>
+	<button style='position:absolute; right:10px; top:10px; width:8%; bottom:10px' onclick='load()'>Reload</button>
+</body>
+<style>
+	html, body { height:100%; padding:0; margin:0; }
+</style>
+<script>
+	function load() {
+		$.ajax('test.txt')
+		.then(function(x) {
+			console.log(x)
+			console.log(compile(x))
+			$($('#ghosts textarea', frames.game.document)[0]).text(compile(x))
+		 })
+	}
+
+	var labels = {}
+	function compile(x) {
+		var rs = x.split('\n')
+		var a = 0
+		$.each(rs, function(i, r) {
+			var c = r.split(';')[0].trim()
+			var l = c.indexOf(':')
+			if (l > -1) {
+				l = c.substr(0, l)
+				labels[l] = a
+			}
+			if (c && !l) {
+				r.a = a++
+			}
+		})
+		$.each(labels, function(l, a) {
+			$.each(rs, function(i, r) {
+				var ix = r.trim().indexOf(l)
+				if (ix == 0) {
+					rs[i] = '; ' + r
+				} else if (ix > 0) {
+					rs[i] = r.replace('\\b' + l + '\\b', a) + ' ; ' + l
+				}
+			})
+		})
+		return rs.join('\n')
+	}
+</script>
