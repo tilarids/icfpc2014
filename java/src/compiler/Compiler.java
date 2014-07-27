@@ -54,6 +54,8 @@ public class Compiler {
             new IllegalArgumentException("File " + file.getAbsolutePath() + " doesn't exist");
 
         String source = readFileToString(file, encoding);
+        if (!source.contains("@Compiled"))
+            return null;
 
         return visitString(file, source);
     }
@@ -132,9 +134,21 @@ public class Compiler {
     }
 
     private void run() throws IOException {
-        addTypes(parseFile(new File("src/app/VM.java")));
-        addTypes(parseFile(new File("src/app/VMExtras.java")));
-        addTypes(parseFile(new File("src/app/Sample1.java")));
+        File rootDir = new File("src/app/");
+        File[] javaFiles = rootDir.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File pathname) {
+                return pathname.getName().endsWith(".java") && !"VM.java".equals(pathname.getName());
+            }
+        });
+        File vmFile = new File("src/app/VM.java");
+
+        addTypes(parseFile(vmFile));
+        for (File srcFile : javaFiles) {
+            Tuple<TypeDeclaration, ImportPackages> tuple = parseFile(srcFile);
+            if (tuple != null)
+                addTypes(tuple);
+        }
         ArrayList<Opcode> global = new ArrayList<>();
         MyMethod run = getMethod("entryPoint");
         methods.remove(run);
@@ -246,7 +260,7 @@ public class Compiler {
     private void generateStatement(MyMethod myMethod, Statement statement) {
         ASTNode declarationOwner = statement.getParent().getParent();
         if (statement instanceof VariableDeclarationStatement) {
-            if (!(declarationOwner instanceof MethodDeclaration)  ) {
+            if (!(declarationOwner instanceof MethodDeclaration)) {
                 throw new CompilerException("Vardecl must be in method-level only, not in any blocks", statement);
             }
             VariableDeclarationStatement vds = (VariableDeclarationStatement) statement;
@@ -473,7 +487,7 @@ public class Compiler {
             ConditionalExpression ce = (ConditionalExpression) expression;
             generateExpression(myMethod, ce.getExpression());
             int seq = ++branchSeq;
-            myMethod.addOpcode(new Opcode("SEL", new ExpressionRef(myMethod, ce.getThenExpression(),"THEN: "+seq), new ExpressionRef(myMethod, ce.getElseExpression(),"ELSE: "+seq)).commented("IF? "+seq));
+            myMethod.addOpcode(new Opcode("SEL", new ExpressionRef(myMethod, ce.getThenExpression(), "THEN: " + seq), new ExpressionRef(myMethod, ce.getElseExpression(), "ELSE: " + seq)).commented("IF? " + seq));
         } else if (expression instanceof NullLiteral) {
             myMethod.addOpcode(new Opcode("LDC", 0).commented("NULL literal"));
         } else if (expression instanceof CastExpression) {
@@ -538,7 +552,7 @@ public class Compiler {
                 }
             }
         } else {
-            throw new CompilerException("Unknown expression: "+expression.getClass(), expression);
+            throw new CompilerException("Unknown expression: " + expression.getClass(), expression);
         }
         // expression.resolveTypeBinding();
     }
@@ -562,7 +576,10 @@ public class Compiler {
         Opcode ld = new Opcode("LD", level, varix);
         ld.comment = "var " + sn.toString();
         accessor.add(ld);
-        return new QualifiedNameResolved(tuples.get(cleanupTemplates(vartype)), accessor);
+        MyTyple tuple = tuples.get(cleanupTemplates(vartype));
+        if ((tuple == null)  && ("m".equals(sn.toString())))
+            System.err.println("AAA " + sn.toString());
+        return new QualifiedNameResolved(tuple, accessor);
     }
 
 
@@ -646,18 +663,20 @@ public class Compiler {
             QualifiedNameResolved qualifiedNameResolved = generateLoadSimpleName(myMethod, (SimpleName) qualifier);
             return qualifiedNameResolved;
         } else if (qualifier instanceof FieldAccess) {
-            FieldAccess fa = (FieldAccess)qualifier;
+            FieldAccess fa = (FieldAccess) qualifier;
             Expression expression = fa.getExpression();
             if (expression instanceof ParenthesizedExpression) {
-                ParenthesizedExpression pe = (ParenthesizedExpression)expression;
+                ParenthesizedExpression pe = (ParenthesizedExpression) expression;
                 expression = pe.getExpression();
-            } else throw new CompilerException("This form of field access cannot be compiled, cast expression wanted maybe", qualifier);
+            } else
+                throw new CompilerException("This form of field access cannot be compiled, cast expression wanted maybe", qualifier);
             Type type = null;
             if (expression instanceof CastExpression) {
                 CastExpression cast = (CastExpression) expression;
                 type = cast.getType();
                 expression = cast.getExpression();
-            } else throw new CompilerException("This form of field access cannot be compiled, cast expression expected", qualifier);
+            } else
+                throw new CompilerException("This form of field access cannot be compiled, cast expression expected", qualifier);
             QualifiedNameResolved mt = resolveName(myMethod, expression);
             if (type != null && mt != null) {
                 if (mt.tuple != null) {
@@ -737,15 +756,10 @@ public class Compiler {
 
     private void addTypes(Tuple<TypeDeclaration, ImportPackages> tuple) {
         TypeDeclaration typeDeclaration = tuple.a;
+        addTupleIfNeeded(typeDeclaration);
         TypeDeclaration[] types = typeDeclaration.getTypes();
         for (TypeDeclaration type : types) {
-            for (Object o : type.modifiers()) {
-                if (o instanceof MarkerAnnotation) {
-                    if (o.toString().equals("@Compiled")) {
-                        addTuple(type);
-                    }
-                }
-            }
+            addTupleIfNeeded(type);
         }
         MethodDeclaration[] methods = typeDeclaration.getMethods();
         for (int i = 0; i < methods.length; i++) {
@@ -759,9 +773,9 @@ public class Compiler {
                         compiled = true;
                     }
                     if (o.toString().startsWith("@Native")) {
-                        NormalAnnotation na = (NormalAnnotation)o;
+                        NormalAnnotation na = (NormalAnnotation) o;
                         isNative = true;
-                        nativeArguments = Integer.parseInt((((MemberValuePair)na.values().get(0)).getValue()).toString());
+                        nativeArguments = Integer.parseInt((((MemberValuePair) na.values().get(0)).getValue()).toString());
                     }
                 }
             }
@@ -770,7 +784,7 @@ public class Compiler {
                 if (isNative) {
                     for (int z = 0; z < nativeArguments; z++) {
                         int varix = myMethod.variables.size();
-                        myMethod.variables.put("native_"+0, varix);
+                        myMethod.variables.put("native_" + 0, varix);
                         myMethod.variableTypes.put(varix, "@native@");
                     }
                 }
@@ -785,7 +799,22 @@ public class Compiler {
         return mtd;
     }
 
-    private void addTuple(TypeDeclaration type) {
+
+    private boolean isCompiled(TypeDeclaration type) {
+        for (Object o : type.modifiers()) {
+            if (o instanceof MarkerAnnotation) {
+                if (o.toString().equals("@Compiled")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+
+    private void addTupleIfNeeded(TypeDeclaration type) {
+        if(!isCompiled(type))
+            return;
         List list = type.bodyDeclarations();
         int ix = 0;
         MyTyple mt = new MyTyple(type.getName().toString());
@@ -918,7 +947,7 @@ public class Compiler {
         }
     }
 
-    public static  class MyMethod {
+    public static class MyMethod {
         List<VariableDeclaration> parameters;
         int offset;
         String name;
@@ -955,7 +984,7 @@ public class Compiler {
                         opcodes.add(new Opcode(string));
                     }
                 }
-                opcodes.get(0).comment = "generated from native: "+name;
+                opcodes.get(0).comment = "generated from native: " + name;
             }
         }
 

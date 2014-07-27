@@ -1,6 +1,7 @@
 package app;
 
 import static app.VM.*;
+import static app.SortedMap.*;
 import static app.Sample1.*;
 
 /**
@@ -137,10 +138,10 @@ public class LambdaGhostEmulator {
 
     @Compiled
     public static Integer getGhostDirection(WorldState world, ListCons<Cons> spec) {
-        VM.Tuple<Integer, SortedMap<Cons>> prog =
+        Tuple<Integer, SortedMap<Cons>> prog =
                 fold0(spec,
-                        new VM.Tuple<>(0, new SortedMap<Cons>(null, 0)),
-                        (VM.Tuple<Integer, SortedMap<Cons>> init, Cons step) -> new VM.Tuple<>(init.a + 1, sorted_map_assoc(init.b, init.a, step)));
+                        new Tuple<>(0, new SortedMap<Cons>(null, 0)),
+                        (Tuple<Integer, SortedMap<Cons>> init, Cons step) -> new Tuple<>(init.a + 1, sorted_map_assoc(init.b, init.a, step)));
         GhostState ghostState = (GhostState) head(world.ghosts);
         return runGhost(prog.b,
                 world,
