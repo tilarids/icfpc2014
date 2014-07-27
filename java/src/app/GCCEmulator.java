@@ -131,15 +131,22 @@ public class GCCEmulator {
 
     boolean trace = false;
 
+    int instructionCount = 0;
+
     void run(List<Op> ops) {
-        int instructionCount = 0;
-        while (reg_c < ops.size()) {
-            Op op = ops.get(reg_c);
-            if (trace) { System.out.print("IP: " + reg_c + "  OP: " + op.toString()+" dss:"+data_stack.size()); System.out.flush(); }
-            if (instructionCount % 1_000_000 == 0) System.out.println("Instructions: "+instructionCount/1_000_000+"M");
-            instructionCount++;
-            if (trace) System.out.println();
-            op.runnable.run();
+        try {
+            while (reg_c < ops.size()) {
+                Op op = ops.get(reg_c);
+                if (trace) { System.out.print("IP: " + reg_c + "  OP: " + op.toString()+" dss:"+data_stack.size()); System.out.flush(); }
+                if (instructionCount % 1_000_000 == 0) System.out.println("Instructions: "+instructionCount/1_000_000+"M");
+                instructionCount++;
+                if (instructionCount == 4340024-300) trace = true;
+                if (trace) System.out.println();
+                op.runnable.run();
+            }
+        } catch (Exception e) {
+            System.out.println("AT INSTRUCTION COUNT: "+instructionCount);
+            e.printStackTrace();
         }
     }
 
@@ -162,6 +169,10 @@ public class GCCEmulator {
                     if (f.tag == Tag.Dum)
                         throw new RuntimeException("FrameMismatch");
                     D d = f.value.get(op.param.get(1));
+                    if (trace) {
+                        String s = d.toString();
+                        System.out.print(" loaded: "+ s.substring(0, Math.min(15, s.length())));
+                    }
                     push_ds(d);
                     reg_c++;
                 };
