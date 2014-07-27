@@ -102,21 +102,21 @@ public class Sample1 extends VMExtras {
 
     @Compiled
 
-    Integer scorePoint(Integer cell, Integer vitality, Integer tick) {
+    Integer scorePoint(Integer x, Integer y, Integer cell, Integer vitality, Integer tick, ListCons<GhostState> ghosts) {
         return
                 cell == CT.FRUIT ? (((tick > 127 * 200) && (tick < 127 * 280)) || ((tick > 127 * 400) && (tick < 127 * 480)) ? 300 : 0)
-              : cell == CT.GHOST ? (vitality > 0 ? vitality : -1000)
+              : any(ghosts, (GhostState ghost) -> x == ghost.location.x && y == ghost.location.y ? 1 : 0) > 0 ? (vitality > 0 ? vitality : -1000)
               : cell == CT.PILL ? 10
               : cell == CT.POWER? 50
               : 0;
     }
 
     @Compiled
-    Tuple<ParsedEdge, Integer> scoreEdge(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map, Integer vitality, Integer tick) {
+    Tuple<ParsedEdge, Integer> scoreEdge(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map, Integer vitality, Integer tick, ListCons<GhostState> ghosts) {
         ListCons<Point> pathOnEdge = dropWhile(edge.edge, (Point p) -> p.x != start.x || p.y != start.y ? 1 : 0);
         Integer score = fold0(pathOnEdge,
                 0,
-                (Integer acc, Point p) -> acc + scorePoint(getMapItem(map, p.y, p.x), vitality, tick));
+                (Integer acc, Point p) -> acc + scorePoint(p.x, p.y, getMapItem(map, p.y, p.x), vitality, tick, ghosts));
         return new Tuple<>(edge, score);
     }
 
@@ -124,7 +124,7 @@ public class Sample1 extends VMExtras {
     private Tuple<AIState, Integer> performMove(AIState aistate, WorldState worldState) {
         Point location = worldState.lambdaManState.location;
         ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate, location);
-        ListCons<Tuple<ParsedEdge, Integer>> edgesScored = map(edgesForPoint, (e) -> scoreEdge(e, location, worldState.map, worldState.lambdaManState.vitality, aistate.tick));
+        ListCons<Tuple<ParsedEdge, Integer>> edgesScored = map(edgesForPoint, (e) -> scoreEdge(e, location, worldState.map, worldState.lambdaManState.vitality, aistate.tick, worldState.ghosts));
         Tuple<ParsedEdge, Integer> es = maximum_by(edgesScored, (Tuple<ParsedEdge, Integer> cp) -> cp.b);
         ListCons<Point> pathToWalk = dropWhile(((ParsedEdge)es.a).edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
         Tuple<AIState, Integer> retval;
