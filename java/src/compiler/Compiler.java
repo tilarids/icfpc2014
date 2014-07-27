@@ -111,7 +111,7 @@ public class Compiler {
         return new Tuple<>(mainClass, new ImportPackages(root));
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         try {
             new Compiler().run();
         } catch (CompilerException e) {
@@ -126,6 +126,8 @@ public class Compiler {
             System.out.println("ERROR:     => " + e.node);
             System.out.println("ERROR!! ");
         }
+        System.out.flush();
+        Thread.sleep(500);
 
     }
 
@@ -152,6 +154,7 @@ public class Compiler {
 
         for (int m = 0; m < methods.size(); m++) {
             MyMethod method = methods.get(m);
+            generateMethod(method.name, method);
             method.setOffsetAndMaybeCompile(global.size());
             ArrayList<Opcode> opcodes = method.opcodes;
             for (int oi = 0; oi < opcodes.size(); oi++) {
@@ -191,7 +194,7 @@ public class Compiler {
 
         for (int i = 0; i < global.size(); i++) {
             Opcode opcode = global.get(i);
-            System.out.println(String.format("%s", opcode.toString()));
+            System.out.println(String.format("%s ; %d", opcode.toString(), i));
         }
         System.out.println("=========");
         System.out.println("Total ops: " + global.size());
@@ -237,6 +240,8 @@ public class Compiler {
         }
         return myMethod;
     }
+
+    int branchSeq;
 
     private void generateStatement(MyMethod myMethod, Statement statement) {
         ASTNode declarationOwner = statement.getParent().getParent();
@@ -467,7 +472,8 @@ public class Compiler {
         } else if (expression instanceof ConditionalExpression) {
             ConditionalExpression ce = (ConditionalExpression) expression;
             generateExpression(myMethod, ce.getExpression());
-            myMethod.addOpcode(new Opcode("SEL", new ExpressionRef(myMethod, ce.getThenExpression()), new ExpressionRef(myMethod, ce.getElseExpression())));
+            int seq = ++branchSeq;
+            myMethod.addOpcode(new Opcode("SEL", new ExpressionRef(myMethod, ce.getThenExpression(),"THEN: "+seq), new ExpressionRef(myMethod, ce.getElseExpression(),"ELSE: "+seq)).commented("IF? "+seq));
         } else if (expression instanceof NullLiteral) {
             myMethod.addOpcode(new Opcode("LDC", 0).commented("NULL literal"));
         } else if (expression instanceof CastExpression) {
@@ -494,6 +500,8 @@ public class Compiler {
             }
             String methodName = mi.getName().toString();
             if (methodName.toString().equals("cons")) {
+                myMethod.addOpcode(new Opcode("CONS"));
+            } else if (methodName.toString().equals("lcons")) {
                 myMethod.addOpcode(new Opcode("CONS"));
             } else if (methodName.toString().equals("tail")) {
                 myMethod.addOpcode(new Opcode("CDR"));
@@ -852,9 +860,10 @@ public class Compiler {
         Expression expr;
         String comment;
 
-        ExpressionRef(MyMethod mtd, Expression expr) {
+        ExpressionRef(MyMethod mtd, Expression expr, String comment) {
             this.mtd = mtd;
             this.expr = expr;
+            this.comment = comment;
         }
 
         public int resolve() {
