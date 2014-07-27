@@ -645,8 +645,8 @@ public class Sample1 extends VMExtras {
           : GHCOps.MUL == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) * ghcstate_read_val(inc_pc, head(second(args)))))
           : GHCOps.DIV == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) / ghcstate_read_val(inc_pc, head(second(args)))))
           : GHCOps.AND == opcode ? runGhost(prog, world, lev, ghcstate_bitop(inc_pc, first(args), head(second(args)), GHCOps.AND))
-          // : GHCOps.OR == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) | ghcstate_read_val(inc_pc, head(second(args)))))
-          // : GHCOps.XOR == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) ^ ghcstate_read_val(inc_pc, head(second(args)))))
+          : GHCOps.OR == opcode ? runGhost(prog, world, lev, ghcstate_bitop(inc_pc, first(args), head(second(args)), GHCOps.OR))
+          : GHCOps.XOR == opcode ? runGhost(prog, world, lev, ghcstate_bitop(inc_pc, first(args), head(second(args)), GHCOps.XOR))
           : GHCOps.JLT == opcode ? runGhost(prog, world, lev,
                   ghcstate_read_val(state, first(tail(args))) < ghcstate_read_val(state, second(tail(args)))
                       ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, 8, (Integer)first(args)), state.data)
@@ -677,7 +677,7 @@ public class Sample1 extends VMExtras {
             fold0(spec,
                   new Tuple<>(0, new SortedMap<Cons>(null, 0)), 
                   (Tuple<Integer, SortedMap<Cons>> init, Cons step) -> new Tuple<>(init.a + 1, sorted_map_assoc(init.b, init.a, step)));
-        GhostState ghostState = (GhostState)head(world.ghosts);  // get actual direction and location
+        GhostState ghostState = (GhostState)head(world.ghosts);  
         return runGhost(prog.b, 
                         world, 
                         0,
