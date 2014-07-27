@@ -273,10 +273,12 @@ public class Compiler {
         } else if (statement instanceof IfStatement) {
             IfStatement ifs = (IfStatement) statement;
             Expression expression = ifs.getExpression();
-            Statement thenStatement = ifs.getThenStatement();
-            Statement elseStatement = ifs.getElseStatement();
-            generateExpression(myMethod, expression);
-            myMethod.addOpcode(new Opcode("SEL", new BranchRef(myMethod, thenStatement, "then statement"), new BranchRef(myMethod, elseStatement, "else statement")));
+            if (!expression.toString().equals("IN_JAVA")) {
+                Statement thenStatement = ifs.getThenStatement();
+                Statement elseStatement = ifs.getElseStatement();
+                generateExpression(myMethod, expression);
+                myMethod.addOpcode(new Opcode("SEL", new BranchRef(myMethod, thenStatement, "then statement"), new BranchRef(myMethod, elseStatement, "else statement")));
+            }
         } else if (statement instanceof ThrowStatement) {
             myMethod.addOpcode(new Opcode("BRK"));
         } else if (statement instanceof Block) {
