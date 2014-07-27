@@ -44,7 +44,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     public Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, ListCons<ListCons> ghostSpecs) {
-        return 1 == 0 ? entryFactual(ws,ghostSpecs) : entryCPUEmulator();
+        return 1 == 1 ? entryFactual(ws,ghostSpecs) : entryCPUEmulator();
 //        int x = location.a;
 //        int y = location.b;
 

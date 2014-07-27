@@ -1,5 +1,5 @@
 LDC    1            ;  <== entryPoint  [WorldState ws, ListCons<ListCons> ghostSpecs] (as blk) ; 0
-LDC    0            ; just constant from code ; 1
+LDC    1            ; just constant from code ; 1
 CEQ                  ; 2
 SEL    5 13         ; IF? 1 ; 3
 RTN                  ; 4
