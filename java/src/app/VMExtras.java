@@ -1,5 +1,7 @@
 package app;
 
+import org.eclipse.equinox.internal.p2.metadata.expression.Function;
+
 /**
  * Created by san on 7/26/14.
  */
@@ -15,29 +17,33 @@ public class VMExtras extends VM {
 
     @Compiled
     @Native(nlocals = 0)
-    public Function2<Integer, Integer, Function1<Integer,Integer>> array_1() {
+    public Function2<Integer, Integer, Function1<Integer, Integer>> array_1() {
         return array_256_impl();
     }
 
+
     @Compiled
-    public static Function2<Integer, Point, Function1<ParsedEdge, ParsedEdge>> emptyEdgesArrayForMap(int h) {
-        // I'm very generic, mwa-ha-ha!
-        Function2<Integer, Integer, Function1<Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>, Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>>> wrapper = array_256_impl();
-        fillArrayForMap(wrapper, h);
-        return (final Integer op, final Point p) -> {
-            Function1<Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>, Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>> outerAccessor = wrapper.apply(GET_READER, p.y);
-            Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>> innerAccessor = outerAccessor.apply(null);
-            return innerAccessor.apply(op, p.x);
-        };
+    public static <Key, Value> Function1<Key, Value> toReadOnlyAccessor(final Function2<Integer, Key, Function1<Value, Value>> readWriteAccessor) {
+        return (Key k) -> readWriteAccessor.apply(VMExtras.GET_READER, k).apply(null);
     }
 
     @Compiled
-    private static void fillArrayForMap(Function2<Integer, Integer, Function1<Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>, Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>>> wrapper, int h) {
+    public static Function2<Integer, Point, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> emptyEdgesArrayForMap(int h) {
+        // I'm very generic, mwa-ha-ha!
+        Function2<Integer, Integer, Function1<Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>, Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>>> wrapper = array_256_impl();
+        int ignore = fillArrayForMap(wrapper, h);
+        return (final Integer op, final Point p) -> wrapper.apply(VMExtras.GET_READER, p.y).apply(null).apply(op, p.x);
+    }
+
+    @Compiled
+    private static int fillArrayForMap(Function2<Integer, Integer, Function1<Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>, Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>>> wrapper, int h) {
+        int res = 0;
         if (h > 0) {
-            Function1<Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>, Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>> accessor = wrapper.apply(GET_WRITER, h - 1);
+            Function1<Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>, Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>> accessor = wrapper.apply(GET_WRITER, h - 1);
             accessor.apply(array_256_impl());
-            fillArrayForMap(wrapper, h - 1);
+            res = fillArrayForMap(wrapper, h - 1) + 1;
         }
+        return res;
     }
 
     @Compiled

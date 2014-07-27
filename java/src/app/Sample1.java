@@ -513,14 +513,14 @@ public class Sample1 extends VMExtras {
         ListCons<VerticalRow> verticalFinders;
         ListCons<HorizontalRow> horizontalFinders;
         ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> mapAccessors;
-        final Function2<Integer, Point, Function1<ParsedEdge, ParsedEdge>> edgesForPoint;
+        final Function1<Point, ListCons<ParsedEdge>> edgesForPoint;
 
 
         ParsedStaticMap(SortedMap<Point> walkable, SortedMap<Point> junctions,
                         ListCons<ParsedEdge> parsedEdges, ListCons<VerticalRow> verticalFinders,
                         ListCons<HorizontalRow> horizontalFinders,
                         ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> mapAccessors,
-                        Function2<Integer, Point, Function1<ParsedEdge, ParsedEdge>> edgesForPoint) {
+                        Function1<Point, ListCons<ParsedEdge>> edgesForPoint) {
             this.junctions = junctions;
             this.walkable = walkable;
             this.parsedEdges = parsedEdges;
@@ -697,12 +697,11 @@ public class Sample1 extends VMExtras {
         ListCons<ParsedEdge> allParsedEdges3 = mapi(allParsedEdges2, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, pe.edgeNumber, edgeNumber(findEdge(pe.b, pe.a, allParsedEdges2)), pe.danger));
         debug(4000011);
 
-        Function2<Integer, Point, Function1<ParsedEdge, ParsedEdge>> edgesForPoint = emptyEdgesArrayForMap(length(m));
-        Object ignore = map(allParsedEdges3, (ParsedEdge e) -> {
-            return map(e.edge, (Point p) -> edgesForPoint.apply(GET_WRITER, p).apply(e));
-        });
+        Function2<Integer, Point, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> edgesForPoint = emptyEdgesArrayForMap(length(m));
+        Object ignore = map(allParsedEdges3, (ParsedEdge e) -> map(e.edge, (Point p) -> edgesForPoint.apply(VMExtras.GET_WRITER, p).apply(lcons(e, edgesForPoint.apply(VMExtras.GET_READER, p).apply(null)))));
+        Function1<Point, ListCons<ParsedEdge>> readOnlyEdgesForPoint = toReadOnlyAccessor(edgesForPoint);
 
-        return new ParsedStaticMap(walkable, junctions, allParsedEdges3, null, null, accessors, edgesForPoint);
+        return new ParsedStaticMap(walkable, junctions, allParsedEdges3, null, null, accessors, readOnlyEdgesForPoint);
     }
 
     @Compiled
