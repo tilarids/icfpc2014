@@ -1,7 +1,5 @@
 package app;
 
-import org.eclipse.equinox.internal.p2.metadata.expression.Function;
-
 import java.util.ArrayList;
 
 import static app.SortedMap.*;
@@ -211,16 +209,28 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
+    private int waveGhostDangerAcc0(AIState aistate, Queue<EdgeDangerWaveItem> queue, ListCons<Integer> visitedEdges) {
+        return queue_isempty(queue) ? 0 : waveGhostDangerAcc(aistate, queue, visitedEdges);
+    }
+
+    @Compiled
     private int waveGhostDangerAcc(AIState aistate, Queue<EdgeDangerWaveItem> queue, ListCons<Integer> visitedEdges) {
         Tuple<EdgeDangerWaveItem, Queue<EdgeDangerWaveItem>> smaller = queue_dequeue(queue);
         EdgeDangerWaveItem a = smaller.a;
-        ListCons<ParsedEdge> followingEdges = findFollowingEdges(aistate.parsedStaticMap.parsedEdges, a.pe);
+        ListCons<ParsedEdge> followingEdges = findFacingEdgesSimple(aistate.parsedStaticMap.parsedEdges, a.pe);
+        followingEdges = filter(followingEdges, (ParsedEdge fe) -> noneof(visitedEdges, (ve) -> fe.edgeNumber == ve ? 1:0));
+        int countNewEdges = length(followingEdges);
+        map(followingEdges, (fe) -> addEdgeDanger(fe, a.peDanger / countNewEdges));
+        ListCons<Integer> nvisited = concat2_set(visitedEdges, map(followingEdges, (fe) -> fe.edgeNumber));
+        ListCons<Integer> nvisited2 = concat2_set(nvisited, map(followingEdges, (fe) -> fe.opposingEdgeNumber));
+        Queue<EdgeDangerWaveItem> newQueue = fold0(followingEdges, smaller.b, (qq, pe) -> queue_enqueue(qq, new EdgeDangerWaveItem(pe, a.peDanger / countNewEdges, a.distance + pe.count)));
+        return a.peDanger >= 5 ? waveGhostDangerAcc0(aistate, newQueue, nvisited2) : 0;
     }
 
     @Compiled
     private int waveGhostDanger(AIState aistate, EdgeDangerWaveItem item) {
         Queue<EdgeDangerWaveItem> q = queue_enqueue(queue_new(), item);
-        waveGhostDangerAcc(aistate, q, cons(item.pe.edgeNumber, cons(item.pe.opposingEdgeNumber, null)));
+        waveGhostDangerAcc0(aistate, q, cons(item.pe.edgeNumber, cons(item.pe.opposingEdgeNumber, null)));
         return 0;
     }
 
@@ -235,12 +245,12 @@ public class Sample1 extends VMExtras {
         // will be mostly proper all time (for straight corridors)
         // todo: make properly
         edgesForPoint = filter(edgesForPoint, (e) -> pointEquals(head(remainingPath(e, gs.location)), nextPoint) == 1 ? 0 : 1);
-        ListCons<Integer> __ = map(edgesForPoint, (ParsedEdge e) -> addEdgeDange(e, 100));
+        ListCons<Integer> __ = map(edgesForPoint, (ParsedEdge e) -> addEdgeDanger(e, 100));
         __ = map(edgesForPoint, (e) -> waveGhostDanger(aistate, new EdgeDangerWaveItem(e, 100, length(remainingPath(e, gs.location)))));
         return 0;
     }
 
-    private int addEdgeDange(ParsedEdge e, int danger) {
+    private int addEdgeDanger(ParsedEdge e, int danger) {
         Integer oldValue = e.danger.apply(GET_READER, 0).apply(0);
         Integer oldValue2 = e.danger.apply(GET_WRITER, 0).apply(oldValue + danger);
         return 0;
@@ -249,7 +259,7 @@ public class Sample1 extends VMExtras {
     @Compiled
     ListCons<Point> remainingPath(ParsedEdge pe, Point location) {
         ListCons<Point> meAndFurther = dropWhile(pe.edge, (Point t) -> pointEquals(t, location) == 0 ? 1 : 0);
-        return tail(meAndFurther);
+        return tail(meAndFurther) == null ? meAndFurther : tail(meAndFurther);
     }
 
 
@@ -297,6 +307,16 @@ public class Sample1 extends VMExtras {
     @Compiled
     private ListCons<ParsedEdge> findFollowingEdges(ListCons<ParsedEdge> parsedEdges, ListCons<ParsedEdge> lookingEdge) {
         return filter(parsedEdges, (ParsedEdge pe) -> pointEquals(pe.a, endingPointOfEdgeRoute(lookingEdge)));
+    }
+
+    @Compiled
+    private ListCons<ParsedEdge> findFollowingEdgesSimple(ListCons<ParsedEdge> parsedEdges, ParsedEdge lookingEdge) {
+        return filter(parsedEdges, (ParsedEdge pe) -> pointEquals(pe.a, lookingEdge.b));
+    }
+
+    @Compiled
+    private ListCons<ParsedEdge> findFacingEdgesSimple(ListCons<ParsedEdge> parsedEdges, ParsedEdge lookingEdge) {
+        return filter(parsedEdges, (ParsedEdge pe) -> pointEquals(pe.b, lookingEdge.b));
     }
 
     @Compiled
