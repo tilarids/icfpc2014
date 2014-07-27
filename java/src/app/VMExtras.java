@@ -36,9 +36,9 @@ public class VMExtras extends VM {
     @Compiled
     private static int fillArrayForMap(Function2<Integer, Integer, Function1<Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>, Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>>> wrapper, int h) {
         int res = 0;
+        Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> __;
         if (h > 0) {
-            Function1<Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>, Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>> accessor = wrapper.apply(GET_WRITER, h - 1);
-            accessor.apply(array_256_impl());
+            __ = wrapper.apply(VMExtras.GET_WRITER, h - 1).apply(array_256_impl());
             res = fillArrayForMap(wrapper, h - 1) + 1;
         }
         return res;

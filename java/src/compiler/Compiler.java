@@ -706,8 +706,6 @@ public class Compiler {
         } else if (qualifier instanceof QualifiedName) {
             SimpleName name = ((QualifiedName) qualifier).getName();
             Name qn = ((QualifiedName) qualifier).getQualifier();
-            if("edgeNumber".equals(name.toString()))
-                System.out.println("AAAA");
             QualifiedNameResolved mt = resolveName(myMethod, qn);
             return generateQualifiedNameAccessWithQNR(qualifier, name, mt);
         } else throw new CompilerException("Unsupported (yet?) name", qualifier);
