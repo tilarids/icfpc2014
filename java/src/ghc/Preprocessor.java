@@ -24,7 +24,7 @@ public class Preprocessor {
 
         List<String> prog = new ArrayList<>();
         try {
-            FileInputStream fis = new FileInputStream("src/ghc/hunter.ghc_src");
+            FileInputStream fis = new FileInputStream("src/ghc/ghost003.src");
             BufferedReader br = new BufferedReader(new InputStreamReader(fis));
 
             String strLine;
