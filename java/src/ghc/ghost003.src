@@ -46,7 +46,7 @@ wall_check:
 ;int 8
 int 7               ;content of the cell in desired direction now in a
 ;int 8
-jgt submit, a, 0        ;if a!=0 then we will make the step in chosen direction
+jgt presubmit, a, 0        ;if a!=0 then we will make the step in chosen direction
 
 
 ;It appear that we were not able to move in y-direction or we just didn't want to
@@ -54,8 +54,16 @@ jgt submit, a, 0        ;if a!=0 then we will make the step in chosen direction
 ; choose desired x-direction and put it in [1]
 x-direction:
 mov [1], 1
-jgt submit, c, e
+jgt presubmit, c, e
 mov [1], 3
+
+presubmit:
+int 3
+int 6
+and a, 1
+jeq submit, a, 0
+add [1], 2
+and [1], 3
 
 submit:
 mov a, [1]                    ;#31
