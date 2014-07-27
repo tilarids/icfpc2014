@@ -562,6 +562,15 @@ public class VM {
     }
 
     @Compiled
+    public static <A, B, C, R> ListCons<R> zip3_with(Function3<A, B, C, R> f, ListCons<A> x, ListCons<B> y, ListCons<C> z) {
+        return
+                x == null ? null
+                        : y == null ? null
+                        : z == null ? null
+                        : lcons(f.apply(head(x), head(y), head(z)), zip3_with(f, tail(x), tail(y), tail(z)));
+    }
+
+    @Compiled
     public static <A, B> ListCons<Tuple<A, B>> zip(final ListCons<A> x, final ListCons<B> y) {
         return
                 x == null ? null
@@ -577,5 +586,8 @@ public class VM {
         return n == 0 ? cons(elem, null) : cons(elem, produce_n(f, second(f.apply(a)), n - 1));
     }
 
-
+    @Compiled
+    public static ListCons<Integer> range_n(int n) {
+        return n == 0 ? cons(n, null) : lcons(n, range_n(n - 1));
+    }
 }

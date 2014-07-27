@@ -1,44 +1,64 @@
+; hunter bot - try to run towards lambdaman
 
-call get_surround_walls
-int 8
-hlt
+        int 3       ; our index
+        int 6
+        mov g,b     ; our current dir
+        int 1       ; get lambdaman current coords in (a,b)
+        mov c,a
+        mov d,b
+        int 3
+        int 5       ; get our curr. coords in (a,b)
+        sub c,a
+        sub d,b     ; (c,d) - relative coords of enemy
 
-get_surround_walls:
-int 3 ; get our index
-int 5 ; get our current coords in (a,b)
-mov d,a ; keep a
-mov c,0 ; # of surrounding walls
-dec b
+        jlt lower,d,0
+        ; y > 0 - upper half
+        jlt nw,c,0
+        ; x > 0 - NE quadrant
+        jlt dir0,c,d
+        jeq dir1,a,a
 
-int 7; get (a,b-1) value (zero is a wall)
-jgt not_wall1,a,0
-inc c ; wall found
-not_wall1:
+nw:     ; x < 0 - NW quadrant
+        mov a,0
+        sub a,c     ; a = -x
+        jlt dir0,a,d
+        jeq dir3,a,a
+dir0:   ; -x < y (NW quadrant) => dir 0
+        ;  x < y (NE quadrant) => dir 0
+        mov c,0
+        jeq done,a,a
 
-add b,2
-mov a,d ; restore a
+lower:  ; y < 0 - lower half
+        mov b,0
+        sub b,d     ; b = -y
+        jlt sw,c,0
+        ; x > 0 - SE quadrant
+        jlt dir2,c,b
+dir1:   ; x > -y (SE quadrant) => dir 1
+        ; x >  y (NE quadrant) => dir 1
+        mov c,1
+        jeq done,a,a
 
-int 7; get (a,b+1) value
-jgt not_wall2,a,0
-inc c ; wall found
-not_wall2:
+sw:     ; x < 0 - SW quadrant
+        mov a,0
+        sub a,c     ; a = -x
+        jlt dir2,a,b
+dir3:   ; -x > -y (SW quadrant) => dir 3
+        ; -x >  y (NW quadrant) => dir 3
+        mov c,3
+        jeq done,a,a
+dir2:   ; -x < -y (SW quadrant) => dir 2
+        ;  x < -y (SE quadrant) => dir 2
+        mov c,2
 
-dec b ; restore original b
-dec d
-mov a,d
-
-int 7; get (a-1,b) value
-jgt not_wall3,a,0
-inc c ; wall found
-not_wall3:
-
-add d,2
-mov a,d
-
-int 7; get (a+1,b) value
-jgt not_wall4,a,0
-inc c ; wall found
-not_wall4:
-
-mov a,c
-ret
+done:
+        int 3
+        int 6       ; a = vitality
+        jeq panic,a,1
+        ; normal or invisible mode
+        xor c,2     ; inverse direction
+panic:  xor c,2     ; inverse direction
+        mov a,c
+exit:
+        int 0
+        hlt
