@@ -168,7 +168,7 @@ public class Sample1 extends VMExtras {
         int direction;
         ParsedEdge startEdge;
         startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
-        ListCons<Integer> __ = map(aistate.parsedStaticMap.parsedEdges, (e) -> e.danger.apply(VMExtras.GET_WRITER, 0).apply(0));
+        ListCons<Integer> __ = map(aistate.parsedStaticMap.parsedEdges, (ParsedEdge e) -> e.danger.apply(VMExtras.GET_WRITER, 0).apply(0));
         __ = map(worldState.ghosts, (g) -> placeGhostDanger(aistate, g));
         ListCons<Point> pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
         System.out.println("Chosen long way: " + startEdge.toString());
@@ -222,7 +222,7 @@ public class Sample1 extends VMExtras {
         ListCons<ParsedEdge> precedingEdges = findPrecedingEdgesSimple(aistate.parsedStaticMap.parsedEdges, a.pe);
         precedingEdges = filter(precedingEdges, (ParsedEdge fe) -> noneof(visitedEdges, (ve) -> fe.edgeNumber == ve ? 1 : 0));
         int countNewEdges = length(precedingEdges);
-        map(precedingEdges, (fe) -> addEdgeDanger(fe, a.peDanger / countNewEdges));
+        ListCons<Integer> ignore = map(precedingEdges, (ParsedEdge fe) -> addEdgeDanger(fe, a.peDanger / countNewEdges));
         ListCons<Integer> nvisited = concat2_set(visitedEdges, map(precedingEdges, (fe) -> fe.edgeNumber));
         ListCons<Integer> nvisited2 = concat2_set(nvisited, map(precedingEdges, (fe) -> fe.opposingEdgeNumber));
         Queue<EdgeDangerWaveItem> newQueue = fold0(precedingEdges, smaller.b, (qq, pe) -> queue_enqueue(qq, new EdgeDangerWaveItem(pe, a.peDanger / countNewEdges, a.distance + pe.count)));
@@ -232,7 +232,7 @@ public class Sample1 extends VMExtras {
     @Compiled
     private int waveGhostDanger(AIState aistate, EdgeDangerWaveItem item) {
         Queue<EdgeDangerWaveItem> q = queue_enqueue(queue_new(), item);
-        waveGhostDangerAcc0(aistate, q, cons(item.pe.edgeNumber, cons(item.pe.opposingEdgeNumber, null)));
+        int ignore = waveGhostDangerAcc0(aistate, q, cons(item.pe.edgeNumber, cons(item.pe.opposingEdgeNumber, null)));
         return 0;
     }
 
@@ -478,14 +478,14 @@ public class Sample1 extends VMExtras {
         ListCons<VerticalRow> verticalFinders;
         ListCons<HorizontalRow> horizontalFinders;
         ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> mapAccessors;
-        final Function2<Integer, Point, Function1<ParsedEdge, ParsedEdge>> edgesForPoint;
+        final Function1<Point, ListCons<ParsedEdge>> edgesForPoint;
 
 
         ParsedStaticMap(SortedMap<Point> walkable, SortedMap<Point> junctions,
                         ListCons<ParsedEdge> parsedEdges, ListCons<VerticalRow> verticalFinders,
                         ListCons<HorizontalRow> horizontalFinders,
                         ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> mapAccessors,
-                        Function2<Integer, Point, Function1<ParsedEdge, ParsedEdge>> edgesForPoint) {
+                        Function1<Point, ListCons<ParsedEdge>> edgesForPoint) {
             this.junctions = junctions;
             this.walkable = walkable;
             this.parsedEdges = parsedEdges;
@@ -662,12 +662,11 @@ public class Sample1 extends VMExtras {
         ListCons<ParsedEdge> allParsedEdges3 = mapi(allParsedEdges2, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, pe.edgeNumber, edgeNumber(findEdge(pe.b, pe.a, allParsedEdges2)), pe.danger));
         debug(4000011);
 
-        Function2<Integer, Point, Function1<ParsedEdge, ParsedEdge>> edgesForPoint = emptyEdgesArrayForMap(length(m));
-        Object ignore = map(allParsedEdges3, (ParsedEdge e) -> {
-            return map(e.edge, (Point p) -> edgesForPoint.apply(GET_WRITER, p).apply(e));
-        });
+        Function2<Integer, Point, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> edgesForPoint = emptyEdgesArrayForMap(length(m));
+        Object ignore = map(allParsedEdges3, (ParsedEdge e) -> map(e.edge, (Point p) -> edgesForPoint.apply(GET_WRITER, p).apply(lcons(e, edgesForPoint.apply(GET_READER, p).apply(null)))));
+        Function1<Point, ListCons<ParsedEdge>> readOnlyEdgesForPoint = toReadOnlyAccessor(edgesForPoint);
 
-        return new ParsedStaticMap(walkable, junctions, allParsedEdges3, null, null, accessors, edgesForPoint);
+        return new ParsedStaticMap(walkable, junctions, allParsedEdges3, null, null, accessors, readOnlyEdgesForPoint);
     }
 
     @Compiled
