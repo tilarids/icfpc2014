@@ -34,4 +34,12 @@ public class VMExtras extends VM {
     }
 
 
+    @Compiled
+    @Native(nlocals = 0)
+    public static Cons sample_map() {
+        return Sample1.convertMap(Sample1.map1);
+    }
+
+
+
 }
