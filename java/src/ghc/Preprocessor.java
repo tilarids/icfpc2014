@@ -1,6 +1,7 @@
 package ghc;
 
 import compiler.Compiler;
+import org.eclipse.equinox.internal.p2.engine.phases.Collect;
 import sun.plugin.dom.exception.InvalidStateException;
 
 import java.io.BufferedReader;
@@ -21,7 +22,7 @@ public class Preprocessor {
 
     public static void main(String[] args) {
 
-        List<String> prog = new ArrayList<String>();
+        List<String> prog = new ArrayList<>();
         try {
             FileInputStream fis = new FileInputStream("src/ghc/example.ghc");
             BufferedReader br = new BufferedReader(new InputStreamReader(fis));
@@ -67,23 +68,29 @@ public class Preprocessor {
         private void calcLabelPositions() {
             String nextComment = null;
             for (GHCInstruction instr : this.virtualInstructions) {
-                if (instr instanceof LabelInstruction) {
-                    LabelInstruction label = (LabelInstruction) instr;
-                    String labelName = label.getLabel();
+                if (nextComment != null) {
+                    instr.appendComment(nextComment);
+                    nextComment = null;
+                }
+                String labelName = instr.getInstrLabel();
+                if (labelName != null) {
                     if (labelPos.containsKey(labelName))
-                        throw new InvalidStateException("Duplicated label '" + label + "'");
+                        throw new InvalidStateException("Duplicated label '" + labelName + "'");
                     labelPos.put(labelName, realInstructions.size());
                 }
 
                 List<RealGHCInstruction> real = instr.getRealInstructions();
-                if ((nextComment != null) && (real.size() > 0))
-                    real.get(0).appendComment(nextComment);
-                nextComment = instr.getCommentForNextInstr();
-                realInstructions.addAll(real);
+                if (real.size() == 0)
+                    nextComment = instr.getComment();
+                else
+                    realInstructions.addAll(real);
             }
 
             for (GHCInstruction instruction : virtualInstructions) {
-                String label = containsLabel(instruction.getSrcInstruction());
+                String srcInstruction = instruction.getSrcInstruction();
+                if (srcInstruction == null)
+                    continue;
+                String label = containsLabel(srcInstruction);
                 if (label != null)
                     instruction.setUsedLabel(label);
             }
@@ -125,6 +132,8 @@ public class Preprocessor {
 
         public String processRealInstrLabels(RealGHCInstruction realInstr, int curInstrAddr) {
             String asm = realInstr.getRealInstructionAsm();
+            if (asm == null)
+                return null;
             for (Map.Entry<String, Integer> p : labelPos.entrySet()) {
                 if (asm.contains(p.getKey())) {
                     realInstr.appendComment("=>" + p.getKey());
@@ -157,9 +166,7 @@ public class Preprocessor {
 
         private GHCInstruction parseInstruction(String srcLine) {
             String lower = srcLine.toLowerCase().trim();
-            if (lower.contains(":")) {
-                return new LabelInstruction(srcLine);
-            } else if (lower.startsWith(PushInstruction.CMD_NAME)) {
+            if (lower.startsWith(PushInstruction.CMD_NAME)) {
                 return new PushInstruction(srcLine);
             } else if (lower.startsWith(PopInstruction.CMD_NAME)) {
                 return new PopInstruction(srcLine);
@@ -176,22 +183,41 @@ public class Preprocessor {
 
 
     static abstract class GHCInstruction {
+        protected final String instrLabel;
         protected final String srcInstruction;
         protected String comment;
         protected String usedLabel;
 
         protected GHCInstruction(String raw) {
+            int labelPos = raw.indexOf(":");
+            if (labelPos == -1)
+                this.instrLabel = null;
+            else {
+                this.instrLabel = raw.substring(0, labelPos).toLowerCase();
+                raw = raw.substring(labelPos + 1).trim();
+            }
+
             int commentPos = raw.indexOf(";");
             if (commentPos != -1) {
-                this.srcInstruction = raw.substring(0, commentPos).toLowerCase();
                 this.comment = raw.substring(commentPos);
-            } else {
-                this.srcInstruction = raw.trim().toLowerCase();
+                raw = raw.substring(0, commentPos).trim();
+            } else
                 this.comment = null;
-            }
+
+            if (raw.length() > 0)
+                this.srcInstruction = raw;
+            else
+                this.srcInstruction = null;
+
+            if (this.instrLabel != null)
+                appendComment("<=" + this.instrLabel);
         }
 
+        /**
+         * You can't create instruction with label here
+         */
         protected GHCInstruction(String srcInstruction, String comment) {
+            this.instrLabel = null;
             this.srcInstruction = srcInstruction;
             // appendComment also add ";" if required
             //this.comment = comment;
@@ -200,6 +226,10 @@ public class Preprocessor {
 
         public String getSrcInstruction() {
             return srcInstruction;
+        }
+
+        public String getInstrLabel() {
+            return instrLabel;
         }
 
         public String getUsedLabel() {
@@ -225,10 +255,6 @@ public class Preprocessor {
         }
 
         public abstract List<RealGHCInstruction> getRealInstructions();
-
-        public String getCommentForNextInstr() {
-            return null;
-        }
     }
 
     static abstract class RealGHCInstruction extends GHCInstruction {
@@ -240,19 +266,14 @@ public class Preprocessor {
             super(srcInstruction, comment);
         }
 
-//        public String toAsmString(GHCCode code) {
-//            String realInstructionAsm = code.replaceLabelsWithAddr(getRealInstructionAsm(), this);
-//            if (comment != null) {
-//                return Compiler.Opcode.rpad(realInstructionAsm, COMMENT_PADDING) + comment;
-//            } else
-//                return realInstructionAsm;
-//        }
-
         public abstract String getRealInstructionAsm();
 
         @Override
         public List<RealGHCInstruction> getRealInstructions() {
-            return Arrays.asList(this);
+            if (srcInstruction == null)
+                return Collections.emptyList();
+            else
+                return Arrays.asList(this);
         }
     }
 
@@ -283,30 +304,6 @@ public class Preprocessor {
         @Override
         public String getRealInstructionAsm() {
             return lazy.get();
-        }
-    }
-
-
-    static class LabelInstruction extends GHCInstruction {
-        private final String label;
-
-        LabelInstruction(String raw) {
-            super(raw);
-            this.label = raw.substring(0, raw.indexOf(':'));
-        }
-
-        public String getLabel() {
-            return label;
-        }
-
-        @Override
-        public List<RealGHCInstruction> getRealInstructions() {
-            return Collections.emptyList();
-        }
-
-        @Override
-        public String getCommentForNextInstr() {
-            return "<=" + getLabel();
         }
     }
 
