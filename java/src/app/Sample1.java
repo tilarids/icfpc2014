@@ -220,7 +220,7 @@ public class Sample1 extends VMExtras {
         Tuple<EdgeDangerWaveItem, Queue<EdgeDangerWaveItem>> smaller = queue_dequeue(queue);
         EdgeDangerWaveItem a = smaller.a;
         ListCons<ParsedEdge> precedingEdges = findPrecedingEdgesSimple(aistate.parsedStaticMap.parsedEdges, a.pe);
-        precedingEdges = filter(precedingEdges, (ParsedEdge fe) -> noneof(visitedEdges, (ve) -> fe.edgeNumber == ve ? 1 : 0));
+        precedingEdges = filter(precedingEdges, (ParsedEdge fe) -> noneof(visitedEdges, (Integer ve) -> ((ParsedEdge)fe).edgeNumber == ve ? 1 : 0));
         int countNewEdges = length(precedingEdges);
         ListCons<Integer> ignore = map(precedingEdges, (ParsedEdge fe) -> addEdgeDanger(fe, a.peDanger / countNewEdges));
         ListCons<Integer> nvisited = concat2_set(visitedEdges, map(precedingEdges, (fe) -> fe.edgeNumber));
@@ -252,13 +252,15 @@ public class Sample1 extends VMExtras {
         return 0;
     }
 
+    @Compiled
     private ParsedEdge findReverseEdge(AIState aistate, ParsedEdge e) {
         return head(filter(aistate.parsedStaticMap.parsedEdges, (ParsedEdge pe) -> pe.edgeNumber == e.opposingEdgeNumber ? 1 : 0));
     }
 
+    @Compiled
     private int addEdgeDanger(ParsedEdge e, int danger) {
-        Integer oldValue = e.danger.apply(GET_READER, 0).apply(0);
-        Integer oldValue2 = e.danger.apply(GET_WRITER, 0).apply(oldValue + danger);
+        Integer oldValue = e.danger.apply(VMExtras.GET_READER, 0).apply(0);
+        Integer oldValue2 = e.danger.apply(VMExtras.GET_WRITER, 0).apply(oldValue + danger);
         return 0;
     }
 
@@ -625,7 +627,8 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     public ListCons<ParsedEdge> findEdgesForPoint(AIState state, Point pos) {
-        return filter(state.parsedStaticMap.parsedEdges, (e) -> pointInEdge(pos, e));
+        return state.parsedStaticMap.edgesForPoint.apply(pos);
+//        return filter(state.parsedStaticMap.parsedEdges, (e) -> pointInEdge(pos, e));
     }
 
     @Compiled
