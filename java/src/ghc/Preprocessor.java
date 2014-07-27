@@ -1,6 +1,7 @@
 package ghc;
 
 import compiler.Compiler;
+import org.eclipse.equinox.internal.p2.engine.phases.Collect;
 import sun.plugin.dom.exception.InvalidStateException;
 
 import java.io.BufferedReader;
@@ -65,7 +66,12 @@ public class Preprocessor {
         }
 
         private void calcLabelPositions() {
+            String nextComment = null;
             for (GHCInstruction instr : this.virtualInstructions) {
+                if (nextComment != null) {
+                    instr.appendComment(nextComment);
+                    nextComment = null;
+                }
                 String labelName = instr.getInstrLabel();
                 if (labelName != null) {
                     if (labelPos.containsKey(labelName))
@@ -74,7 +80,10 @@ public class Preprocessor {
                 }
 
                 List<RealGHCInstruction> real = instr.getRealInstructions();
-                realInstructions.addAll(real);
+                if (real.size() == 0)
+                    nextComment = instr.getComment();
+                else
+                    realInstructions.addAll(real);
             }
 
             for (GHCInstruction instruction : virtualInstructions) {
@@ -90,17 +99,8 @@ public class Preprocessor {
         public String generateAsm(boolean annotateWithLineNumbers) {
             StringBuilder sb = new StringBuilder();
             int pos = 0;
-            String nextComment = null;
             for (RealGHCInstruction instr : this.realInstructions) {
-                if (nextComment != null) {
-                    instr.appendComment(nextComment);
-                    nextComment = null;
-                }
                 String realInstructionAsm = processRealInstrLabels(instr, pos);
-                if (realInstructionAsm == null) {
-                    nextComment = instr.getComment();
-                    continue;
-                }
                 if (annotateWithLineNumbers)
                     instr.appendComment(" #" + pos);
                 String comment = instr.getComment();
@@ -255,10 +255,6 @@ public class Preprocessor {
         }
 
         public abstract List<RealGHCInstruction> getRealInstructions();
-
-        public String getCommentForNextInstr() {
-            return null;
-        }
     }
 
     static abstract class RealGHCInstruction extends GHCInstruction {
@@ -270,19 +266,14 @@ public class Preprocessor {
             super(srcInstruction, comment);
         }
 
-//        public String toAsmString(GHCCode code) {
-//            String realInstructionAsm = code.replaceLabelsWithAddr(getRealInstructionAsm(), this);
-//            if (comment != null) {
-//                return Compiler.Opcode.rpad(realInstructionAsm, COMMENT_PADDING) + comment;
-//            } else
-//                return realInstructionAsm;
-//        }
-
         public abstract String getRealInstructionAsm();
 
         @Override
         public List<RealGHCInstruction> getRealInstructions() {
-            return Arrays.asList(this);
+            if (srcInstruction == null)
+                return Collections.emptyList();
+            else
+                return Arrays.asList(this);
         }
     }
 
@@ -315,36 +306,6 @@ public class Preprocessor {
             return lazy.get();
         }
     }
-
-
-    /*
-    static class LabelInstruction extends GHCInstruction {
-        private final String label;
-
-        LabelInstruction(String raw) {
-            super(raw);
-            this.label = raw.substring(0, raw.indexOf(':'));
-
-            String rest = this.srcInstruction.substring(this.label.length() + 1).trim();
-            if ((rest.length() > 0) && (rest.charAt(0) != ';'))
-                throw new InvalidStateException("Label and command in the same line are not supported (yet?):\r\n" + srcInstruction);
-        }
-
-        public String getLabel() {
-            return label;
-        }
-
-        @Override
-        public List<RealGHCInstruction> getRealInstructions() {
-            return Collections.emptyList();
-        }
-
-        @Override
-        public String getCommentForNextInstr() {
-            return "<=" + getLabel();
-        }
-    }
-    //*/
 
     static class CallInstruction extends GHCInstruction {
         public static final String CMD_NAME = "call ";
