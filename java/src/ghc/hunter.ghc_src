@@ -1,6 +1,27 @@
-; hunter bot - try to run towards lambdaman
+; hunter bot - try to run towards lambdaman and avoid if needed
+; takes desisions on intersections only
 
+        call get_surround_walls
+    int 8
+        jlt node,a,2 ; 0 or 1 wall nearby - node found
+        ; not a junction - we cannot change direction anyway
+loop:
+        call rng
+        mov b,a
+        call rng
+        int 7
+        jeq loop,a,a
+
+node:   ; a = walls count
+        int 3
+        int 6
+        mov [1],b ; keep curr. direction
+        mov [4],a   ; save our vitality
+    int 8
+    ; find desired direction
         int 1       ; get lambdaman current coords in (a,b)
+        mov [2],a
+        mov [3],b   ; keep lambdaman coords in ([2],[3])
         div a,2
         div b,2
         mov c,a     ; lambdaman scaled coords in (c,d) 0..127
@@ -26,21 +47,43 @@ m19:    jgt m24, f, 127  ;
 m24:
         mov c,a
 
-        int 3
-        int 6       ; a = vitality
-        jeq panic,a,1
-        ; normal or invisible mode
-        xor c,2     ; inverse direction
-panic:  xor c,2     ; inverse direction
-        mov a,c
+    int 8
+        call invert_if_panic
+    int 8
+    ; check if this direction is available
+        call check_dir_avail
+        jeq na,a,0
+av:     mov a,c
         int 0       ; set new dir
-loop:
-        call rng
-        mov b,a
-        call rng
-        int 7
-        jeq loop,a,a
         hlt
+
+na:
+    ; choose better dir between c-1 and c+1
+        get_cur_pos ; (a,b)
+        jeq vert,d,0
+        ; check up or down is better
+        ; compare y-coords in [3] and b
+        mov c,0
+        jgt yy,b,[3]
+        mov c,2
+yy:
+        call invert_if_panic
+        call check_dir_avail
+        jgt av,a,0
+        xor c,2     ; bad luck - choose dir that left
+        jeq av,a,a
+vert:
+        ; check left or right
+        ; compare x-coords in [2] and a
+        mov c,3
+        jgt xx,a,[2]
+        mov c,1
+xx:
+        call invert_if_panic
+        call check_dir_avail
+        jgt av,a,0
+        xor c,2     ; bad luck - choose dir that left
+        jeq av,a,a
 
 rng:
         mov a,[42]
@@ -50,4 +93,69 @@ rng:
         jlt no_xor,a,128
 do_xor: xor a,29
 no_xor: mov [42],a
+        ret
+
+    ; Input: c = desired direction
+    ; Output: a = 0 - direction unavailable, a != 0 - available
+    ; Output: d = 0 - we tried vertical dir, d = 1 - horizontal
+check_dir_avail:
+        mov a,[1]   ; get current direction
+        mov d,c     ; dir we need
+        and d,1
+        ; check that c and a are not opposite directions
+        xor a,2
+        jeq not_avail,a,c
+        get_cur_pos ; (a,b)
+        ; check for a wall in desired direction
+        jgt m02, d,0;
+        add b,c
+        dec b       ; now we have future (a,b)
+        jeq join,a,a
+m02:    sub a,c
+        add a,2
+join:   int 7       ; get map value at new (a,b)
+        jgt avail,a,0
+not_avail:
+        mov a,0
+avail:          ; returns nonzero if available
+        ret
+
+get_surround_walls:
+        get_cur_pos ; get our current coords in (a,b)
+        mov e,a ; keep a
+        mov c,0 ; # of surrounding walls
+
+        dec b
+        int 7; get (a,b-1) value (zero is a wall)
+        jgt not_wall1,a,0
+        inc c ; wall found
+not_wall1:
+        add b,2
+        mov a,e ; restore a
+        int 7; get (a,b+1) value
+        jgt not_wall2,a,0
+        inc c ; wall found
+not_wall2:
+        dec b ; restore original b
+        dec e
+        mov a,e
+        int 7; get (a-1,b) value
+        jgt not_wall3,a,0
+        inc c ; wall found
+not_wall3:
+        add e,2
+        mov a,e
+        int 7; get (a+1,b) value
+        jgt not_wall4,a,0
+        inc c ; wall found
+not_wall4:
+        mov a,c
+        ret
+
+invert_if_panic:
+        mov a,[4]
+        jeq panic,a,1
+        ; normal or invisible mode
+        xor c,2     ; inverse direction
+panic:  xor c,2     ; inverse direction
         ret
