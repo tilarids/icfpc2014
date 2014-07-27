@@ -23,7 +23,7 @@ public class Preprocessor {
 
         List<String> prog = new ArrayList<String>();
         try {
-            FileInputStream fis = new FileInputStream("src/ghc/hunter.ghc_src");
+            FileInputStream fis = new FileInputStream("src/ghc/example.ghc");
             BufferedReader br = new BufferedReader(new InputStreamReader(fis));
 
             String strLine;
@@ -293,6 +293,10 @@ public class Preprocessor {
         LabelInstruction(String raw) {
             super(raw);
             this.label = raw.substring(0, raw.indexOf(':'));
+
+            String rest = this.srcInstruction.substring(this.label.length() + 1).trim();
+            if ((rest.length() > 0) && (rest.charAt(0) != ';'))
+                throw new InvalidStateException("Label and command in the same line are not supported (yet?):\r\n" + srcInstruction);
         }
 
         public String getLabel() {
