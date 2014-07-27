@@ -1,18 +1,21 @@
 package app;
+
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by tilarids on 7/27/14.
  */
 public class GCCEmulator {
+
+
     static class Op {
         String op;
         String source;
+        Runnable runnable;
         List<Integer> param = new ArrayList();
         Op(String source, String op) {
             this.op = op;
@@ -24,7 +27,7 @@ public class GCCEmulator {
             return source;
         }
     }
-    enum Tag {Int, Dum, Cons, Join, Closure, Frame, Ret, Stop};
+    enum Tag {Int, Dum, Cons, Join, Closure, Frame, Ret, Stop}
 
     static class D {
         Tag tag;
@@ -105,8 +108,8 @@ public class GCCEmulator {
     int reg_d = 0; // %d
     Frame reg_e = null; // %e
 
-    List<D> data_stack = new ArrayList<D>();
-    List<Object> control_stack = new ArrayList<Object>();
+    List<D> data_stack = new ArrayList<>();
+    List<Object> control_stack = new ArrayList<>();
 
     void push_ds(D d) {
         data_stack.add(d);
@@ -126,19 +129,37 @@ public class GCCEmulator {
         return (D) control_stack.remove(--reg_d);
     }
 
+    boolean trace = false;
+
+    int instructionCount = 0;
 
     void run(List<Op> ops) {
-        boolean trace = false;
-        while (reg_c < ops.size()) {
-            Op op = ops.get(reg_c);
-            if (trace) { System.out.print("IP: " + reg_c + "  OP: " + op.toString()); System.out.flush(); }
-            switch(op.op) {
-                case "LDC": {
+        try {
+            while (reg_c < ops.size()) {
+                Op op = ops.get(reg_c);
+                if (trace) { System.out.print("IP: " + reg_c + "  OP: " + op.toString()+" dss:"+data_stack.size()); System.out.flush(); }
+                if (instructionCount % 1_000_000 == 0) System.out.println("Instructions: "+instructionCount/1_000_000+"M");
+                instructionCount++;
+                if (instructionCount == 4340024-300) trace = true;
+                if (trace) System.out.println();
+                op.runnable.run();
+            }
+        } catch (Exception e) {
+            System.out.println("AT INSTRUCTION COUNT: "+instructionCount);
+            e.printStackTrace();
+        }
+    }
+
+    public Runnable makeExecutable(Op op) {
+        switch(op.op) {
+            case "LDC": {
+                return () -> {
                     push_ds(new D(op.param.get(0)));
                     reg_c++;
-                    break;
-                }
-                case "LD": {
+                };
+            }
+            case "LD": {
+                return () -> {
                     Frame f = reg_e;
                     int n = op.param.get(0);
                     while (n > 0) {
@@ -148,13 +169,16 @@ public class GCCEmulator {
                     if (f.tag == Tag.Dum)
                         throw new RuntimeException("FrameMismatch");
                     D d = f.value.get(op.param.get(1));
-                    String dts = d.toString();
-                    if (trace) { System.out.print("  -> Loaded:" + dts.substring(0, Math.min(30, dts.length()))); System.out.flush(); }
+                    if (trace) {
+                        String s = d.toString();
+                        System.out.print(" loaded: "+ s.substring(0, Math.min(15, s.length())));
+                    }
                     push_ds(d);
                     reg_c++;
-                    break;
-                }
-                case "ADD": {
+                };
+            }
+            case "ADD": {
+                return () -> {
                     D y = pop_ds();
                     D x = pop_ds();
                     if (x.tag != Tag.Int)
@@ -165,9 +189,10 @@ public class GCCEmulator {
                     D d = new D(x.int_p + y.int_p);
                     push_ds(d);
                     reg_c++;
-                    break;
-                }
-                case "SUB": {
+                };
+            }
+            case "SUB": {
+                return () -> {
                     D y = pop_ds();
                     D x = pop_ds();
                     if (x.tag != Tag.Int)
@@ -178,9 +203,10 @@ public class GCCEmulator {
                     D d = new D(x.int_p - y.int_p);
                     push_ds(d);
                     reg_c++;
-                    break;
-                }
-                case "MUL": {
+                };
+            }
+            case "MUL": {
+                return () -> {
                     D y = pop_ds();
                     D x = pop_ds();
                     if (x.tag != Tag.Int)
@@ -191,9 +217,10 @@ public class GCCEmulator {
                     D d = new D(x.int_p * y.int_p);
                     push_ds(d);
                     reg_c++;
-                    break;
-                }
-                case "DIV": {
+                };
+            }
+            case "DIV": {
+                return () -> {
                     D y = pop_ds();
                     D x = pop_ds();
                     if (x.tag != Tag.Int)
@@ -204,9 +231,10 @@ public class GCCEmulator {
                     D d = new D(x.int_p / y.int_p);
                     push_ds(d);
                     reg_c++;
-                    break;
-                }
-                case "CEQ": {
+                };
+            }
+            case "CEQ": {
+                return () -> {
                     D y = pop_ds();
                     D x = pop_ds();
                     D z = new D(0);
@@ -214,16 +242,17 @@ public class GCCEmulator {
                         throw new RuntimeException("TagMismatch");
                     if (y.tag != Tag.Int)
                         throw new RuntimeException("TagMismatch");
-                    if (x.int_p == y.int_p) {
+                    if (x.int_p.equals(y.int_p)) {
                         z.int_p = 1;
                     } else {
                         z.int_p = 0;
                     }
                     push_ds(z);
                     reg_c++;
-                    break;
-                }
-                case "CGT": {
+                };
+            }
+            case "CGT": {
+                return () -> {
                     D y = pop_ds();
                     D x = pop_ds();
                     D z = new D(0);
@@ -238,9 +267,10 @@ public class GCCEmulator {
                     }
                     push_ds(z);
                     reg_c++;
-                    break;
-                }
-                case "CGTE": {
+                };
+            }
+            case "CGTE": {
+                return () -> {
                     D y = pop_ds();
                     D x = pop_ds();
                     D z = new D(0);
@@ -255,9 +285,10 @@ public class GCCEmulator {
                     }
                     push_ds(z);
                     reg_c++;
-                    break;
-                }
-                case "ATOM": {
+                };
+            }
+            case "ATOM": {
+                return () -> {
                     D x = pop_ds();
                     D y = new D(0);
                     if (x.tag == Tag.Int) {
@@ -267,35 +298,39 @@ public class GCCEmulator {
                     }
                     push_ds(y);
                     reg_c++;
-                    break;
-                }
-                case "CONS": {
+                };
+            }
+            case "CONS": {
+                return () -> {
                     D y = pop_ds();
                     D x = pop_ds();
                     D z = new D(new Cons(x, y));
                     push_ds(z);
                     reg_c++;
-                    break;
-                }
-                case "CAR": {
+                };
+            }
+            case "CAR": {
+                return () -> {
                     D x = pop_ds();
                     if (x.tag != Tag.Cons)
                         throw new RuntimeException("TagMismatch");
                     D y = x.cons_p.data;
                     push_ds(y);
                     reg_c++;
-                    break;
-                }
-                case "CDR": {
+                };
+            }
+            case "CDR": {
+                return () -> {
                     D x = pop_ds();
                     if (x.tag != Tag.Cons)
                         throw new RuntimeException("TagMismatch");
                     D y = x.cons_p.addr;
                     push_ds(y);
                     reg_c++;
-                    break;
-                }
-                case "SEL": {
+                };
+            }
+            case "SEL": {
+                return () -> {
                     D x = pop_ds();
                     if (x.tag != Tag.Int)
                         throw new RuntimeException("TagMismatch");
@@ -305,23 +340,26 @@ public class GCCEmulator {
                     } else {
                         reg_c = op.param.get(1);
                     }
-                    break;
-                }
-                case "JOIN": {
+                };
+            }
+            case "JOIN": {
+                return () -> {
                     D x = pop_control();
                     if (x.tag != Tag.Join)
                         throw new RuntimeException("ControlMismatch");
                     reg_c = x.control_p;
-                    break;
-                }
-                case "LDF": {
+                };
+            }
+            case "LDF": {
+                return () -> {
                     Closure c = new Closure(op.param.get(0), reg_e);
                     D x = new D(c);
                     push_ds(x);
                     reg_c++;
-                    break;
-                }
-                case "AP": {
+                };
+            }
+            case "AP": {
+                return () -> {
                     D x = pop_ds();
                     if (x.tag != Tag.Closure)
                         throw new RuntimeException("TagMismatch");
@@ -339,9 +377,10 @@ public class GCCEmulator {
                     push_control(new D(Tag.Ret, reg_c + 1));
                     reg_e = fp;
                     reg_c = f;
-                    break;
-                }
-                case "RTN": {
+                };
+            }
+            case "RTN": {
+                return () -> {
                     D x = pop_control();
                     if (x.tag == Tag.Stop) {
                         throw new RuntimeException("MachineStop");
@@ -352,17 +391,19 @@ public class GCCEmulator {
                     assert y.tag == Tag.Frame;
                     reg_e = y.frame_p;
                     reg_c = x.control_p;
-                    break;
-                }
-                case "DUM": {
+                };
+            }
+            case "DUM": {
+                return () -> {
                     Frame fp = new Frame(op.param.get(0));
                     fp.parent = reg_e;
                     fp.tag = Tag.Dum;
                     reg_e = fp;
                     reg_c++;
-                    break;
-                }
-                case "RAP": {
+                };
+            }
+            case "RAP": {
+                return () -> {
                     D x = pop_ds();
                     if (x.tag != Tag.Closure) {
                         throw new RuntimeException("TagMismatch");
@@ -387,12 +428,15 @@ public class GCCEmulator {
                     fp.tag = Tag.Frame;
                     reg_e = fp;
                     reg_c = f;
-                    break;
-                }
-                case "STOP": {
-                    return;
-                }
-                case "TSEL": {
+                };
+            }
+            case "STOP": {
+                return () -> {
+                    throw new RuntimeException("STOP");
+                };
+            }
+            case "TSEL": {
+                return () -> {
                     D x = pop_ds();
                     if (x.tag != Tag.Int)
                         throw new RuntimeException("TagMismatch");
@@ -401,9 +445,10 @@ public class GCCEmulator {
                     } else {
                         reg_c = op.param.get(0);
                     }
-                    break;
-                }
-                case "TAP": {
+                };
+            }
+            case "TAP": {
+                return () -> {
                     D x = pop_ds();
                     if (x.tag != Tag.Closure)
                         throw new RuntimeException("TagMismatch");
@@ -419,9 +464,10 @@ public class GCCEmulator {
                     }
                     reg_e = fp;
                     reg_c = f;
-                    break;
-                }
-                case "TRAP": {
+                };
+            }
+            case "TRAP": {
+                return () -> {
                     D x = pop_ds();
                     if (x.tag != Tag.Closure)
                         throw new RuntimeException("TagMismatch");
@@ -443,9 +489,10 @@ public class GCCEmulator {
                     fp.tag = Tag.Frame;
                     reg_e = fp;
                     reg_c = f;
-                    break;
-                }
-                case "ST": {
+                };
+            }
+            case "ST": {
+                return () -> {
                     Frame fp = reg_e;
                     Integer n = op.param.get(0);
                     Integer i = op.param.get(1);
@@ -459,43 +506,48 @@ public class GCCEmulator {
                     D v = pop_ds();
                     fp.value.set(i, v);
                     reg_c++;
-                    break;
-                }
-                case "DBUG": {
+                };
+            }
+            case "DBUG": {
+                return () -> {
                     D x = pop_ds();
                     System.out.println(x);
                     reg_c++;
-                    break;
-                }
-                case "BRK": {
-                    reg_c++;
-                    break;
-                }
-                default:
-                    throw new RuntimeException("Unsupported");
+                };
             }
-            if (trace) System.out.println();
+            case "BRK": {
+                return () -> reg_c++;
+            }
+            default:
+                throw new RuntimeException("Unsupported");
         }
+
     }
 
     public static void main(String[] args) throws IOException {
+        new GCCEmulator().go();
+    }
+
+    private void go() throws IOException {
         List<String> lines = Files.readAllLines(FileSystems.getDefault().getPath("test.txt"));
-        List<Op> ops = new ArrayList<Op>();
+        List<Op> ops = new ArrayList<>();
         for (String line : lines) {
             String source = line;
-            if (line.indexOf(";") != -1) {
+            if (line.contains(";")) {
                 line = line.substring(0, line.indexOf(";"));
             }
             String[] tokens = line.split("\\s");
+            if (tokens[0].length() == 0) continue;
             Op op = new Op(source, tokens[0]);
             for (int i = 1; i < tokens.length; ++i) {
                 if (tokens[i].length() > 0) {
                     op.param.add(Integer.parseInt(tokens[i]));
                 }
             }
+            op.runnable = makeExecutable(op);
             ops.add(op);
         }
-        new GCCEmulator().run(ops);
+        run(ops);
     }
 }
 

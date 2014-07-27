@@ -1,64 +1,51 @@
 mov h, 255                    ; initialize stack  #0
-int 3                         ; our index  #1
-int 6                         ; #2
-mov g,b                       ; our current dir  #3
-int 1                         ; get lambdaman current coords in (a,b)  #4
-div a,2                       ; #5
-div b,2                       ; #6
-mov c,a                       ; lambdaman scaled coords in (c,d) 0..127  #7
-mov d,b                       ; #8
-int 3                         ; #9
-int 5                         ; get our curr. coords in (a,b) 0..127  #10
-div a,2                       ; #11
-div b,2                       ; our scaled coords in (a,b)  #12
-sub c,a                       ; #13
-sub d,b                       ; (c,d) - relative coords of enemy -127..127  #14
-jgt 25,d,127                  ;=>lower  #15
-jgt 19,c,127                  ;=>nw  #16
-jlt 23,c,d                    ;=>dir2  #17
-jeq 29,a,a                    ;=>dir1  #18
-mov a,0                       ; x < 0 - NW quadrant <=nw  #19
-sub a,c                       ; a = -x  #20
-jlt 23,a,d                    ;=>dir2  #21
-jeq 34,a,a                    ;=>dir3  #22
-mov c,2                       ; -x < y (NW quadrant) => dir 2 <=dir2  #23
-jeq 37,a,a                    ;=>done  #24
-mov b,0                       ; y < 0 - lower half <=lower  #25
-sub b,d                       ; b = -y  #26
-jgt 31,c,127                  ;=>sw  #27
-jlt 36,c,b                    ;=>dir0  #28
-mov c,1                       ; x > -y (SE quadrant) => dir 1 <=dir1  #29
-jeq 37,a,a                    ;=>done  #30
-mov a,0                       ; x < 0 - SW quadrant <=sw  #31
-sub a,c                       ; a = -x  #32
-jlt 36,a,b                    ;=>dir0  #33
-mov c,3                       ; -x > -y (SW quadrant) => dir 3 <=dir3  #34
-jeq 37,a,a                    ;=>done  #35
-mov c,0                       ; -x < -y (SW quadrant) => dir 0 <=dir0  #36
-int 3                         ;<=done  #37
-int 6                         ; a = vitality  #38
-jeq 41,a,1                    ;=>panic  #39
-xor c,2                       ; inverse direction  #40
-xor c,2                       ; inverse direction <=panic  #41
-mov a,c                       ; #42
-int 0                         ;<=exit  #43
-mov [h], pc                   ; call rng  #44
-add [h], 4                    ; #45
-sub h, 1                      ; #46
-mov pc, 55                    ;=>rng  #47
-mov b,a                       ; #48
-mov [h], pc                   ; call rng  #49
-add [h], 4                    ; #50
-sub h, 1                      ; #51
-mov pc, 55                    ;=>rng  #52
-int 7                         ; #53
-jeq 44,a,a                    ;=>loop  #54
-mov a,[42]                    ;<=rng  #55
-jeq 60,a,0                    ;=>do_xor  #56
-add a,a                       ; #57
-jeq 6,a,0                     ; #58
-jlt 6,a,128                   ; #59
-xor a,29                      ;<=do_xor  #60
-mov [42],a                    ;<=no_xor  #61
-add h, 1                      ;return  #62
-mov pc, [h]                   ; #63
+int 1                         ; get lambdaman current coords in (a,b) ; hunter bot - try to run towards lambdaman  #1
+div a,2                       ; #2
+div b,2                       ; #3
+mov c,a                       ; lambdaman scaled coords in (c,d) 0..127  #4
+mov d,b                       ; #5
+int 3                         ; #6
+int 5                         ; get our curr. coords in (a,b) 0..127  #7
+div a,2                       ; #8
+div b,2                       ; our scaled coords in (a,b)  #9
+sub c,a                       ; #10
+sub d,b                       ; (c,d) - relative coords of enemy -127..127  #11
+mov f, d                      ; y  #12
+sub f, c                      ; f = y - x  #13
+add d, c                      ; d = y + x  #14
+mov a, 1                      ; #15
+jlt 18, d, 128                ;=>m19  #16
+mov a, 0                      ; d < 0  #17
+jgt 22, f, 127                ; <=m19 =>m24  #18
+mov a, 3                      ; f > 0  #19
+jgt 22, d, 127                ;=>m24  #20
+mov a, 2                      ; d > 0  #21
+mov c,a                       ;<=m24  #22
+int 3                         ; #23
+int 6                         ; a = vitality  #24
+jeq 27,a,1                    ;=>panic  #25
+xor c,2                       ; inverse direction ; normal or invisible mode  #26
+xor c,2                       ; inverse direction <=panic  #27
+mov a,c                       ; #28
+int 0                         ; set new dir  #29
+mov [h], pc                   ; call rng  #30
+add [h], 4                    ; #31
+sub h, 1                      ; #32
+mov pc, 42                    ;=>rng  #33
+mov b,a                       ; #34
+mov [h], pc                   ; call rng  #35
+add [h], 4                    ; #36
+sub h, 1                      ; #37
+mov pc, 42                    ;=>rng  #38
+int 7                         ; #39
+jeq 30,a,a                    ;=>loop  #40
+hlt                           ; #41
+mov a,[42]                    ;<=rng  #42
+jeq 47,a,0                    ;=>do_xor  #43
+add a,a                       ; #44
+jeq 48,a,0                    ;=>no_xor  #45
+jlt 48,a,128                  ;=>no_xor  #46
+xor a,29                      ;<=do_xor  #47
+mov [42],a                    ;<=no_xor  #48
+add h, 1                      ;return  #49
+mov pc, [h]                   ; #50

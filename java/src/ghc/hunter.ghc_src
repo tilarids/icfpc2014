@@ -1,8 +1,5 @@
 ; hunter bot - try to run towards lambdaman
 
-        int 3       ; our index
-        int 6
-        mov g,b     ; our current dir
         int 1       ; get lambdaman current coords in (a,b)
         div a,2
         div b,2
@@ -14,47 +11,21 @@
         div b,2     ; our scaled coords in (a,b)
         sub c,a
         sub d,b     ; (c,d) - relative coords of enemy -127..127
-        jgt lower,d,127
-        ; y > 0 - upper half
-        jgt nw,c,127
-        ; x > 0 - NE quadrant
-        jlt dir2,c,d
-        jeq dir1,a,a
 
-nw:     ; x < 0 - NW quadrant
-        mov a,0
-        sub a,c     ; a = -x
-        jlt dir2,a,d
-        jeq dir3,a,a
-dir2:   ; -x < y (NW quadrant) => dir 2
-        ;  x < y (NE quadrant) => dir 2
-        mov c,2
-        jeq done,a,a
+        mov f, d    ; y
+        sub f, c    ; f = y - x
+        add d, c    ; d = y + x
 
-lower:  ; y < 0 - lower half
-        mov b,0
-        sub b,d     ; b = -y
-        jgt sw,c,127
-        ; x > 0 - SE quadrant
-        jlt dir0,c,b
-dir1:   ; x > -y (SE quadrant) => dir 1
-        ; x >  y (NE quadrant) => dir 1
-        mov c,1
-        jeq done,a,a
+        mov a, 1
+        jlt m19, d, 128
+        mov a, 0        ; d < 0
+m19:    jgt m24, f, 127  ;
+        mov a, 3        ; f > 0
+        jgt m24, d, 127
+        mov a, 2        ; d > 0
+m24:
+        mov c,a
 
-sw:     ; x < 0 - SW quadrant
-        mov a,0
-        sub a,c     ; a = -x
-        jlt dir0,a,b
-dir3:   ; -x > -y (SW quadrant) => dir 3
-        ; -x >  y (NW quadrant) => dir 3
-        mov c,3
-        jeq done,a,a
-dir0:   ; -x < -y (SW quadrant) => dir 0
-        ;  x < -y (SE quadrant) => dir 0
-        mov c,0
-
-done:
         int 3
         int 6       ; a = vitality
         jeq panic,a,1
@@ -62,22 +33,21 @@ done:
         xor c,2     ; inverse direction
 panic:  xor c,2     ; inverse direction
         mov a,c
-exit:
-        int 0
+        int 0       ; set new dir
 loop:
         call rng
         mov b,a
         call rng
         int 7
         jeq loop,a,a
-;        hlt
+        hlt
 
 rng:
         mov a,[42]
         jeq do_xor,a,0
         add a,a
-        jeq 6,a,0
-        jlt 6,a,128
+        jeq no_xor,a,0
+        jlt no_xor,a,128
 do_xor: xor a,29
 no_xor: mov [42],a
         ret

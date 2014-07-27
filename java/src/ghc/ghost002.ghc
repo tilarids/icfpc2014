@@ -17,15 +17,13 @@ mul c, 255
 sub f, e                      ; f = y - x
 sub d, c                      ; d = y - (-x)
 
-mov [1], 0                    ;#16
+mov [1], 1                    ;#16
 jlt 19, d, 128
-mov [1], 1
-jgt 24, f, 127                ;#19
-mov [1], 2
-jgt 24, d, 127
+mov [1], 0                   ;#19
+jgt 24, f, 127
 mov [1], 3
+jgt 24, d, 127
+mov [1], 2
 mov a, [1]                    ;#24
 int 0
 hlt
-
-
