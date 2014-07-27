@@ -36,7 +36,7 @@ public class Preprocessor {
             e.printStackTrace();
         }
 
-        System.out.println(GHCCode.process(prog, false));
+        System.out.println(GHCCode.process(prog, true));
 
     }
 
@@ -46,8 +46,8 @@ public class Preprocessor {
         private List<GHCInstruction> virtualInstructions = new ArrayList<>();
         private List<RealGHCInstruction> realInstructions = new ArrayList<>();
 
-        // relative labels are "&(+2)" or "&(-42)"
-        private static final Pattern RELATIVE_LABEL = Pattern.compile("([^&]+)&\\(([+\\-]?[0-9]+)\\)(.*)");
+        // relative labels are "$+2" or "$-42"
+        private static final Pattern RELATIVE_LABEL = Pattern.compile("([^\\$]+)\\$([+\\-]?[0-9]+)(.*)");
 
         public GHCCode(List<String> src) {
             virtualInstructions.add(new SimpleGHCInstruction("mov h, 255 ; initialize stack"));
@@ -55,7 +55,7 @@ public class Preprocessor {
                 // 1st pass - check if line is code line, assign addr
                 String trimmed = line.trim();
                 // skip empty lines
-                if (trimmed.length() == 0)
+                if ((trimmed.length() == 0) || (trimmed.charAt(0) == ';'))
                     continue;
                 virtualInstructions.add(parseInstruction(trimmed));
             }
@@ -128,7 +128,16 @@ public class Preprocessor {
             for (Map.Entry<String, Integer> p : labelPos.entrySet()) {
                 if (asm.contains(p.getKey())) {
                     realInstr.appendComment("=>" + p.getKey());
-                    return asm.replace(p.getKey(), p.getValue().toString());
+                    // replace labels as whole-words only
+//                    return asm.replace(p.getKey(), p.getValue().toString());
+                    int pos = asm.indexOf(p.getKey());
+                    if (pos == -1)
+                        continue;
+                    boolean goodStart = (pos == 0) || Character.isWhitespace(asm.charAt(pos - 1)) || (asm.charAt(pos - 1) == ',');
+                    int endPos = pos + p.getKey().length();
+                    boolean goodEnd = (endPos == asm.length()) || Character.isWhitespace(asm.charAt(endPos)) || (asm.charAt(endPos) == ',') || (asm.charAt(endPos) == ';');
+                    if (goodStart && goodEnd)
+                        return asm.replace(p.getKey(), p.getValue().toString());
                 }
             }
 
