@@ -94,13 +94,18 @@ public class LambdaGhostEmulator {
     }
 
     @Compiled
+    public static int intCompare(int a, int b) {
+        return a == b ? 1: 0;
+    }
+
+    @Compiled
     public static GHCState ghcstate_bitop(GHCState state, Cons arg_cons, Cons val_cons, int type) {
         Integer arg = ghcstate_read_val(state, arg_cons);
         Integer val = ghcstate_read_val(state, val_cons);
         Integer result = emulate_bitop(arg, val,
                 type == GHCOps.AND ? ((x, y) -> x * y)
                         : type == GHCOps.OR ? ((x, y) -> (x + y) > 0 ? 1 : 0)
-                        : ((x, y) -> !x.equals(y) ? 1 : 0));
+                        : ((x, y) -> intCompare(x, y) == 1 ? 0 : 1));
         return ghcstate_write_val(state, arg_cons, result);
     }
 

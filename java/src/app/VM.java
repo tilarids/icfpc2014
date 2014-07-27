@@ -35,6 +35,28 @@ public class VM {
         }
     }
 
+    @Compiled
+    static class Triple<A, B, C> {
+        A a;
+        B b;
+        C c;
+
+        Triple(A a, B b, C c) {
+            this.a = a;
+            this.b = b;
+            this.c = c;
+        }
+
+        @Override
+        public String toString() {
+            return "Tuple{" +
+                    "a=" + a +
+                    ", b=" + b +
+                    ", c=" + c +
+                    '}';
+        }
+    }
+
 
     public static <D> ListCons<D> lcons(D data, ListCons<D> addr) {
         return new ListCons<D>(data, addr);

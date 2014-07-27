@@ -168,7 +168,7 @@ public class Sample1 extends VMExtras {
         int direction;
         ParsedEdge startEdge;
         startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
-        ListCons<Integer> __ = map(aistate.parsedStaticMap.parsedEdges, (e) -> e.danger.apply(VMExtras.GET_WRITER, 0).apply(0));
+        ListCons<Integer> __ = map(aistate.parsedStaticMap.parsedEdges, (ParsedEdge e) -> e.danger.apply(VMExtras.GET_WRITER, 0).apply(0));
         __ = map(worldState.ghosts, (g) -> placeGhostDanger(aistate, g));
         ListCons<Point> pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
         System.out.println("Chosen long way: " + startEdge.toString());
@@ -189,6 +189,7 @@ public class Sample1 extends VMExtras {
         int nx = retval.b == Direction.LEFT ? location.x - 1 : retval.b == Direction.RIGHT ? location.x + 1 : location.x;
         int ny = retval.b == Direction.UP ? location.y - 1 : retval.b == Direction.DOWN ? location.y + 1 : location.y;
         AIState a = retval.a;
+
         Function2<Integer, Integer, Function1<Integer, Integer>> newRowAccessor = list_item(a.parsedStaticMap.mapAccessors, ny);
         Integer oldValue = newRowAccessor.apply(VMExtras.GET_READER, nx).apply(0);
         oldValue = oldValue == CT.PILL ? newRowAccessor.apply(VMExtras.GET_WRITER, nx).apply(CT.SPACE) : oldValue;
@@ -222,17 +223,17 @@ public class Sample1 extends VMExtras {
         ListCons<ParsedEdge> precedingEdges = findPrecedingEdgesSimple(aistate.parsedStaticMap.parsedEdges, a.pe);
         precedingEdges = filter(precedingEdges, (ParsedEdge fe) -> noneof(visitedEdges, (ve) -> fe.edgeNumber == ve ? 1:0));
         int countNewEdges = length(precedingEdges);
-        map(precedingEdges, (fe) -> addEdgeDanger(fe, a.peDanger / countNewEdges));
-        ListCons<Integer> nvisited = concat2_set(visitedEdges, map(precedingEdges, (fe) -> fe.edgeNumber));
-        ListCons<Integer> nvisited2 = concat2_set(nvisited, map(precedingEdges, (fe) -> fe.opposingEdgeNumber));
-        Queue<EdgeDangerWaveItem> newQueue = fold0(precedingEdges, smaller.b, (qq, pe) -> queue_enqueue(qq, new EdgeDangerWaveItem(pe, a.peDanger / countNewEdges, a.distance + pe.count)));
+        ListCons<Integer> __ = map(precedingEdges, (ParsedEdge fe) -> addEdgeDanger(fe, a.peDanger / countNewEdges));
+        ListCons<Integer> nvisited = concat2_set(visitedEdges, map(precedingEdges, (ParsedEdge fe) -> fe.edgeNumber));
+        ListCons<Integer> nvisited2 = concat2_set(nvisited, map(precedingEdges, (ParsedEdge fe) -> fe.opposingEdgeNumber));
+        Queue<EdgeDangerWaveItem> newQueue = fold0(precedingEdges, smaller.b, (Queue<EdgeDangerWaveItem> qq, ParsedEdge pe) -> queue_enqueue(qq, new EdgeDangerWaveItem(pe, a.peDanger / countNewEdges, a.distance + pe.count)));
         return a.peDanger >= 5 ? waveGhostDangerAcc0(aistate, newQueue, nvisited2) : 0;
     }
 
     @Compiled
     private int waveGhostDanger(AIState aistate, EdgeDangerWaveItem item) {
         Queue<EdgeDangerWaveItem> q = queue_enqueue(queue_new(), item);
-        waveGhostDangerAcc0(aistate, q, cons(item.pe.edgeNumber, cons(item.pe.opposingEdgeNumber, null)));
+        int __ = waveGhostDangerAcc0(aistate, q, cons(item.pe.edgeNumber, cons(item.pe.opposingEdgeNumber, null)));
         return 0;
     }
 
@@ -247,18 +248,26 @@ public class Sample1 extends VMExtras {
         // will be mostly proper all time (for straight corridors)
         // todo: make properly
         edgesForPoint = filter(edgesForPoint, (e) -> pointEquals(head(remainingPath(e, gs.location)), nextPoint) == 1 ? 0 : 1);
-        ListCons<Integer> __ = map(edgesForPoint, (ParsedEdge e) -> addEdgeDanger(e, 100));
+        ListCons<Integer> __ = map(edgesForPoint, (ParsedEdge e) -> addEdgeDanger(e, initialDangerPercent(e.count, remainingPath(e, gs.location))));
         __ = map(edgesForPoint, (e) -> waveGhostDanger(aistate, new EdgeDangerWaveItem(findReverseEdge(aistate, e), 100, length(remainingPath(e, gs.location)))));
         return 0;
     }
 
+    @Compiled
+    private int initialDangerPercent(int count, ListCons<Point> remainingPath) {
+        int completedPercent = 100 - (length(remainingPath) * 100) / count;
+        return 50 + (completedPercent * 350) / 100;
+    }
+
+    @Compiled
     private ParsedEdge findReverseEdge(AIState aistate, ParsedEdge e) {
         return head(filter(aistate.parsedStaticMap.parsedEdges, (ParsedEdge pe) -> pe.edgeNumber == e.opposingEdgeNumber ? 1 : 0));
     }
 
+    @Compiled
     private int addEdgeDanger(ParsedEdge e, int danger) {
-        Integer oldValue = e.danger.apply(GET_READER, 0).apply(0);
-        Integer oldValue2 = e.danger.apply(GET_WRITER, 0).apply(oldValue + danger);
+        Integer oldValue = e.danger.apply(VMExtras.GET_READER, 0).apply(0);
+        Integer oldValue2 = e.danger.apply(VMExtras.GET_WRITER, 0).apply(oldValue + danger);
         return 0;
     }
 
@@ -342,22 +351,48 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
+    private Integer safetyPercent(ListCons<ParsedEdge> routeDirected) {
+        ParsedEdge hd = head(routeDirected);
+        int danger = hd.danger.apply(VMExtras.GET_READER, 0).apply(0);
+        routeDirected = tail(routeDirected);
+        if (routeDirected != null) {
+            hd = head(routeDirected);
+            danger = danger + hd.danger.apply(VMExtras.GET_READER, 0).apply(0) / 5;
+            routeDirected = tail(routeDirected);
+        }
+        if (routeDirected != null) {
+            hd = head(routeDirected);
+            danger = danger + hd.danger.apply(VMExtras.GET_READER, 0).apply(0) / 15;
+        }
+        danger = (((danger > 100 ? 100 : danger) * 100) / 100);
+        int safety = 100 - danger;
+        return safety;
+    }
+
+    boolean traceScore = false;
+
+    @Compiled
     private ParsedEdge findBestDistantEdge(ListCons<ParsedEdge> currentEdges, AIState aistate, WorldState worldState) {
         Queue<ListCons<ParsedEdge>> q = queue_new();
         q = fold0(currentEdges, q, (Queue<ListCons<ParsedEdge>> qq, ParsedEdge e) -> queue_enqueue(qq, cons(e, null)));
         ListCons<ListCons<ParsedEdge>> dests = waveFromEdgeToNearestEdges(aistate, worldState, q, sorted_map_assoc_all(new SortedMap<Integer>(null, 0), map(currentEdges, (ParsedEdge e) -> new Tuple<>(e.edgeNumber, 0))), null, 0);
-        ListCons<Tuple<ListCons<ParsedEdge>, Integer>> scores = map(dests, (r) -> new Tuple<>(r, 5 * countMyEdgePills(last(r), worldState.lambdaManState.location) + countRoutePills(tail(reverse(r)))));
-        Tuple<ListCons<ParsedEdge>, Integer> winningRoute = maximum_by(scores, (Tuple<ListCons<ParsedEdge>, Integer> t) -> t.b);
+        ListCons<ListCons<ParsedEdge>> directedRoutes = map(dests, (d) -> reverse(d));
+        ListCons<Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>>> scores = map(directedRoutes, (r) -> new Triple<>(r,
+                ((5 * countMyEdgePills(head(r), worldState.lambdaManState.location)
+                        + countRoutePills(tail(r))) * safetyPercent(r)) / 100,
+                new Triple<>(countMyEdgePills(head(r), worldState.lambdaManState.location), countRoutePills(tail(r)), safetyPercent(r))
+        ));
+        Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>> winningRoute = maximum_by(scores, (Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>> t) -> t.b);
         if (IN_JAVA) {
-/*
-            map(scores, (Tuple<ListCons<ParsedEdge>, Integer> route) -> {
-                System.out.println("Found : "+route.b);
-                printList(reverse(route.a));
-                return 0;
-            });
-*/
+            if (traceScore) {
+                map(scores, (Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>> route) -> {
+                    System.out.println("Found : " + route.b +" == " +route.c);
+                    printList(route.a);
+                    return 0;
+                });
+            }
         }
-        ParsedEdge myStart = head(reverse(winningRoute.a));
+        ParsedEdge myStart = head(winningRoute.a);
         return myStart;
     }
 
@@ -474,7 +509,7 @@ public class Sample1 extends VMExtras {
 
         @Override
         public String toString() {
-            return "[Edge: form=" + a + " to=" + b + " count=" + count + " id=" + edgeNumber + "]";
+            return "[Edge: form=" + a + " to=" + b + " count=" + count + " id=" + edgeNumber + " danger="+danger.apply(GET_READER, 0).apply(0)+"]";
         }
     }
 
