@@ -219,13 +219,13 @@ public class Sample1 extends VMExtras {
     private int waveGhostDangerAcc(AIState aistate, Queue<EdgeDangerWaveItem> queue, ListCons<Integer> visitedEdges) {
         Tuple<EdgeDangerWaveItem, Queue<EdgeDangerWaveItem>> smaller = queue_dequeue(queue);
         EdgeDangerWaveItem a = smaller.a;
-        ListCons<ParsedEdge> followingEdges = findFacingEdgesSimple(aistate.parsedStaticMap.parsedEdges, a.pe);
-        followingEdges = filter(followingEdges, (ParsedEdge fe) -> noneof(visitedEdges, (ve) -> fe.edgeNumber == ve ? 1:0));
-        int countNewEdges = length(followingEdges);
-        map(followingEdges, (fe) -> addEdgeDanger(fe, a.peDanger / countNewEdges));
-        ListCons<Integer> nvisited = concat2_set(visitedEdges, map(followingEdges, (fe) -> fe.edgeNumber));
-        ListCons<Integer> nvisited2 = concat2_set(nvisited, map(followingEdges, (fe) -> fe.opposingEdgeNumber));
-        Queue<EdgeDangerWaveItem> newQueue = fold0(followingEdges, smaller.b, (qq, pe) -> queue_enqueue(qq, new EdgeDangerWaveItem(pe, a.peDanger / countNewEdges, a.distance + pe.count)));
+        ListCons<ParsedEdge> precedingEdges = findPrecedingEdgesSimple(aistate.parsedStaticMap.parsedEdges, a.pe);
+        precedingEdges = filter(precedingEdges, (ParsedEdge fe) -> noneof(visitedEdges, (ve) -> fe.edgeNumber == ve ? 1:0));
+        int countNewEdges = length(precedingEdges);
+        map(precedingEdges, (fe) -> addEdgeDanger(fe, a.peDanger / countNewEdges));
+        ListCons<Integer> nvisited = concat2_set(visitedEdges, map(precedingEdges, (fe) -> fe.edgeNumber));
+        ListCons<Integer> nvisited2 = concat2_set(nvisited, map(precedingEdges, (fe) -> fe.opposingEdgeNumber));
+        Queue<EdgeDangerWaveItem> newQueue = fold0(precedingEdges, smaller.b, (qq, pe) -> queue_enqueue(qq, new EdgeDangerWaveItem(pe, a.peDanger / countNewEdges, a.distance + pe.count)));
         return a.peDanger >= 5 ? waveGhostDangerAcc0(aistate, newQueue, nvisited2) : 0;
     }
 
@@ -248,8 +248,12 @@ public class Sample1 extends VMExtras {
         // todo: make properly
         edgesForPoint = filter(edgesForPoint, (e) -> pointEquals(head(remainingPath(e, gs.location)), nextPoint) == 1 ? 0 : 1);
         ListCons<Integer> __ = map(edgesForPoint, (ParsedEdge e) -> addEdgeDanger(e, 100));
-        __ = map(edgesForPoint, (e) -> waveGhostDanger(aistate, new EdgeDangerWaveItem(e, 100, length(remainingPath(e, gs.location)))));
+        __ = map(edgesForPoint, (e) -> waveGhostDanger(aistate, new EdgeDangerWaveItem(findReverseEdge(aistate, e), 100, length(remainingPath(e, gs.location)))));
         return 0;
+    }
+
+    private ParsedEdge findReverseEdge(AIState aistate, ParsedEdge e) {
+        return head(filter(aistate.parsedStaticMap.parsedEdges, (ParsedEdge pe) -> pe.edgeNumber == e.opposingEdgeNumber ? 1 : 0));
     }
 
     private int addEdgeDanger(ParsedEdge e, int danger) {
