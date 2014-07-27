@@ -701,7 +701,7 @@ public class Sample1 extends VMExtras {
         }
 
         WorldState worldState = convertMap(theMap);
-        if (true) {
+        if (false) {
           System.out.println(new Sample1().bit_split(10) + ":" + new Sample1().bit_split(127));
           System.out.println(new Sample1().emulate_bitop(13, 5, (xx, yy) -> xx * yy));
           ListCons<Cons> spec =
