@@ -17,10 +17,10 @@
         ; x > 0 - NE quadrant
         jlt m2,c,d
         ; x > y => dir 1
-        mov a,1
+        mov c,1
         jeq done,a,a
 m2:     ; x < y => dir 0
-        mov a,0
+        mov c,0
         jeq done,a,a
 
 m1:     ; x < 0 - NW quadrant
@@ -28,10 +28,10 @@ m1:     ; x < 0 - NW quadrant
         sub a,c     ; a = -x
         jlt m3,a,d
         ; -x > y => dir 3
-        mov a,3
+        mov c,3
         jeq done,a,a
 m3:     ; -x < y => dir 0
-        mov a,0
+        mov c,0
         jeq done,a,a
 
 m0:     ; y < 0 - lower half
@@ -41,10 +41,10 @@ m0:     ; y < 0 - lower half
         ; x > 0 - SE quadrant
         jlt m4,c,b
         ; x > -y => dir 1
-        mov a,1
+        mov c,1
         jeq done,a,a
 m4:     ; x < -y => dir 2
-        mov a,2
+        mov c,2
         jeq done,a,a
 
 m5:     ; x < 0 - SW quadrant
@@ -52,13 +52,20 @@ m5:     ; x < 0 - SW quadrant
         sub a,c     ; a = -x
         jlt m6,a,b
         ; -x > -y => dir 3
-        mov a,3
+        mov c,3
         jeq done,a,a
 m6:     ; -x < -y => dir 2
-        mov a,0
-        jeq done,a,a
+        mov c,0
 
 done:
-        and a,3     ; set new direction
+        int 3
+        int 6       ; a = vitality
+        jeq panic,a,1
+        ; normal or invisible mode
+        xor c,2     ; inverse direction
+panic:
+        xor c,2     ; inverse direction
+        mov a,c
+exit:
         int 0
         hlt
