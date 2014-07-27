@@ -44,6 +44,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     public Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, Object undocumented) {
+        debug(test01());
         return entryFactual(ws);
 //        int x = location.a;
 //        int y = location.b;
@@ -59,18 +60,20 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryFactual(WorldState ws) {
+        AIState initialState = createInitialState(ws.map);
+        return new Tuple<>(initialState, (nextaistate, worldState) -> performMove(nextaistate, worldState));
+    }
 
+    @Compiled
+    private int test01() {
         debug(101);
         Function2<Integer, Integer, Function1<Integer, Integer>> accessor = array_256();
-        Function1<Integer, Integer> reader101 = accessor.apply(VMExtras.GET_READER, 101);
-        Function1<Integer, Integer> writer101 = accessor.apply(VMExtras.GET_WRITER, 101);
+        Function1<Integer, Integer> reader101 = accessor.apply(VMExtras.GET_READER, 22);
+        Function1<Integer, Integer> writer101 = accessor.apply(VMExtras.GET_WRITER, 22);
         Integer __ = writer101.apply(77);
         Integer value = reader101.apply(0);
         debug(value);
-
-
-        AIState initialState = createInitialState(ws.map);
-        return new Tuple<>(initialState, (nextaistate, worldState) -> performMove(nextaistate, worldState));
+        return 0;
     }
 
 
@@ -446,7 +449,8 @@ public class Sample1 extends VMExtras {
                         cons(new Point(weAreHere.x - 1, weAreHere.y),
                                 cons(new Point(weAreHere.x, weAreHere.y + 1),
                                         cons(new Point(weAreHere.x, weAreHere.y - 1), null))
-                        ))
+                        )
+                )
         );
         ListCons<Tuple<Integer, Point>> exits = filter(possibleDestinations, (Tuple<Integer, Point> d) -> isWalkable2(map, d.b) * (1 - sorted_map_contains(visited, d.a)));// here * === &&
         ListCons<Tuple<Integer, Point>> arrivedsList = filter(exits, (Tuple<Integer, Point> e) -> sorted_map_contains(destinations, e.a));
@@ -475,7 +479,7 @@ public class Sample1 extends VMExtras {
         ListCons<Point> junctionsList = filter(walkableList, (Point w) -> isJunction(m, w.x, w.y));
         SortedMap<Point> walkable = sorted_map_assoc_all(new SortedMap<Point>(null, 0), addPointKeyAll(walkableList));
         SortedMap<Point> junctions = sorted_map_assoc_all(new SortedMap<Point>(null, 0),
-                                                          addPointKeyAll(junctionsList));
+                addPointKeyAll(junctionsList));
         ListCons<ParsedEdge> allParsedEdges = concat(map(junctionsList, (j) -> findNeighbourJunctions(m, j, junctions)));
         // renumber them.
         allParsedEdges = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.edge, pe.count, pe.a, pe.b, ix));

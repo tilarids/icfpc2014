@@ -16,7 +16,7 @@ public class VMExtras extends VM {
 
     public Function2<Integer, Integer, Function1<Integer,Integer>> create_array_accessor(int n) {
         final int[] d = new int[n];
-        Function2<Integer,Integer,Function1<Integer,Integer>> f = (final Integer ix, Integer op) ->  {
+        Function2<Integer,Integer,Function1<Integer,Integer>> f = (final Integer op, final Integer ix) ->  {
             Function1<Integer, Integer> getter = null;
             Function1<Integer, Integer> setter = null;
             switch(op) {
