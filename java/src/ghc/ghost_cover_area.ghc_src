@@ -1,3 +1,5 @@
+; File: ghost_cover_area.ghc_src
+
 ; This is a source code to be compiled with ghc.Preprocessor
 ;
 ; This bot tries to cover as many various roads as possible
@@ -6,190 +8,188 @@
 ; to select some other direction next time.
 
 init: ;one-time init
-jgt main,[2],0
-mov [1], 255
-mov [2], 6 ; for now 9 is the start for visited
+        jgt main,[2],0
+        mov [1], 255
+        mov [2], 6 ; for now 9 is the start for visited
 
 main: ;main work
-call get_surround_walls
-jlt node,a,2
+        call get_surround_walls
+        jlt node,a,2
 patrol: ;patrol
-int 3
-int 6
-mov a, b
-inc a
-and a, 3
-mov [1], a
-int 0
-jgt end_w, 1, 0   ;hlt
-
-
+        int 3
+        int 6
+        mov a, b
+        inc a
+        and a, 3
+        mov [1], a
+        int 0
+        jgt end_w, 1, 0   ;hlt
 
 node: ; a - count, b - mask
-mov g, [2]
-mov c,a ; copy (a,b) -> (c,d)
-mov d,b
+        mov g, [2]
+        mov c,a ; copy (a,b) -> (c,d)
+        mov d,b
 get_cur_pos ;to (a,b)
-mov e, 6 ; 6 = 9-3, for now 9 is the start for visited
+        mov e, 6 ; 6 = 9-3, for now 9 is the start for visited
 
 loop:
-add e, 3
-jgt no_match, e, g
-jeq $+2, a,[e]
-jeq loop,0,0
-inc e
-jeq has_match, b,[e]
-jeq loop,0,0
+        add e, 3
+        jgt no_match, e, g
+        jeq $+2, a,[e]
+        jeq loop,0,0
+        inc e
+        jeq has_match, b,[e]
+        jeq loop,0,0
 
 no_match: ; no match found
-add e, 3
-mov [2], e
-mov [e], a
-inc e
-mov [e], b
-inc e
-mov a, d
-call mask_to_some_dir
-mov d, [1]
-mov [1], a
-int 0
-mov a,d
-add a, 252 ; 4 - a
-call dir_to_mask
-or b, a
-mov [e], b
+        add e, 3
+        mov [2], e
+        mov [e], a
+        inc e
+        mov [e], b
+        inc e
+        mov a, d
+        call mask_to_some_dir
+        mov d, [1]
+        mov [1], a
+        int 0
+        mov a,d
+        add a, 252 ; 4 - a
+        call dir_to_mask
+        or b, a
+        mov [e], b
 
-jlt after_shrink, [2], 200 ; we reached memory limit, copy some data
-mov e, 9
-mov g, [2]
-int 8
+        jlt after_shrink, [2], 200 ; we reached memory limit, copy some data
+        mov e, 9
+        mov g, [2]
+;        int 8
 do_shrink:
-mov [e],[g]
-inc e
-inc g
-mov [e],[g]
-inc e
-inc g
-mov [e],[g]
-inc e
-sub g, 5
-jlt do_shrink, e,g
-mov [2], g
+        mov [e],[g]
+        inc e
+        inc g
+        mov [e],[g]
+        inc e
+        inc g
+        mov [e],[g]
+        inc e
+        sub g, 5
+        jlt do_shrink, e,g
+        mov [2], g
 after_shrink:
 
-jeq end_w, 0, 0   ;hlt
+        jeq end_w, 0, 0   ;hlt
 
 has_match: ; match found
-inc e
-mov b, [e] ; load visited mask
+        inc e
+        mov b, [e] ; load visited mask
 ;int 8
-xor b, 15 ; invert mask
-mov a, d
-xor a, 15
-and a, b
-jgt after_clear_mask, a, 0 ; if there are no non-visited directions - clear mask and start again
-mov [e],0
-mov a, d
+        xor b, 15 ; invert mask
+        mov a, d
+        xor a, 15
+        and a, b
+        jgt after_clear_mask, a, 0 ; if there are no non-visited directions - clear mask and start again
+        mov [e],0
+        mov a, d
 after_clear_mask:
-;int 8
-call mask_to_some_dir
-;int 8
-or b, [e]
-mov [e], b
-mov [1], a
-int 0
-jeq end_w, 0, 0   ;hlt
+        ;int 8
+        call mask_to_some_dir
+        ;int 8
+        or b, [e]
+        mov [e], b
+        mov [1], a
+        int 0
+        jeq end_w, 0, 0   ;hlt
 
 
 end_w:
-;mov g,[2]
-;int 8
+        ;mov g,[2]
+        ;int 8
 end0:
-and a,b
-or b,c
-jgt end0, 1, 0
-hlt ;fake
+        and a,b
+        or b,c
+        jgt end0, 1, 0
+        hlt ;fake
 
 
 get_surround_walls:
-get_cur_pos ; get our current coords in (a,b)
-mov e,a ; keep a
-mov c,0 ; # of surrounding walls
-mov d,0 ; surrounding walls mask
+        get_cur_pos ; get our current coords in (a,b)
+        mov e,a ; keep a
+        mov c,0 ; # of surrounding walls
+        mov d,0 ; surrounding walls mask
 
-dec b
-int 7; get (a,b-1) value (zero is a wall)
-jgt not_wall1,a,0
-inc c ; wall found
-mov a,0
-call dir_to_mask
-or d,a
-not_wall1:
+        dec b
+        int 7; get (a,b-1) value (zero is a wall)
+        jgt not_wall1,a,0
+        inc c ; wall found
+        mov a,0
+        call dir_to_mask
+        or d,a
+        not_wall1:
 
-add b,2
-mov a,e ; restore a
-int 7; get (a,b+1) value
-jgt not_wall2,a,0
-inc c ; wall found
-mov a,2
-call dir_to_mask
-or d,a
+        add b,2
+        mov a,e ; restore a
+        int 7; get (a,b+1) value
+        jgt not_wall2,a,0
+        inc c ; wall found
+        mov a,2
+        call dir_to_mask
+        or d,a
 not_wall2:
 
-dec b ; restore original b
-dec e
-mov a,e
-int 7; get (a-1,b) value
-jgt not_wall3,a,0
-inc c ; wall found
-mov a,3
-call dir_to_mask
-or d,a
+        dec b ; restore original b
+        dec e
+        mov a,e
+        int 7; get (a-1,b) value
+        jgt not_wall3,a,0
+        inc c ; wall found
+        mov a,3
+        call dir_to_mask
+        or d,a
 not_wall3:
 
-add e,2
-mov a,e
-int 7; get (a+1,b) value
-jgt not_wall4,a,0
-inc c ; wall found
-mov a,0
-call dir_to_mask
-or d,a
+        add e,2
+        mov a,e
+        int 7; get (a+1,b) value
+        jgt not_wall4,a,0
+        inc c ; wall found
+        mov a,0
+        call dir_to_mask
+        or d,a
 not_wall4:
 
-mov a,c
-mov b,d
-ret
+        mov a,c
+        mov b,d
+        ret
 
 
 dir_to_mask:
-jgt $+4, a, 0   ;up
-mov a,1
-ret
-jgt $+4, a, 1   ;right
-mov a,2
-ret
-jgt $+4, a, 2   ;down
-mov a,4
-ret
-mov a, 8        ;left
-ret
+        jgt $+4, a, 0   ;up
+        mov a,1
+        ret
+        jgt $+4, a, 1   ;right
+        mov a,2
+        ret
+        jgt $+4, a, 2   ;down
+        mov a,4
+        ret
+        mov a, 8        ;left
+        ret
 
 mask_to_some_dir:
-jlt $+5, a, 8   ;left
-mov a,3
-mov b,8
-ret
-and a, 7
-jlt $+5, a, 4   ;down
-mov a,2
-mov b,4
-ret
-and a, 3
-jlt $+5, a, 2   ;right
-mov a,1
-mov b, 2
-ret
-mov a, 0        ;up
-mov b, 1
-ret
+        jlt $+5, a, 8   ;left
+        mov a,3
+        mov b,8
+        ret
+;        and a, 7
+        jlt $+5, a, 4   ;down
+        mov a,2
+        mov b,4
+        ret
+;        and a, 3
+        jlt $+5, a, 2   ;right
+        mov a,1
+        mov b, 2
+        ret
+        mov a, 0        ;up
+        mov b, 1
+        ret
