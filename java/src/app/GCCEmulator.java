@@ -364,7 +364,7 @@ public class GCCEmulator {
                         throw new RuntimeException("FrameMismatch");
                     if (reg_e != fp)
                         throw new RuntimeException("FrameMismatch");
-                    Integer i = op.param.get(0);
+                    Integer i = op.param.get(0) - 1;
                     while (i != -1) {
                         D y = pop_ds();
                         fp.value.set(i, y);
