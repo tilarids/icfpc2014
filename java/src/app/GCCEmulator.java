@@ -16,6 +16,7 @@ public class GCCEmulator {
         List<Integer> param = new ArrayList();
         Op(String source, String op) {
             this.op = op;
+            this.source = source;
         }
 
         @Override
