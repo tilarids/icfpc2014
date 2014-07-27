@@ -1,7 +1,5 @@
 package app;
 
-import com.sun.javafx.geom.Edge;
-
 /**
  * Created by san on 7/25/14.
  */
@@ -46,7 +44,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     public Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, Object undocumented) {
-        debug(test01());
+        //debug(test01());
         return entryFactual(ws);
 //        int x = location.a;
 //        int y = location.b;
@@ -63,27 +61,29 @@ public class Sample1 extends VMExtras {
     @Compiled
     private Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryFactual(WorldState ws) {
         AIState initialState = createInitialState(ws.map);
-        return new Tuple<>(initialState, (AIState nextaistate, WorldState worldState) -> performMove(new AIState(nextaistate.parsedStaticMap, nextaistate.lastDirection, nextaistate.tick + 1),
-                                                                                  worldState));
+
+        Function2<Integer, Integer, Function1<Integer, Integer>> newRowAccessor = list_item(initialState.parsedStaticMap.mapAccessors, 1);
+        Integer oldValue = newRowAccessor.apply(VMExtras.GET_READER, 1).apply(0);
+
+        return new Tuple<>(initialState, (nextaistate, worldState) -> performMove(nextaistate, worldState));
     }
 
     @Compiled
     private int test01() {
-        debug(101);
         Function2<Integer, Integer, Function1<Integer, Integer>> accessor = array_256();
         Function1<Integer, Integer> reader101 = accessor.apply(VMExtras.GET_READER, 22);
         Function1<Integer, Integer> writer101 = accessor.apply(VMExtras.GET_WRITER, 22);
         Integer __ = writer101.apply(77);
         Integer value = reader101.apply(0);
-        debug(value);
         return 0;
     }
 
 
     @Compiled
-    private ListCons<Point> collectEdgePills(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map) {
-        ListCons<Point> pathOnEdge = dropWhile(edge.edge, (Point p) -> p.x != start.x || p.y != start.y ? 1 : 0);
-        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == CT.PILL ? 1 : 0);
+    private ListCons<Tuple<Function1<Integer, Integer>, Point>> collectEdgePills(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map) {
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> pathRemaining = dropWhile(edge.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> t) -> ((Point)t.b).x != start.x || ((Point)t.b).y != start.y ? 1 : 0);
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> rv = filter(pathRemaining, (Tuple<Function1<Integer, Integer>, Point> t) -> t.a.apply(0) == CT.PILL ? 1 : 0);
+        return rv;
     }
 
     @Compiled
@@ -94,9 +94,23 @@ public class Sample1 extends VMExtras {
 
 
     @Compiled
-    private ListCons<Point> collectAnyEdgePills(ParsedEdge edge, ListCons<ListCons<Integer>> map) {
-        ListCons<Point> pathOnEdge = edge.edge;
-        ListCons<Point> rv = filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == CT.PILL ? 1 : 0);
+    private ListCons<Tuple<Function1<Integer, Integer>, Point>> collectAnyEdgePills(ParsedEdge edge, ListCons<ListCons<Integer>> map) {
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess = edge.edgeAccess;
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> rv = filter(edgeAccess, (Tuple<Function1<Integer, Integer>, Point> t) -> t.a.apply(0) == CT.PILL ? 1 : 0);
+        return rv;
+    }
+
+    @Compiled
+    private Integer countAnyEdgePills(ParsedEdge edge) {
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess = edge.edgeAccess;
+        Integer rv = fold0(edgeAccess, 0, (Integer acc, Tuple<Function1<Integer, Integer>, Point> t) -> acc + (t.a.apply(0) == CT.PILL ? 1 : 0));
+        return rv;
+    }
+
+    @Compiled
+    private Integer countMyEdgePills(ParsedEdge edge, Point start) {
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> pathRemaining = dropWhile(edge.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> t) -> ((Point)t.b).x != start.x || ((Point)t.b).y != start.y ? 1 : 0);
+        Integer rv = fold0(pathRemaining, 0, (Integer acc, Tuple<Function1<Integer, Integer>, Point> t) -> t.a.apply(0) == CT.PILL ? 1 : 0);
         return rv;
     }
 
@@ -111,40 +125,35 @@ public class Sample1 extends VMExtras {
             this.count = count;
             this.ghostCount = ghostCount;
         }
+
+        @Override
+        public String toString() {
+            return "EdgeAndCount{" +
+                    "pe=" + pe +
+                    ", count=" + count +
+                    ", ghostCount=" + ghostCount +
+                    '}';
+        }
     }
 
-    @Compiled
 
-    Integer scorePoint(Integer x, Integer y, Integer cell, Integer vitality, Integer tick, ListCons<GhostState> ghosts) {
-        return
-                cell == CT.FRUIT ? (((tick > 127 * 200) && (tick < 127 * 280)) || ((tick > 127 * 400) && (tick < 127 * 480)) ? 300 : 0)
-              : any(ghosts, (GhostState ghost) -> x == ghost.location.x && y == ghost.location.y ? 1 : 0) > 0 ? (vitality > 0 ? vitality : -1000)
-              : cell == CT.PILL ? 10
-              : cell == CT.POWER? 50
-              : 0;
-    }
-
-    @Compiled
-    Tuple<ParsedEdge, Integer> scoreEdge(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map, Integer vitality, Integer tick, ListCons<GhostState> ghosts) {
-        ListCons<Point> pathOnEdge = dropWhile(edge.edge, (Point p) -> p.x != start.x || p.y != start.y ? 1 : 0);
-        Integer score = fold0(pathOnEdge,
-                0,
-                (Integer acc, Point p) -> acc + scorePoint(p.x, p.y, getMapItem(map, p.y, p.x), vitality, tick, ghosts));
-        return new Tuple<>(edge, score);
-    }
 
     @Compiled
     private Tuple<AIState, Integer> performMove(AIState aistate, WorldState worldState) {
+        debug(1200001);
         Point location = worldState.lambdaManState.location;
         ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate, location);
-        ListCons<Tuple<ParsedEdge, Integer>> edgesScored = map(edgesForPoint, (e) -> scoreEdge(e, location, worldState.map, worldState.lambdaManState.vitality, aistate.tick, worldState.ghosts));
-        Tuple<ParsedEdge, Integer> es = maximum_by(edgesScored, (Tuple<ParsedEdge, Integer> cp) -> cp.b);
-        ListCons<Point> pathToWalk = dropWhile(((ParsedEdge)es.a).edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
+        ListCons<EdgeAndCount> collectedPoints = map(edgesForPoint, (e) -> new EdgeAndCount(e,
+                length(collectEdgePills(e, location, worldState.map)),
+                length(collectEdgeGhosts(e, location, worldState.map))));
+        EdgeAndCount ec = maximum_by(collectedPoints, (EdgeAndCount cp) -> (cp.count - 0 * cp.ghostCount));
+        ListCons<Point> pathToWalk = dropWhile(ec.pe.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
         Tuple<AIState, Integer> retval;
         Point newLocation;
         int direction;
         ParsedEdge startEdge;
-        if (length(pathToWalk) < 2 || es.b == 0) { // nothing close to me
+        debug(1200008);
+        if (length(pathToWalk) < 2 || ec.count == 0 || 1 == 1 ) { // nothing close to me
 //            long l = System.nanoTime();
             startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
 //            l = System.nanoTime() - l;
@@ -152,21 +161,14 @@ public class Sample1 extends VMExtras {
 //            if (l > 1000000) {
 //                findBestDistantEdge(edgesForPoint, aistate, worldState);
 //            }
+            debug(12000080);
+            debug(startEdge.edge);
+            debug(location);
             pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
+            debug(12000081);
             System.out.println("Chosen long way: " + startEdge.toString());
         }
-        if (1 == 2) {
-            // ensure that we don't stuck when there is no pills nearby. just go somewhere (and don't go back)
-            // branch svg
-            direction = isWalkable3(worldState.map, location.x, location.y - 1) == 1 && aistate.lastDirection != Direction.DOWN ?
-                    Direction.UP :
-                    isWalkable3(worldState.map, location.x + 1, location.y) == 1 && aistate.lastDirection != Direction.LEFT ?
-                            Direction.RIGHT :
-                            isWalkable3(worldState.map, location.x, location.y + 1) == 1 && aistate.lastDirection != Direction.UP ?
-                                    Direction.DOWN :
-                                    Direction.LEFT;
-            retval = new Tuple<>(new AIState(aistate.parsedStaticMap, direction, aistate.tick), direction);
-        } else if (length(pathToWalk) >= 2) {
+        if (length(pathToWalk) >= 2) {
             newLocation = head(tail(pathToWalk));
             direction = (newLocation.x > location.x) ?
                     Direction.RIGHT :
@@ -179,6 +181,18 @@ public class Sample1 extends VMExtras {
         } else {
             retval = new Tuple<>(aistate, Direction.UP);
         }
+        debug(1200009);
+        // update map cache, remove pill from it
+        int nx = retval.b == Direction.LEFT ? location.x - 1 : retval.b == Direction.RIGHT ? location.x + 1 : location.x;
+        int ny = retval.b == Direction.UP ? location.y - 1 : retval.b == Direction.DOWN ? location.y + 1 : location.y;
+        debug(1200010);
+        AIState a = retval.a;
+        Function2<Integer, Integer, Function1<Integer, Integer>> newRowAccessor = list_item(a.parsedStaticMap.mapAccessors, ny);
+        debug(1200011);
+        Integer oldValue = newRowAccessor.apply(VMExtras.GET_READER, nx).apply(0);
+        debug(1200012);
+        oldValue = oldValue == CT.PILL ? newRowAccessor.apply(VMExtras.GET_WRITER, nx).apply(CT.SPACE) : oldValue;
+        debug(1200013);
         return retval;
     }
 
@@ -188,18 +202,19 @@ public class Sample1 extends VMExtras {
             WorldState worldState,
             Queue<ListCons<ParsedEdge>> edgeQueue,
             SortedMap<Integer> visited,
-            ListCons<ListCons<ParsedEdge>> acc) {
+            ListCons<ListCons<ParsedEdge>> acc,
+            int edgesWithDotsSoFar) {
         ListCons<ListCons<ParsedEdge>> retval;
         if (queue_isempty(edgeQueue)) {
             retval = acc;
         } else {
-            retval = waveFromEdgeToNearestEdges0(aistate, worldState, edgeQueue, visited, acc);
+            retval = waveFromEdgeToNearestEdges0(aistate, worldState, edgeQueue, visited, acc, edgesWithDotsSoFar);
         }
         return retval;
     }
 
     @Compiled
-    private ListCons<ListCons<ParsedEdge>> waveFromEdgeToNearestEdges0(AIState aistate, WorldState worldState, Queue<ListCons<ParsedEdge>> edgeQueue, SortedMap<Integer> visited, ListCons<ListCons<ParsedEdge>> acc) {
+    private ListCons<ListCons<ParsedEdge>> waveFromEdgeToNearestEdges0(AIState aistate, WorldState worldState, Queue<ListCons<ParsedEdge>> edgeQueue, SortedMap<Integer> visited, ListCons<ListCons<ParsedEdge>> acc, int edgesWithDotsSoFar) {
         ListCons<ListCons<ParsedEdge>> retval;
         Tuple<ListCons<ParsedEdge>, Queue<ListCons<ParsedEdge>>> reduced = queue_dequeue(edgeQueue);
         ListCons<ParsedEdge> lookingEdge = reduced.a;
@@ -210,7 +225,8 @@ public class Sample1 extends VMExtras {
         ListCons<ListCons<ParsedEdge>> newRoutes = map(following, (ParsedEdge next) -> cons(next, lookingEdge));
         Queue<ListCons<ParsedEdge>> newqq = fold0(newRoutes, reduced.b, (Queue<ListCons<ParsedEdge>> qq, ListCons<ParsedEdge> nr) -> queue_enqueue(qq, nr));
         ListCons<ListCons<ParsedEdge>> newAcc = concat2_set(newRoutes, acc);
-        retval = length(withDots) > 0? newAcc : waveFromEdgeToNearestEdges(aistate, worldState, newqq, nvisited, newAcc);
+        // found some dots and
+        retval = edgesWithDotsSoFar > 3 && length(newAcc) > 50 ? newAcc : waveFromEdgeToNearestEdges(aistate, worldState, newqq, nvisited, newAcc, edgesWithDotsSoFar + length(withDots));
         return retval;
     }
 
@@ -234,13 +250,27 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
+    public int countRoutePills(ListCons<ParsedEdge> route) {
+        return fold0(route, 0, (acc, pe) -> acc + countAnyEdgePills(pe));
+    }
+
+    @Compiled
     private ParsedEdge findBestDistantEdge(ListCons<ParsedEdge> currentEdges, AIState aistate, WorldState worldState) {
+        debug(1200010);
         Queue<ListCons<ParsedEdge>> q = queue_new();
         q = fold0(currentEdges, q, (Queue<ListCons<ParsedEdge>> qq, ParsedEdge e) -> queue_enqueue(qq, cons(e, null)));
-        ListCons<ListCons<ParsedEdge>> reverseDests = reverse(waveFromEdgeToNearestEdges(aistate, worldState, q, sorted_map_assoc_all(new SortedMap<Integer>(null, 0), map(currentEdges, (ParsedEdge e) -> new Tuple<>(e.edgeNumber, 0))), null));
-        ListCons<ListCons<ParsedEdge>> sortedRoutes = dropWhile(reverseDests, (r) -> (noneof(r, (r0) -> length(collectAnyEdgePills(r0, worldState.map)) > 0 ? 1 : 0) > 0 && length(r) >= 2) ? 1 : 0);
-        ListCons<ParsedEdge> someRoute = head(sortedRoutes);
-        ParsedEdge myStart = head(reverse(someRoute));
+        debug(1200011);
+        ListCons<ListCons<ParsedEdge>> dests = waveFromEdgeToNearestEdges(aistate, worldState, q, sorted_map_assoc_all(new SortedMap<Integer>(null, 0), map(currentEdges, (ParsedEdge e) -> new Tuple<>(e.edgeNumber, 0))), null, 0);
+        debug(1200012);
+        ListCons<Tuple<ListCons<ParsedEdge>, Integer>> scores = map(dests, (r) -> new Tuple<ListCons<ParsedEdge>, Integer>(r, 5 * countMyEdgePills(last(r), worldState.lambdaManState.location) + countRoutePills(tail(reverse(r)))));
+        debug(1200013);
+        Tuple<ListCons<ParsedEdge>, Integer> winningRoute = maximum_by(scores, (Tuple<ListCons<ParsedEdge>, Integer> t) -> t.b);
+        {
+            System.out.println("XXX");
+        }
+        debug(1200014);
+        ParsedEdge myStart = head(reverse(winningRoute.a));
+        debug(1200015);
         return myStart;
     }
 
@@ -250,10 +280,13 @@ public class Sample1 extends VMExtras {
         ParsedStaticMap parsedStaticMap;
         int lastDirection;
         int tick;
+        ListCons<Point> ghostStartPoints; //should be used to handle INT 4
 
-        AIState(ParsedStaticMap parsedStaticMap, int lastDirection, int tick) {
+        AIState(ParsedStaticMap parsedStaticMap, int lastDirection, int tick, ListCons<Point> ghostStartPoints) {
             this.parsedStaticMap = parsedStaticMap;
             this.lastDirection = lastDirection;
+            this.tick = tick;
+            this.ghostStartPoints = ghostStartPoints;
             this.tick = tick;
         }
     }
@@ -319,19 +352,23 @@ public class Sample1 extends VMExtras {
         }
     }
 
+    // ((12, 16), (-1, (((12, 16), ((11, 16), ((10, 16), 0))), (2, (90, (10, 16))))))
+
     @Compiled
     class ParsedEdge {
         Point a;
         Point b;
         ListCons<Point> edge;
+        ListCons<Tuple<Function1<Integer,Integer>, Point>> edgeAccess;
         int count;
         int edgeNumber;
 
-        ParsedEdge(ListCons<Point> edge, int count, Point a, Point b, int edgeNumber) {
-            this.edge = edge;
-            this.count = count;
+        ParsedEdge(Point a, Point b, ListCons<Point> edge, ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess, int count, int edgeNumber) {
             this.a = a;
             this.b = b;
+            this.edge = edge;
+            this.edgeAccess = edgeAccess;
+            this.count = count;
             this.edgeNumber = edgeNumber;
         }
 
@@ -384,20 +421,27 @@ public class Sample1 extends VMExtras {
         ListCons<ParsedEdge> parsedEdges;
         ListCons<VerticalRow> verticalFinders;
         ListCons<HorizontalRow> horizontalFinders;
+        ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> mapAccessors;
 
-        ParsedStaticMap(SortedMap<Point> walkable, SortedMap<Point> junctions, ListCons<ParsedEdge> parsedEdges, ListCons<VerticalRow> verticalFinders, ListCons<HorizontalRow> horizontalFinders) {
+
+
+        ParsedStaticMap(SortedMap<Point> walkable, SortedMap<Point> junctions,
+                        ListCons<ParsedEdge> parsedEdges, ListCons<VerticalRow> verticalFinders,
+                        ListCons<HorizontalRow> horizontalFinders,
+                        ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> mapAccessors) {
             this.junctions = junctions;
             this.walkable = walkable;
             this.parsedEdges = parsedEdges;
             this.verticalFinders = verticalFinders;
             this.horizontalFinders = horizontalFinders;
+            this.mapAccessors = mapAccessors;
         }
     }
 
 
     @Compiled
     private AIState createInitialState(ListCons<ListCons<Integer>> map) {
-        return new AIState(parseStaticMap(map), 0, 0);
+        return new AIState(parseStaticMap(map), 0, 0, null);
     }
 
     @Compiled
@@ -434,9 +478,26 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    public ListCons<ParsedEdge> findNeighbourJunctions(ListCons<ListCons<Integer>> map, Point somePoint, SortedMap<Point> allJunctions) {
-        ListCons<ListCons<Point>> allNeighbourJunctionsPaths = waveFromPointToNearestJunction(map, queue_enqueue(queue_new(), cons(somePoint, null)), allJunctions, sorted_map_assoc(new SortedMap<Point>(null, 0), getPointKey(somePoint), somePoint), null);
-        return map(allNeighbourJunctionsPaths, (p) -> new ParsedEdge(p, length(p) - 1, head(p), last(p), -1));
+    public ListCons<ParsedEdge> findNeighbourJunctions(ListCons<ListCons<Integer>> map,
+                                                       Point somePoint,
+                                                       SortedMap<Point> allJunctions,
+                                                       ListCons<Function2<Integer, Integer,
+                                                               Function1<Integer, Integer>>> accessors) {
+        ListCons<ListCons<Point>> allNeighbourJunctionsPaths =
+                waveFromPointToNearestJunction(map,
+                        queue_enqueue(queue_new(), cons(somePoint, null)),
+                        allJunctions,
+                        sorted_map_assoc(new SortedMap<>(null, 0), getPointKey(somePoint), somePoint), null);
+        return map(allNeighbourJunctionsPaths, (p) ->
+                new ParsedEdge(head(p), last(p), p, makeEdgeAccess(p, accessors), length(p) - 1, -1));
+    }
+
+
+    @Compiled
+    private ListCons<Tuple<Function1<Integer, Integer>, Point>> makeEdgeAccess(ListCons<Point> p, ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> accessors) {
+        return zip(map(p, (Point pt) ->
+                ((Function2<Integer, Integer, Function1<Integer, Integer>>) list_item(accessors, pt.y)).apply(VMExtras.GET_READER, pt.x)), p);
+
     }
 
     @Compiled
@@ -496,16 +557,22 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private ParsedStaticMap parseMap(ListCons<ListCons<Integer>> m) {
+        ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> accessors = map(m, (x) -> array_256());
+        ListCons<Tuple<ListCons<Integer>, Function2<Integer, Integer, Function1<Integer, Integer>>>> mapAccessors = zip_with((a, b) -> new Tuple<>(a, b), m, accessors);
+        ListCons<ListCons<Integer>> __ = map(mapAccessors, (Tuple<ListCons<Integer>, Function2<Integer, Integer, Function1<Integer, Integer>>> t) ->
+                        mapi(t.a, 0, (val, ix) -> t.b.apply(VMExtras.GET_WRITER, ix).apply(val))
+        );
+
         ListCons<ListCons<Point>> toConcat = mapi(m, 0, (row, rowy) -> my_cat_maybes(collectWalkableXY(row, rowy)));
         ListCons<Point> walkableList = concat(toConcat);
         ListCons<Point> junctionsList = filter(walkableList, (Point w) -> isJunction(m, w.x, w.y));
         SortedMap<Point> walkable = sorted_map_assoc_all(new SortedMap<Point>(null, 0), addPointKeyAll(walkableList));
         SortedMap<Point> junctions = sorted_map_assoc_all(new SortedMap<Point>(null, 0),
                 addPointKeyAll(junctionsList));
-        ListCons<ParsedEdge> allParsedEdges = concat(map(junctionsList, (j) -> findNeighbourJunctions(m, j, junctions)));
+        ListCons<ParsedEdge> allParsedEdges = concat(map(junctionsList, (j) -> findNeighbourJunctions(m, j, junctions, accessors)));
         // renumber them.
-        allParsedEdges = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.edge, pe.count, pe.a, pe.b, ix));
-        return new ParsedStaticMap(walkable, junctions, allParsedEdges, null, null);
+        allParsedEdges = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, ix));
+        return new ParsedStaticMap(walkable, junctions, allParsedEdges, null, null, accessors);
     }
 
     @Compiled
@@ -596,150 +663,134 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     public Integer ghcstate_read_val(GHCState state, Cons val_cons) {
-      Integer val_tag = first(val_cons);
-      Integer val = (Integer)second(val_cons);
-      if (val_tag > 3) throw new RuntimeException("value tag is invalid");
-      return val_tag == 0 ? sorted_map_get(state.regs, val, 0)
-          : val_tag == 1 ? sorted_map_get(state.data, sorted_map_get(state.regs, val, 0), 0)
-          : val_tag == 2 ? val
-          : sorted_map_get(state.data, val, 0);
+        Integer val_tag = first(val_cons);
+        Integer val = (Integer) second(val_cons);
+        if (val_tag > 3) throw new RuntimeException("value tag is invalid");
+        return val_tag == 0 ? sorted_map_get(state.regs, val, 0)
+                : val_tag == 1 ? sorted_map_get(state.data, sorted_map_get(state.regs, val, 0), 0)
+                : val_tag == 2 ? val
+                : sorted_map_get(state.data, val, 0);
     }
 
     @Compiled
     public GHCState ghcstate_write_val(GHCState state, Cons arg_cons, Integer val) {
-      Integer arg_tag = first(arg_cons);
-      if (arg_tag > 3) throw new RuntimeException("arg tag is invalid");
-      if (arg_tag == 2) throw new RuntimeException("arg can't be const");
-      return 
-            arg_tag == 0 ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, (Integer)second(arg_cons), val), state.data)
-          : arg_tag == 1 ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, sorted_map_get(state.regs, (Integer)second(arg_cons), 0), val), state.data)
-          : new GHCState(state.ghostState, state.regs, sorted_map_assoc(state.data, (Integer)second(arg_cons), val));
+        Integer arg_tag = first(arg_cons);
+        if (arg_tag > 3) throw new RuntimeException("arg tag is invalid");
+        if (arg_tag == 2) throw new RuntimeException("arg can't be const");
+        return
+                arg_tag == 0 ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, (Integer) second(arg_cons), val), state.data)
+                        : arg_tag == 1 ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, sorted_map_get(state.regs, (Integer) second(arg_cons), 0), val), state.data)
+                        : new GHCState(state.ghostState, state.regs, sorted_map_assoc(state.data, (Integer) second(arg_cons), val));
     }
-    
+
     @Compiled
     public GHCState ghcstate_assoc(GHCState state, Cons arg_cons, Cons val_cons) {
-      Integer val = ghcstate_read_val(state, val_cons);
-      return ghcstate_write_val(state, arg_cons, val);
+        Integer val = ghcstate_read_val(state, val_cons);
+        return ghcstate_write_val(state, arg_cons, val);
     }
 
     @Compiled
     public GHCState processGhostInfoRequest(WorldState world, GHCState state, Integer index, int requestType) {
-      GhostState gs = (GhostState)list_item_def(world.ghosts, index, state.ghostState);
-      Point startPos = new Point(0, 0); // todo: support
-      return 
-            4 == requestType ? new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, startPos.x), 1, startPos.y), state.data)
-          : 5 == requestType ? new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, gs.location.x), 1, gs.location.y), state.data)
-          : new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, gs.vitality), 1, gs.direction), state.data);
+        GhostState gs = (GhostState) list_item_def(world.ghosts, index, state.ghostState);
+        Point startPos = new Point(0, 0); // todo: support
+        return
+                4 == requestType ? new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, startPos.x), 1, startPos.y), state.data)
+                        : 5 == requestType ? new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, gs.location.x), 1, gs.location.y), state.data)
+                        : new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, gs.vitality), 1, gs.direction), state.data);
     }
 
     @Compiled
     public GHCState processGhostInt(WorldState world, GHCState state, Integer num, Cons arg) {
-      GhostState gs = state.ghostState;
-      Integer currentGhostIndex = 0; // todo: support
-      return 
-            0 == num ? new GHCState(new GhostState(gs.vitality, gs.location, sorted_map_get(state.regs, 0, 0)), state.regs, state.data) 
-          : 1 == num ? new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, world.lambdaManState.location.x), 1, world.lambdaManState.location.y), state.data) 
-          : 2 == num ? new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, world.lambdaManState.location.x), 1, world.lambdaManState.location.y), state.data) 
-          : 3 == num ? new GHCState(gs, sorted_map_assoc(state.regs, 0, currentGhostIndex), state.data) 
-          : 4 == num ? processGhostInfoRequest(world, state, sorted_map_get(state.regs, 0, 0), 4) 
-          : 5 == num ? processGhostInfoRequest(world, state, sorted_map_get(state.regs, 0, 0), 5) 
-          : 6 == num ? processGhostInfoRequest(world, state, sorted_map_get(state.regs, 0, 0), 6) 
-          : 7 == num ? new GHCState(gs, sorted_map_assoc(state.regs, 0, getMapItem(world.map, sorted_map_get(state.regs, 0, 0), sorted_map_get(state.regs, 1, 0))), state.data) 
-          : state; // 8 is unsupported
-    }
-
-    // produce_n f a n = (first (f a)) : iterate f (second (f a)) (n - 1)
-    // produce_n f a 0 = (first (f a))
-    @Compiled
-    public <T> ListCons<T> produce_n(Function1<T,Cons> f, T a, int n) {
-      T elem = first(f.apply(a));
-      return n == 0 ? cons(elem, null) : cons(elem, produce_n(f, second(f.apply(a)), n - 1));
-    }
-
-    @Compiled
-    public <T> ListCons<T> zip_with(Function2<T,T,T> f, ListCons<T> x, ListCons<T> y) {
-      return 
-            x == null ? null 
-          : y == null ? null
-          : cons (f.apply(head(x), head(y)), zip_with(f, tail(x), tail(y)));
+        GhostState gs = state.ghostState;
+        Integer currentGhostIndex = 0; // todo: support
+        return
+                0 == num ? new GHCState(new GhostState(gs.vitality, gs.location, sorted_map_get(state.regs, 0, 0)), state.regs, state.data)
+                        : 1 == num ? new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, world.lambdaManState.location.x), 1, world.lambdaManState.location.y), state.data)
+                        : 2 == num ? new GHCState(gs, sorted_map_assoc(sorted_map_assoc(state.regs, 0, world.lambdaManState.location.x), 1, world.lambdaManState.location.y), state.data)
+                        : 3 == num ? new GHCState(gs, sorted_map_assoc(state.regs, 0, currentGhostIndex), state.data)
+                        : 4 == num ? processGhostInfoRequest(world, state, sorted_map_get(state.regs, 0, 0), 4)
+                        : 5 == num ? processGhostInfoRequest(world, state, sorted_map_get(state.regs, 0, 0), 5)
+                        : 6 == num ? processGhostInfoRequest(world, state, sorted_map_get(state.regs, 0, 0), 6)
+                        : 7 == num ? new GHCState(gs, sorted_map_assoc(state.regs, 0, getMapItem(world.map, sorted_map_get(state.regs, 0, 0), sorted_map_get(state.regs, 1, 0))), state.data)
+                        : state; // 8 is unsupported
     }
 
     @Compiled
     public ListCons<Integer> bit_split(Integer x) {
-      return produce_n((Integer a) -> cons(a == ((a / 2) * 2) ? 0 : 1, a / 2), x, 7);
+        return produce_n((Integer a) -> cons(a == ((a / 2) * 2) ? 0 : 1, a / 2), x, 7);
     }
 
     @Compiled
     public Integer emulate_bitop(Integer x, Integer y, Function2<Integer, Integer, Integer> f) {
-      ListCons<Integer> bits_x = bit_split(x);
-      ListCons<Integer> bits_y = bit_split(y);
-      return foldr((Integer elem, Integer acc) -> acc * 2 + elem,
-              0,
-              zip_with(f, bits_x, bits_y));
+        ListCons<Integer> bits_x = bit_split(x);
+        ListCons<Integer> bits_y = bit_split(y);
+        return foldr((Integer elem, Integer acc) -> acc * 2 + elem,
+                0,
+                zip_with(f, bits_x, bits_y));
     }
 
     @Compiled
     public GHCState ghcstate_bitop(GHCState state, Cons arg_cons, Cons val_cons, int type) {
-      Integer arg = ghcstate_read_val(state, arg_cons);
-      Integer val = ghcstate_read_val(state, val_cons);
-      Integer result = emulate_bitop(arg, val, 
-            type == GHCOps.AND ? ((x, y) -> x * y)
-          : type == GHCOps.OR ? ((x, y) -> (x + y) > 0 ? 1 : 0)
-          : ((x, y) -> x != y ? 1 : 0));
-      return ghcstate_write_val(state, arg_cons, result);
+        Integer arg = ghcstate_read_val(state, arg_cons);
+        Integer val = ghcstate_read_val(state, val_cons);
+        Integer result = emulate_bitop(arg, val,
+                type == GHCOps.AND ? ((x, y) -> x * y)
+                        : type == GHCOps.OR ? ((x, y) -> (x + y) > 0 ? 1 : 0)
+                        : ((x, y) -> x != y ? 1 : 0));
+        return ghcstate_write_val(state, arg_cons, result);
     }
-    
+
     @Compiled
     public Integer runGhostStep(SortedMap<Cons> prog, WorldState world, int lev, GHCState state, Cons step) {
-      Integer opcode = head(step);
-      ListCons<Cons> args = (ListCons<Cons>)tail(step);
-      GHCState inc_pc = new GHCState(state.ghostState, sorted_map_assoc(state.regs, 8, sorted_map_get(state.regs, 8, 0) + 1), state.data);
-      return
-            GHCOps.MOV == opcode ? runGhost(prog, world, lev, ghcstate_assoc(inc_pc, first(args), head(second(args))))
-          : GHCOps.INC == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) + 1))
-          : GHCOps.DEC == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) - 1))
-          : GHCOps.ADD == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) + ghcstate_read_val(inc_pc, head(second(args)))))
-          : GHCOps.SUB == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) - ghcstate_read_val(inc_pc, head(second(args)))))
-          : GHCOps.MUL == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) * ghcstate_read_val(inc_pc, head(second(args)))))
-          : GHCOps.DIV == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) / ghcstate_read_val(inc_pc, head(second(args)))))
-          : GHCOps.AND == opcode ? runGhost(prog, world, lev, ghcstate_bitop(inc_pc, first(args), head(second(args)), GHCOps.AND))
-          : GHCOps.OR == opcode ? runGhost(prog, world, lev, ghcstate_bitop(inc_pc, first(args), head(second(args)), GHCOps.OR))
-          : GHCOps.XOR == opcode ? runGhost(prog, world, lev, ghcstate_bitop(inc_pc, first(args), head(second(args)), GHCOps.XOR))
-          : GHCOps.JLT == opcode ? runGhost(prog, world, lev,
-                  ghcstate_read_val(state, first(tail(args))) < ghcstate_read_val(state, second(tail(args)))
-                      ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, 8, (Integer)first(args)), state.data)
-                      : state)
-          : GHCOps.JEQ == opcode ? runGhost(prog, world, lev,
-                  ghcstate_read_val(state, first(tail(args))) == ghcstate_read_val(state, second(tail(args)))
-                    ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, 8, (Integer)first(args)), state.data)
-                    : state)
-          : GHCOps.JGT == opcode ? runGhost(prog, world, lev,
-                  ghcstate_read_val(state, first(tail(args))) > ghcstate_read_val(state, second(tail(args))) 
-                      ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, 8, (Integer)first(args)), state.data)
-                      : state)
-          : GHCOps.INT == opcode ? runGhost(prog, world, lev, processGhostInt(world, inc_pc, (Integer)first(args), tail(args)))
-          : state.ghostState.direction;
+        Integer opcode = head(step);
+        ListCons<Cons> args = (ListCons<Cons>) tail(step);
+        GHCState inc_pc = new GHCState(state.ghostState, sorted_map_assoc(state.regs, 8, sorted_map_get(state.regs, 8, 0) + 1), state.data);
+        return
+                GHCOps.MOV == opcode ? runGhost(prog, world, lev, ghcstate_assoc(inc_pc, first(args), head(second(args))))
+                        : GHCOps.INC == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) + 1))
+                        : GHCOps.DEC == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) - 1))
+                        : GHCOps.ADD == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) + ghcstate_read_val(inc_pc, head(second(args)))))
+                        : GHCOps.SUB == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) - ghcstate_read_val(inc_pc, head(second(args)))))
+                        : GHCOps.MUL == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) * ghcstate_read_val(inc_pc, head(second(args)))))
+                        : GHCOps.DIV == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) / ghcstate_read_val(inc_pc, head(second(args)))))
+                        : GHCOps.AND == opcode ? runGhost(prog, world, lev, ghcstate_bitop(inc_pc, first(args), head(second(args)), GHCOps.AND))
+                        : GHCOps.OR == opcode ? runGhost(prog, world, lev, ghcstate_bitop(inc_pc, first(args), head(second(args)), GHCOps.OR))
+                        : GHCOps.XOR == opcode ? runGhost(prog, world, lev, ghcstate_bitop(inc_pc, first(args), head(second(args)), GHCOps.XOR))
+                        : GHCOps.JLT == opcode ? runGhost(prog, world, lev,
+                        ghcstate_read_val(state, first(tail(args))) < ghcstate_read_val(state, second(tail(args)))
+                                ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, 8, (Integer) first(args)), state.data)
+                                : state)
+                        : GHCOps.JEQ == opcode ? runGhost(prog, world, lev,
+                        ghcstate_read_val(state, first(tail(args))) == ghcstate_read_val(state, second(tail(args)))
+                                ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, 8, (Integer) first(args)), state.data)
+                                : state)
+                        : GHCOps.JGT == opcode ? runGhost(prog, world, lev,
+                        ghcstate_read_val(state, first(tail(args))) > ghcstate_read_val(state, second(tail(args)))
+                                ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, 8, (Integer) first(args)), state.data)
+                                : state)
+                        : GHCOps.INT == opcode ? runGhost(prog, world, lev, processGhostInt(world, inc_pc, (Integer) first(args), tail(args)))
+                        : state.ghostState.direction;
     }
-    
+
     @Compiled
     public Integer runGhost(SortedMap<Cons> prog, WorldState world, int lev, GHCState state) {
-      Integer pc = sorted_map_get(state.regs, 8, 0);
-      Cons step = sorted_map_get(prog, pc, null);
-      return step == null ? state.ghostState.direction 
-                          : (lev > 1023 ? state.ghostState.direction : runGhostStep(prog, world, lev + 1, state, step));
+        Integer pc = sorted_map_get(state.regs, 8, 0);
+        Cons step = sorted_map_get(prog, pc, null);
+        return step == null ? state.ghostState.direction
+                : (lev > 1023 ? state.ghostState.direction : runGhostStep(prog, world, lev + 1, state, step));
     }
-    
+
     @Compiled
     public Integer getGhostDirection(WorldState world, ListCons<Cons> spec) {
-        Tuple<Integer, SortedMap<Cons>> prog = 
-            fold0(spec,
-                  new Tuple<>(0, new SortedMap<Cons>(null, 0)), 
-                  (Tuple<Integer, SortedMap<Cons>> init, Cons step) -> new Tuple<>(init.a + 1, sorted_map_assoc(init.b, init.a, step)));
-        GhostState ghostState = (GhostState)head(world.ghosts);  
-        return runGhost(prog.b, 
-                        world, 
-                        0,
-                        new GHCState(ghostState, new SortedMap<Integer>(null, 0), new SortedMap<Integer>(null, 0)));
+        Tuple<Integer, SortedMap<Cons>> prog =
+                fold0(spec,
+                        new Tuple<>(0, new SortedMap<Cons>(null, 0)),
+                        (Tuple<Integer, SortedMap<Cons>> init, Cons step) -> new Tuple<>(init.a + 1, sorted_map_assoc(init.b, init.a, step)));
+        GhostState ghostState = (GhostState) head(world.ghosts);
+        return runGhost(prog.b,
+                world,
+                0,
+                new GHCState(ghostState, new SortedMap<Integer>(null, 0), new SortedMap<Integer>(null, 0)));
     }
 
     public static void main(String[] args) {
@@ -760,22 +811,22 @@ public class Sample1 extends VMExtras {
 
         WorldState worldState = convertMap(theMap);
         if (false) {
-          new Sample1().test3();
-          System.out.println(new Sample1().bit_split(10) + ":" + new Sample1().bit_split(127));
-          System.out.println(new Sample1().emulate_bitop(13, 5, (xx, yy) -> xx * yy));
-          ListCons<Cons> spec =
-                   cons(cons(cons(0, cons(cons(0, 0), cons(cons(2, 1), null))),
-                                   cons(cons(13, cons(0, null)), cons(cons(14, null), null))),
-                           cons(cons(cons(0, cons(cons(0, 0), cons(cons(2, 1), null))),
-                                           cons(cons(13, cons(0, null)), cons(cons(14, null), null))),
-                                   cons(cons(cons(0, cons(cons(0, 0), cons(cons(2, 1), null))),
-                                                   cons(cons(13, cons(0, null)), cons(cons(14, null), null))),
-                                           cons(cons(cons(0, cons(cons(0, 0),
-                                                   cons(cons(2, 1), null))), cons(cons(13, cons(0, null)), cons(cons(14, null), null))), null)))
-                  );
+            new Sample1().test3();
+            System.out.println(new Sample1().bit_split(10) + ":" + new Sample1().bit_split(127));
+            System.out.println(new Sample1().emulate_bitop(13, 5, (xx, yy) -> xx * yy));
+            ListCons<Cons> spec =
+                    cons(cons(cons(0, cons(cons(0, 0), cons(cons(2, 1), null))),
+                                    cons(cons(13, cons(0, null)), cons(cons(14, null), null))),
+                            cons(cons(cons(0, cons(cons(0, 0), cons(cons(2, 1), null))),
+                                            cons(cons(13, cons(0, null)), cons(cons(14, null), null))),
+                                    cons(cons(cons(0, cons(cons(0, 0), cons(cons(2, 1), null))),
+                                                    cons(cons(13, cons(0, null)), cons(cons(14, null), null))),
+                                            cons(cons(cons(0, cons(cons(0, 0),
+                                                    cons(cons(2, 1), null))), cons(cons(13, cons(0, null)), cons(cons(14, null), null))), null)))
+                    );
 
-          System.out.println("direction:" + new Sample1().getGhostDirection(worldState, first(spec)));
-          System.exit(0);
+            System.out.println("direction:" + new Sample1().getGhostDirection(worldState, first(spec)));
+            System.exit(0);
         }
 
         Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> initResult = new Sample1().entryPoint(worldState, null);
@@ -820,8 +871,8 @@ public class Sample1 extends VMExtras {
         String[] rows = theMap.split("\n");
         int width = rows[0].length();
         System.out.print("      ");
-        for(int x = 0; x<width; x++) {
-            if ((x % 2 ) == 0) {
+        for (int x = 0; x < width; x++) {
+            if ((x % 2) == 0) {
                 System.out.print(String.format("%02d", x));
             } else {
                 System.out.print("  ");
@@ -829,7 +880,7 @@ public class Sample1 extends VMExtras {
         }
         System.out.println();
         System.out.print("      ");
-        for(int x = 0; x<width; x++) {
+        for (int x = 0; x < width; x++) {
             if ((x % 2) != 0) {
                 System.out.print(String.format("%02d", x));
             } else {

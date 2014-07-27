@@ -30,9 +30,20 @@ public class VM {
             this.a = a;
             this.b = b;
         }
+
+        @Override
+        public String toString() {
+            return "Tuple{" +
+                    "a=" + a +
+                    ", b=" + b +
+                    '}';
+        }
     }
 
 
+    public static<D> ListCons<D> lcons(D data, ListCons<D> addr) {
+        return new ListCons<D>(data, addr);
+    }
     public static<D> ListCons<D> cons(D data, ListCons<D> addr) {
         return new ListCons<D>(data, addr);
     }
@@ -379,6 +390,13 @@ public class VM {
         return (n == 0) ? head(list) : list_item(tail(list), n - 1);
     }
 
+    /** return n-th item in the list */
+    @Compiled
+    public static<T> T list_item(ListCons<T> list, int n) {
+        if (n < 0) throw new RuntimeException("list_item(list, -1)");
+        return (n == 0) ? head(list) : list_item(tail(list), n - 1);
+    }
+
     /** return n-th item in the list, with default if it is beyond the list */
     @Compiled
     public static Object list_item_def(Cons list, int index, Object deflt) {
@@ -605,5 +623,32 @@ public class VM {
     public <T,X> X sorted_map_walk(SortedMap<T> map, X acc, Function2<X, Tuple<Integer, T>, X> fun) {
         return map.node == null ? acc : sorted_node_walk(map.node, acc, fun);
     }
+
+    @Compiled
+    public static <A,B,C> ListCons<C> zip_with(Function2<A,B,C> f, ListCons<A> x, ListCons<B> y) {
+        return
+                x == null ? null
+                        : y == null ? null
+                        : lcons (f.apply(head(x), head(y)), zip_with(f, tail(x), tail(y)));
+    }
+
+    @Compiled
+    public static <A,B> ListCons<Tuple<A,B>> zip(final ListCons<A> x, final ListCons<B> y) {
+        return
+                x == null ? null
+                        : y == null ? null
+                        : lcons (new Tuple<>(head(x), head(y)), zip(tail(x), tail(y)));
+    }
+
+    // produce_n f a n = (first (f a)) : iterate f (second (f a)) (n - 1)
+    // produce_n f a 0 = (first (f a))
+    @Compiled
+    public <T> ListCons<T> produce_n(Function1<T,Cons> f, T a, int n) {
+        T elem = first(f.apply(a));
+        return n == 0 ? cons(elem, null) : cons(elem, produce_n(f, second(f.apply(a)), n - 1));
+    }
+
+
+
 
 }
