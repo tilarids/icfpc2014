@@ -56,7 +56,7 @@ public class Preprocessor {
                 // 1st pass - check if line is code line, assign addr
                 String trimmed = line.trim();
                 // skip empty lines
-                if ((trimmed.length() == 0) || (trimmed.charAt(0) == ';'))
+                if (trimmed.length() == 0)
                     continue;
                 virtualInstructions.add(parseInstruction(trimmed));
             }
