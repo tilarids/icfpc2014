@@ -169,7 +169,7 @@ public class Sample1 extends VMExtras {
         ParsedEdge startEdge;
         startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
         ListCons<Integer> __ = map(aistate.parsedStaticMap.parsedEdges, (e) -> e.danger.apply(VMExtras.GET_WRITER, 0).apply(0));
-        __ = map(worldState.ghosts, (g) -> placeGhostDanger(aistate, worldState, g));
+        __ = map(worldState.ghosts, (g) -> placeGhostDanger(aistate, g));
         ListCons<Point> pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
         System.out.println("Chosen long way: " + startEdge.toString());
         if (length(pathToWalk) >= 2) {
@@ -210,7 +210,9 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private int waveGhostDangerAcc0(AIState aistate, Queue<EdgeDangerWaveItem> queue, ListCons<Integer> visitedEdges) {
-        return queue_isempty(queue) ? 0 : waveGhostDangerAcc(aistate, queue, visitedEdges);
+        return queue_isempty(queue) ?
+                mydebug(0)
+                : waveGhostDangerAcc(aistate, queue, visitedEdges);
     }
 
     @Compiled
@@ -235,7 +237,7 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    private int placeGhostDanger(AIState aistate, WorldState worldState, GhostState gs) {
+    private int placeGhostDanger(AIState aistate, GhostState gs) {
         ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate, gs.location);
         int direction = gs.direction;
         int nx = direction == 1 ? gs.location.x + 1 : direction == 3 ? gs.location.x - 1 : gs.location.x;
@@ -315,8 +317,8 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    private ListCons<ParsedEdge> findFacingEdgesSimple(ListCons<ParsedEdge> parsedEdges, ParsedEdge lookingEdge) {
-        return filter(parsedEdges, (ParsedEdge pe) -> pointEquals(pe.b, lookingEdge.b));
+    private ListCons<ParsedEdge> findPrecedingEdgesSimple(ListCons<ParsedEdge> parsedEdges, ParsedEdge assEdge) {
+        return filter(parsedEdges, (ParsedEdge pe) -> pointEquals(pe.b, assEdge.a));
     }
 
     @Compiled
