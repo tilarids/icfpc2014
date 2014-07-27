@@ -1,5 +1,7 @@
 package app;
 
+import java.util.ArrayList;
+
 import static app.SortedMap.*;
 
 /**
@@ -130,7 +132,7 @@ public class Sample1 extends VMExtras {
     @Compiled
     private Integer countMyEdgePills(ParsedEdge edge, Point start) {
         ListCons<Tuple<Function1<Integer, Integer>, Point>> pathRemaining = dropWhile(edge.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> t) -> ((Point)t.b).x != start.x || ((Point)t.b).y != start.y ? 1 : 0);
-        Integer rv = fold0(pathRemaining, 0, (Integer acc, Tuple<Function1<Integer, Integer>, Point> t) -> t.a.apply(0) == CT.PILL ? 1 : 0);
+        Integer rv = fold0(pathRemaining, 0, (Integer acc, Tuple<Function1<Integer, Integer>, Point> t) -> acc + (t.a.apply(0) == CT.PILL ? 1 : 0));
         return rv;
     }
 
@@ -267,11 +269,13 @@ public class Sample1 extends VMExtras {
         ListCons<Tuple<ListCons<ParsedEdge>, Integer>> scores = map(dests, (r) -> new Tuple<>(r, 5 * countMyEdgePills(last(r), worldState.lambdaManState.location) + countRoutePills(tail(reverse(r)))));
         Tuple<ListCons<ParsedEdge>, Integer> winningRoute = maximum_by(scores, (Tuple<ListCons<ParsedEdge>, Integer> t) -> t.b);
         if (IN_JAVA) {
-//            map(scores, (Tuple<ListCons<ParsedEdge>, Integer> route) -> {
-//                System.out.println("Found : "+route.b);
-//                printList(reverse(route.a));
-//                return 0;
-//            });
+/*
+            map(scores, (Tuple<ListCons<ParsedEdge>, Integer> route) -> {
+                System.out.println("Found : "+route.b);
+                printList(reverse(route.a));
+                return 0;
+            });
+*/
         }
         ParsedEdge myStart = head(reverse(winningRoute.a));
         return myStart;
@@ -484,12 +488,21 @@ public class Sample1 extends VMExtras {
 
 
     @Compiled
-    public int isJunction(ListCons<ListCons<Integer>> map, int x, int y) {
+    public static int isJunction(ListCons<ListCons<Integer>> map, int x, int y) {
         int a1 = isWalkable(getMapItem(map, y - 1, x));
         int a2 = isWalkable(getMapItem(map, y + 1, x));
         int a3 = isWalkable(getMapItem(map, y, x - 1));
         int a4 = isWalkable(getMapItem(map, y, x + 1));
         return a1 + a2 + a3 + a4 > 2 ? 1 : 0;
+    }
+
+    @Compiled
+    public static int isDeadEnd(ListCons<ListCons<Integer>> map, int x, int y) {
+        int a1 = isWalkable(getMapItem(map, y - 1, x));
+        int a2 = isWalkable(getMapItem(map, y + 1, x));
+        int a3 = isWalkable(getMapItem(map, y, x - 1));
+        int a4 = isWalkable(getMapItem(map, y, x + 1));
+        return a1 + a2 + a3 + a4 == 1 ? 1 : 0;
     }
 
     @Compiled
@@ -668,7 +681,8 @@ public class Sample1 extends VMExtras {
     }
 
 
-    public static WorldState convertMap(String map) {
+    public static WorldState convertMap(String map, WorldState worldState) {
+        ListCons<GhostState> savedGhosts = worldState != null ? worldState.ghosts : null;
         String[] rows = map.split("\n");
         ListCons<ListCons<Integer>> result = null;
         Point human = new Point(0, 0);
@@ -689,7 +703,7 @@ public class Sample1 extends VMExtras {
             }
             result = cons(lst, result);
         }
-        return new WorldState(result, new LambdaManState(100, human, 0, Direction.LEFT, 0), gs, 0);
+        return new WorldState(result, new LambdaManState(100, human, 0, Direction.LEFT, 0), savedGhosts != null ? savedGhosts : gs, 0);
     }
 
     @Compiled
@@ -742,7 +756,7 @@ public class Sample1 extends VMExtras {
             }
         }
 
-        WorldState worldState = convertMap(theMap);
+        WorldState worldState = convertMap(theMap, null);
         if (false) {
             /*
             new Sample1().test3();
@@ -767,43 +781,111 @@ public class Sample1 extends VMExtras {
         Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> initResult = new Sample1().entryPoint(worldState, null);
         AIState aistate = initResult.a;
         Function2<AIState, WorldState, Tuple<AIState, Integer>> stepFunction = initResult.b;
-        printMap(theMap);
+        printMap(theMap, worldState);
+
+
+        int[] ghostSpeed = new int[] {130, 132, 134, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, };
+        int[] ghostTimers = new int[length(worldState.ghosts)];
+        int userTimer = 0;
+
         while (true) {
-            Tuple<AIState, Integer> apply = stepFunction.apply(aistate, worldState);
-            aistate = apply.a;
-            int direction = apply.b;
-            int nx = worldState.lambdaManState.location.x, ny = worldState.lambdaManState.location.y;
-            switch (direction) {
-                case Direction.UP:
-                    ny--;
-                    break;
-                case Direction.RIGHT:
-                    nx++;
-                    break;
-                case Direction.DOWN:
-                    ny++;
-                    break;
-                case Direction.LEFT:
-                    nx--;
-                    break;
-                default:
-                    throw new RuntimeException("Invalid move: " + direction);
+            userTimer++;
+            if (userTimer == 127) {
+                Tuple<AIState, Integer> apply = stepFunction.apply(aistate, worldState);
+                aistate = apply.a;
+                int direction = apply.b;
+                int nx = worldState.lambdaManState.location.x, ny = worldState.lambdaManState.location.y;
+                switch (direction) {
+                    case Direction.UP:
+                        ny--;
+                        break;
+                    case Direction.RIGHT:
+                        nx++;
+                        break;
+                    case Direction.DOWN:
+                        ny++;
+                        break;
+                    case Direction.LEFT:
+                        nx--;
+                        break;
+                    default:
+                        throw new RuntimeException("Invalid move: " + direction);
+                }
+                if (isWalkable2(worldState.map, new Point(nx, ny)) == 1) {
+                    System.out.println("WALKING: " + direction);
+                    String newMap = replaceMap(theMap, worldState.lambdaManState.location.x, worldState.lambdaManState.location.y, ' ');
+
+                    newMap = replaceMap(newMap, nx, ny, '\\');
+                    theMap = newMap;
+                    worldState = convertMap(theMap, worldState);
+                } else {
+                    System.out.println("CANNOT WALK: " + direction);
+                }
+                printMap(theMap, worldState);
+                userTimer = 0;
             }
-            if (isWalkable2(worldState.map, new Point(nx, ny)) == 1) {
-                System.out.println("WALKING: " + direction);
-                String newMap = replaceMap(theMap, worldState.lambdaManState.location.x, worldState.lambdaManState.location.y, ' ');
-                newMap = replaceMap(newMap, nx, ny, '\\');
-                theMap = newMap;
-                worldState = convertMap(theMap);
-            } else {
-                System.out.println("CANNOT WALK: " + direction);
+            for (int i = 0; i < ghostTimers.length; i++) {
+                ghostTimers[i]++;
+                if (ghostTimers[i] > ghostSpeed[i]) {
+                    ghostTimers[i] = 0;
+                    moveGhost(worldState, list_item(worldState.ghosts, i));
+                }
+
             }
-            printMap(theMap);
         }
     }
 
-    private static void printMap(String theMap) {
-        String[] rows = theMap.split("\n");
+    private static void moveGhost(WorldState ws, GhostState ghostState) {
+        int gx = ghostState.location.x;
+        int gy = ghostState.location.y;
+
+        ArrayList<Point> possibleMoves = new ArrayList<>();
+        if (isWalkable(getMapItem(ws.map, gy - 1, gx)) == 1) possibleMoves.add(new Point(gx, gy-1));
+        if (isWalkable(getMapItem(ws.map, gy + 1, gx)) == 1) possibleMoves.add(new Point(gx, gy+1));
+        if (isWalkable(getMapItem(ws.map, gy, gx+1)) == 1) possibleMoves.add(new Point(gx+1, gy));
+        if (isWalkable(getMapItem(ws.map, gy, gx-1)) == 1) possibleMoves.add(new Point(gx-1,gy));
+        boolean shouldRecalc = false;
+        if (possibleMoves.size() == 2) {
+            int nx = gx, ny = gy;
+            switch(ghostState.direction) {
+                case 0: ny--; break;
+                case 1: nx++; break;
+                case 2: ny++; break;
+                case 3: nx--; break;
+            }
+            if (isWalkable(getMapItem(ws.map, ny, nx)) == 1) {
+                // keep moving
+                System.out.println("Ghost moved on: "+ghostState.location+" -> "+new Point(nx, ny));
+                ghostState.location.x = nx;
+                ghostState.location.y = ny;
+            } else shouldRecalc = true;
+        } else {
+            shouldRecalc= true;
+        }
+        if (shouldRecalc) {
+            int nextPoint = ((int) (Math.random() * 256)) % possibleMoves.size();
+            int nx = possibleMoves.get(nextPoint).x;
+            int ny = possibleMoves.get(nextPoint).y;
+            if (nx > gx) ghostState.direction = 1;
+            if (nx < gx) ghostState.direction = 3;
+            if (ny < gy) ghostState.direction = 0;
+            if (ny > gy) ghostState.direction = 2;
+            System.out.println("Ghost moved new: "+ghostState.location+" -> "+new Point(nx, ny));
+            ghostState.location.x = nx;
+            ghostState.location.y = ny;
+        }
+    }
+
+    private static void printMap(String theMap, WorldState worldState) {
+        String[] _rows = theMap.split("\n");
+        StringBuffer[] rows = new StringBuffer[_rows.length];
+        for (int i = 0; i < rows.length; i++) {
+            rows[i] = new StringBuffer(_rows[i].replace("="," "));
+        }
+        map(worldState.ghosts, (g)-> {
+            rows[g.location.y].setCharAt(g.location.x, '=');
+            return null;
+        });
         int width = rows[0].length();
         System.out.print("      ");
         for (int x = 0; x < width; x++) {
@@ -825,7 +907,7 @@ public class Sample1 extends VMExtras {
         System.out.println();
         for (int y = 0; y < rows.length; y++) {
             System.out.print(String.format("%3d - ", y));
-            String row = rows[y];
+            String row = rows[y].toString();
             for (int i = 0; i < row.length(); i++) {
                 char c = row.charAt(i);
                 System.out.print(("" + c) + c);
