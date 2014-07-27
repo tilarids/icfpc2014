@@ -48,7 +48,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     public Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, ListCons<ListCons> ghostSpecs) {
-        return 1 == 0 ? entryFactual(ws,ghostSpecs) : entryCPUEmulator();
+        return 1 == 1 ? entryFactual(ws,ghostSpecs) : entryCPUEmulator();
 //        int x = location.a;
 //        int y = location.b;
 
@@ -172,9 +172,7 @@ public class Sample1 extends VMExtras {
 //            if (l > 1000000) {
 //                findBestDistantEdge(edgesForPoint, aistate, worldState);
 //            }
-        breakpoint();
         ListCons<Point> pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
-        breakpoint();
         System.out.println("Chosen long way: " + startEdge.toString());
         if (length(pathToWalk) >= 2) {
             newLocation = head(tail(pathToWalk));
@@ -498,12 +496,14 @@ public class Sample1 extends VMExtras {
     public ListCons<ParsedEdge> findNeighbourJunctions(ListCons<ListCons<Integer>> map,
                                                        Point somePoint,
                                                        SortedMap<Point> allJunctions,
+                                                       ListCons<Point> allJunctions2,
                                                        ListCons<Function2<Integer, Integer,
                                                                Function1<Integer, Integer>>> accessors) {
         ListCons<ListCons<Point>> allNeighbourJunctionsPaths =
                 waveFromPointToNearestJunction(map,
                         queue_enqueue(queue_new(), cons(somePoint, null)),
                         allJunctions,
+                        allJunctions2,
                         sorted_map_assoc(new SortedMap<>(null, 0), getPointKey(somePoint), somePoint), null);
         return map(allNeighbourJunctionsPaths, (p) ->
                 new ParsedEdge(head(p), last(p), p, makeEdgeAccess(p, accessors), length(p) - 1, -1, -1));
@@ -518,12 +518,12 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    private ListCons<ListCons<Point>> waveFromPointToNearestJunction(ListCons<ListCons<Integer>> map, Queue<ListCons<Point>> pointQueue, SortedMap<Point> destinations, SortedMap<Point> visited, ListCons<ListCons<Point>> acc) {
+    private ListCons<ListCons<Point>> waveFromPointToNearestJunction(ListCons<ListCons<Integer>> map, Queue<ListCons<Point>> pointQueue, SortedMap<Point> destinations, ListCons<Point> destinations2, SortedMap<Point> visited, ListCons<ListCons<Point>> acc) {
         ListCons<ListCons<Point>> retval;
         if (queue_isempty(pointQueue)) {
             retval = acc;
         } else {
-            retval = waveFromPointToNearestJunction0(map, pointQueue, destinations, visited, acc);
+            retval = waveFromPointToNearestJunction0(map, pointQueue, destinations, destinations2, visited, acc);
         }
         return retval;
     }
@@ -539,7 +539,7 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    private ListCons<ListCons<Point>> waveFromPointToNearestJunction0(ListCons<ListCons<Integer>> map, Queue<ListCons<Point>> pointQueue, SortedMap<Point> destinations, SortedMap<Point> visited, ListCons<ListCons<Point>> acc) {
+    private ListCons<ListCons<Point>> waveFromPointToNearestJunction0(ListCons<ListCons<Integer>> map, Queue<ListCons<Point>> pointQueue, SortedMap<Point> destinations, ListCons<Point> destinations2, SortedMap<Point> visited, ListCons<ListCons<Point>> acc) {
         ListCons<ListCons<Point>> retval;
         Tuple<ListCons<Point>, Queue<ListCons<Point>>> emptier = queue_dequeue(pointQueue);
         ListCons<Point> thisRoute = emptier.a;
@@ -554,11 +554,23 @@ public class Sample1 extends VMExtras {
         );
         ListCons<Tuple<Integer, Point>> exits = filter(possibleDestinations, (Tuple<Integer, Point> d) -> isWalkable2(map, d.b) * (1 - sorted_map_contains(visited, d.a)));// here * === &&
         ListCons<Tuple<Integer, Point>> arrivedsList = filter(exits, (Tuple<Integer, Point> e) -> sorted_map_contains(destinations, e.a));
+        ListCons<Tuple<Integer, Point>> arrivedsList2 = filter(exits, (Tuple<Integer, Point> e) -> any(destinations2, (d) -> pointEquals(e.b, d)));
         SortedMap<Point> arriveds = sorted_map_assoc_all(new SortedMap<Point>(null, 1), arrivedsList);
         ListCons<Tuple<Integer, Point>> continueds = filter(exits, (Tuple<Integer, Point> e) -> 1 - sorted_map_contains(arriveds, e.a));
         ListCons<ListCons<Point>> exitRoutes = map(continueds, (Tuple<Integer, Point> e) -> cons(e.b, thisRoute));
         Queue<ListCons<Point>> filledQueue = fold0(exitRoutes, emptier.b, (r, i) -> queue_enqueue(r, i));
-        retval = waveFromPointToNearestJunction(map, filledQueue, destinations, sorted_map_assoc_all(visited, exits), concat2_set(acc, map(arrivedsList, (Tuple<Integer, Point> e) -> cons(e.b, thisRoute))));
+        ListCons<ListCons<Point>> newacc = concat2_set(acc, map(arrivedsList, (Tuple<Integer, Point> e) -> cons(e.b, thisRoute)));
+        if (length(arrivedsList) != length(arrivedsList2)) {
+            debug(5000000);
+            debug(destinations);
+            debug(destinations2);
+            debug(arrivedsList);
+            debug(arrivedsList2);
+            debug(exits);
+            breakpoint();
+            debug(filter(exits, (Tuple<Integer, Point> e) -> sorted_map_contains(destinations, e.a)));
+        }
+        retval = waveFromPointToNearestJunction(map, filledQueue, destinations, destinations2, sorted_map_assoc_all(visited, exits), newacc);
         return retval;
     }
 
@@ -574,22 +586,32 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private ParsedStaticMap parseMap(ListCons<ListCons<Integer>> m) {
+        debug(4000001);
         ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> accessors = map(m, (x) -> array_256());
+        debug(4000002);
         ListCons<Tuple<ListCons<Integer>, Function2<Integer, Integer, Function1<Integer, Integer>>>> mapAccessors = zip_with((a, b) -> new Tuple<>(a, b), m, accessors);
+        debug(4000003);
         ListCons<ListCons<Integer>> __ = map(mapAccessors, (Tuple<ListCons<Integer>, Function2<Integer, Integer, Function1<Integer, Integer>>> t) ->
                         mapi(t.a, 0, (val, ix) -> t.b.apply(VMExtras.GET_WRITER, ix).apply(val))
         );
-
+        debug(4000004);
         ListCons<ListCons<Point>> toConcat = mapi(m, 0, (row, rowy) -> my_cat_maybes(collectWalkableXY(row, rowy)));
+        debug(4000005);
         ListCons<Point> walkableList = concat(toConcat);
         ListCons<Point> junctionsList = filter(walkableList, (Point w) -> isJunction(m, w.x, w.y));
+        debug(4000006);
         SortedMap<Point> walkable = sorted_map_assoc_all(new SortedMap<Point>(null, 0), addPointKeyAll(walkableList));
+        debug(4000007);
         SortedMap<Point> junctions = sorted_map_assoc_all(new SortedMap<Point>(null, 0),
                 addPointKeyAll(junctionsList));
-        ListCons<ParsedEdge> allParsedEdges = concat(map(junctionsList, (j) -> findNeighbourJunctions(m, j, junctions, accessors)));
+        debug(4000008);
+        ListCons<ParsedEdge> allParsedEdges = concat(map(junctionsList, (j) -> findNeighbourJunctions(m, j, junctions, junctionsList, accessors)));
         // renumber them.
+        debug(4000009);
         ListCons<ParsedEdge> allParsedEdges2 = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, ix, -1));
+        debug(4000010);
         ListCons<ParsedEdge> allParsedEdges3 = mapi(allParsedEdges2, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, pe.edgeNumber, edgeNumber(findEdge(pe.b, pe.a, allParsedEdges2))));
+        debug(4000011);
         return new ParsedStaticMap(walkable, junctions, allParsedEdges3, null, null, accessors);
     }
 
@@ -617,8 +639,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private ParsedStaticMap parseStaticMap(ListCons<ListCons<Integer>> map) {
-        ParsedStaticMap parsedMap = parseMap(map);
-        return parsedMap;
+        return parseMap(map);
     }
 
 
