@@ -204,7 +204,7 @@ public class Sample1 extends VMExtras {
         Queue<ListCons<ParsedEdge>> q = queue_new();
         q = fold0(currentEdges, q, (Queue<ListCons<ParsedEdge>> qq, ParsedEdge e) -> queue_enqueue(qq, cons(e, null)));
         ListCons<ListCons<ParsedEdge>> reverseDests = reverse(waveFromEdgeToNearestEdges(aistate, worldState, q, sorted_map_assoc_all(new SortedMap<Integer>(null, 0), map(currentEdges, (ParsedEdge e) -> new Tuple<>(e.edgeNumber, 0))), null));
-        ListCons<ListCons<ParsedEdge>> sortedRoutes = filter(reverseDests, (r) -> (any(r, (r0) -> length(collectAnyEdgePills(r0, worldState.map)) > 0 ? 1 : 0) > 0 && length(r) >= 2) ? 1 : 0);
+        ListCons<ListCons<ParsedEdge>> sortedRoutes = dropWhile(reverseDests, (r) -> (noneof(r, (r0) -> length(collectAnyEdgePills(r0, worldState.map)) > 0 ? 1 : 0) > 0 && length(r) >= 2) ? 1 : 0);
         ListCons<ParsedEdge> someRoute = head(sortedRoutes);
         ParsedEdge myStart = head(reverse(someRoute));
         return myStart;
