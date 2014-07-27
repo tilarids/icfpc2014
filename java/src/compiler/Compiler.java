@@ -50,7 +50,7 @@ public class Compiler {
 
     public Tuple<TypeDeclaration, ImportPackages> parseFile(File file) throws IOException {
         if (!file.exists())
-            new IllegalArgumentException("File " + file.getAbsolutePath() + " doesn't exist");
+            throw new IllegalArgumentException("File " + file.getAbsolutePath() + " doesn't exist");
 
         String source = readFileToString(file, encoding);
         if (!source.contains("@Compiled"))

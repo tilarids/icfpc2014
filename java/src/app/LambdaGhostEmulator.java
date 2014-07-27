@@ -100,7 +100,7 @@ public class LambdaGhostEmulator {
         Integer result = emulate_bitop(arg, val,
                 type == GHCOps.AND ? ((x, y) -> x * y)
                         : type == GHCOps.OR ? ((x, y) -> (x + y) > 0 ? 1 : 0)
-                        : ((x, y) -> x != y ? 1 : 0));
+                        : ((x, y) -> !x.equals(y) ? 1 : 0));
         return ghcstate_write_val(state, arg_cons, result);
     }
 
