@@ -19,15 +19,13 @@
         mov a, 1
         jlt m19, d, 128
         mov a, 0        ; d < 0
-m19:    jgt 24, f, 127  ;
+m19:    jgt m24, f, 127  ;
         mov a, 3        ; f > 0
-        jgt 24, d, 127
+        jgt m24, d, 127
         mov a, 2        ; d > 0
 m24:
         mov c,a
-        int 8
 
-done:
         int 3
         int 6       ; a = vitality
         jeq panic,a,1
@@ -35,23 +33,21 @@ done:
         xor c,2     ; inverse direction
 panic:  xor c,2     ; inverse direction
         mov a,c
-exit:
-        int 0
-        hlt;
-;loop:
-;        call rng
-;        mov b,a
-;        call rng
-;        int 7
-;        jeq loop,a,a
-;        hlt
+        int 0       ; set new dir
+loop:
+        call rng
+        mov b,a
+        call rng
+        int 7
+        jeq loop,a,a
+        hlt
 
-;rng:
-;        mov a,[42]
-;        jeq do_xor,a,0
-;        add a,a
-;        jeq 6,a,0
-;        jlt 6,a,128
-;do_xor: xor a,29
-;no_xor: mov [42],a
-;        ret
+rng:
+        mov a,[42]
+        jeq do_xor,a,0
+        add a,a
+        jeq no_xor,a,0
+        jlt no_xor,a,128
+do_xor: xor a,29
+no_xor: mov [42],a
+        ret
