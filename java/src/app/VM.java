@@ -553,6 +553,21 @@ public class VM {
     }
 
 
+    @Compiled
+    public static <A, B, C> ListCons<C> zip_with(Function2<A, B, C> f, ListCons<A> x, ListCons<B> y) {
+        return
+                x == null ? null
+                        : y == null ? null
+                        : lcons(f.apply(head(x), head(y)), zip_with(f, tail(x), tail(y)));
+    }
+
+    @Compiled
+    public static <A, B> ListCons<Tuple<A, B>> zip(final ListCons<A> x, final ListCons<B> y) {
+        return
+                x == null ? null
+                        : y == null ? null
+                        : lcons(new Tuple<>(head(x), head(y)), zip(tail(x), tail(y)));
+    }
 
     // produce_n f a n = (first (f a)) : iterate f (second (f a)) (n - 1)
     // produce_n f a 0 = (first (f a))

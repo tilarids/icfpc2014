@@ -141,19 +141,5 @@ public class SortedMap<T> {
         return map.node == null ? acc : sorted_node_walk(map.node, acc, fun);
     }
 
-    @Compiled
-    public static <A, B, C> ListCons<C> zip_with(Function2<A, B, C> f, ListCons<A> x, ListCons<B> y) {
-        return
-                x == null ? null
-                        : y == null ? null
-                        : lcons(f.apply(head(x), head(y)), zip_with(f, tail(x), tail(y)));
-    }
 
-    @Compiled
-    public static <A, B> ListCons<Tuple<A, B>> zip(final ListCons<A> x, final ListCons<B> y) {
-        return
-                x == null ? null
-                        : y == null ? null
-                        : lcons(new Tuple<>(head(x), head(y)), zip(tail(x), tail(y)));
-    }
 }
