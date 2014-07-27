@@ -10,6 +10,12 @@ import java.util.*;
  * Created by tilarids on 7/27/14.
  */
 public class GCCEmulator {
+
+    enum OPCODE {
+        LDC, LD,  ADD, SUB, MUL, DIV, CEQ, CGT, CGTE, ATOM, CONS, CAR, CDR, SEL, JOIN, LDF, AP, RTN, DUM, RAP, STOP, TSEL, TAP,
+
+    }
+
     static class Op {
         String op;
         String source;
@@ -129,9 +135,12 @@ public class GCCEmulator {
 
     void run(List<Op> ops) {
         boolean trace = false;
+        int instructionCount = 0;
         while (reg_c < ops.size()) {
             Op op = ops.get(reg_c);
             if (trace) { System.out.print("IP: " + reg_c + "  OP: " + op.toString()); System.out.flush(); }
+            if (instructionCount % 100000 == 0) System.out.println("Instructions: "+instructionCount);
+            instructionCount++;
             switch(op.op) {
                 case "LDC": {
                     push_ds(new D(op.param.get(0)));

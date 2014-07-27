@@ -47,7 +47,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     public Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, ListCons<ListCons> ghostSpecs) {
-        return 1 == 1 ? entryFactual(ws,ghostSpecs) : entryCPUEmulator();
+        return 1 == 0 ? entryFactual(ws,ghostSpecs) : entryCPUEmulator();
 //        int x = location.a;
 //        int y = location.b;
 
@@ -161,28 +161,21 @@ public class Sample1 extends VMExtras {
     private Tuple<AIState, Integer> performMove(AIState aistate, WorldState worldState) {
         Point location = worldState.lambdaManState.location;
         ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate, location);
-        ListCons<EdgeAndCount> collectedPoints = map(edgesForPoint, (e) -> new EdgeAndCount(e,
-                length(collectEdgePills(e, location, worldState.map)),
-                length(collectEdgeGhosts(e, location, worldState.map))));
-        EdgeAndCount ec = maximum_by(collectedPoints, (EdgeAndCount cp) -> (cp.count - 0 * cp.ghostCount));
-        ListCons<Point> pathToWalk = dropWhile(ec.pe.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
         Tuple<AIState, Integer> retval;
         Point newLocation;
         int direction;
         ParsedEdge startEdge;
-        if (length(pathToWalk) < 2 || ec.count == 0 || 1 == 1 ) { // nothing close to me
 //            long l = System.nanoTime();
-            startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
+        startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
 //            l = System.nanoTime() - l;
 //            System.out.println("Search time: "+l);
 //            if (l > 1000000) {
 //                findBestDistantEdge(edgesForPoint, aistate, worldState);
 //            }
-            breakpoint();
-            pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
-            breakpoint();
-            System.out.println("Chosen long way: " + startEdge.toString());
-        }
+        breakpoint();
+        ListCons<Point> pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
+        breakpoint();
+        System.out.println("Chosen long way: " + startEdge.toString());
         if (length(pathToWalk) >= 2) {
             newLocation = head(tail(pathToWalk));
             direction = (newLocation.x > location.x) ?
@@ -276,11 +269,11 @@ public class Sample1 extends VMExtras {
         ListCons<Tuple<ListCons<ParsedEdge>, Integer>> scores = map(dests, (r) -> new Tuple<>(r, 5 * countMyEdgePills(last(r), worldState.lambdaManState.location) + countRoutePills(tail(reverse(r)))));
         Tuple<ListCons<ParsedEdge>, Integer> winningRoute = maximum_by(scores, (Tuple<ListCons<ParsedEdge>, Integer> t) -> t.b);
         if (IN_JAVA) {
-            map(scores, (Tuple<ListCons<ParsedEdge>, Integer> route) -> {
-                System.out.println("Found : "+route.b);
-                printList(reverse(route.a));
-                return 0;
-            });
+//            map(scores, (Tuple<ListCons<ParsedEdge>, Integer> route) -> {
+//                System.out.println("Found : "+route.b);
+//                printList(reverse(route.a));
+//                return 0;
+//            });
         }
         ParsedEdge myStart = head(reverse(winningRoute.a));
         return myStart;
@@ -596,7 +589,7 @@ public class Sample1 extends VMExtras {
         ListCons<ParsedEdge> allParsedEdges = concat(map(junctionsList, (j) -> findNeighbourJunctions(m, j, junctions, accessors)));
         // renumber them.
         ListCons<ParsedEdge> allParsedEdges2 = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, ix, -1));
-        ListCons<ParsedEdge> allParsedEdges3 = mapi(allParsedEdges2, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, pe.edgeNumber, findEdge(pe.b, pe.a, allParsedEdges2).edgeNumber));
+        ListCons<ParsedEdge> allParsedEdges3 = mapi(allParsedEdges2, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, pe.edgeNumber, edgeNumber(findEdge(pe.b, pe.a, allParsedEdges2))));
         return new ParsedStaticMap(walkable, junctions, allParsedEdges3, null, null, accessors);
     }
 
@@ -605,6 +598,12 @@ public class Sample1 extends VMExtras {
         return head(filter(edges, (ParsedEdge e) -> pointEquals(e.a, a) * pointEquals(e.b, b)));
 
     }
+
+    @Compiled
+    private Integer edgeNumber(ParsedEdge edge) {
+        return edge.edgeNumber;
+    }
+
     @Compiled
     private ListCons<Point> my_cat_maybes(ListCons<Maybe<Point>> maybeListCons) {
         ListCons<Point> rv = cat_maybes(maybeListCons);
