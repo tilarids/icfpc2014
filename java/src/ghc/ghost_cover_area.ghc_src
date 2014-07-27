@@ -15,13 +15,9 @@ init: ;one-time init
 main: ;main work
         call get_surround_walls
         jlt node,a,2
-patrol: ;patrol
         int 3
         int 6
-        mov a, b
-        inc a
-        and a, 3
-        mov [1], a
+        mov [1], b ; keep curr. dir
         int 0
         jgt end_w, 1, 0   ;hlt
 
@@ -29,7 +25,7 @@ node: ; a - count, b - mask
         mov g, [2]
         mov c,a ; copy (a,b) -> (c,d)
         mov d,b
-get_cur_pos ;to (a,b)
+        get_cur_pos ;to (a,b)
         mov e, 6 ; 6 = 9-3, for now 9 is the start for visited
 
 loop:
@@ -76,13 +72,11 @@ do_shrink:
         jlt do_shrink, e,g
         mov [2], g
 after_shrink:
-
         jeq end_w, 0, 0   ;hlt
 
 has_match: ; match found
         inc e
         mov b, [e] ; load visited mask
-;int 8
         xor b, 15 ; invert mask
         mov a, d
         xor a, 15
@@ -91,23 +85,16 @@ has_match: ; match found
         mov [e],0
         mov a, d
 after_clear_mask:
-        ;int 8
         call mask_to_some_dir
-        ;int 8
         or b, [e]
         mov [e], b
         mov [1], a
         int 0
-        jeq end_w, 0, 0   ;hlt
-
 
 end_w:
-        ;mov g,[2]
-        ;int 8
-end0:
         and a,b
         or b,c
-        jgt end0, 1, 0
+        jgt end_w, 1, 0
         hlt ;fake
 
 
@@ -124,8 +111,7 @@ get_surround_walls:
         mov a,0
         call dir_to_mask
         or d,a
-        not_wall1:
-
+not_wall1:
         add b,2
         mov a,e ; restore a
         int 7; get (a,b+1) value
@@ -135,7 +121,6 @@ get_surround_walls:
         call dir_to_mask
         or d,a
 not_wall2:
-
         dec b ; restore original b
         dec e
         mov a,e
@@ -146,7 +131,6 @@ not_wall2:
         call dir_to_mask
         or d,a
 not_wall3:
-
         add e,2
         mov a,e
         int 7; get (a+1,b) value
@@ -156,7 +140,6 @@ not_wall3:
         call dir_to_mask
         or d,a
 not_wall4:
-
         mov a,c
         mov b,d
         ret
@@ -180,16 +163,27 @@ mask_to_some_dir:
         mov a,3
         mov b,8
         ret
-;        and a, 7
         jlt $+5, a, 4   ;down
         mov a,2
         mov b,4
         ret
-;        and a, 3
         jlt $+5, a, 2   ;right
         mov a,1
         mov b, 2
         ret
         mov a, 0        ;up
         mov b, 1
+        ret
+
+; set new preferred direction for our ghost according to fear mode
+set_dir:
+        mov c,a
+        int 3
+        int 6       ; a = vitality
+        jeq $+2,a,1
+        ; normal or invisible mode
+        xor c,2     ; inverse direction
+        xor c,2     ; inverse direction
+        mov a,c
+        int 0
         ret
