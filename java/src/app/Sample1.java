@@ -589,6 +589,47 @@ public class Sample1 extends VMExtras {
           : 7 == num ? new GHCState(gs, sorted_map_assoc(state.regs, 0, getMapItem(world.map, sorted_map_get(state.regs, 0, 0), sorted_map_get(state.regs, 1, 0))), state.data) 
           : state; // 8 is unsupported
     }
+
+    // produce_n f a n = (first (f a)) : iterate f (second (f a)) (n - 1)
+    // produce_n f a 0 = (first (f a))
+    @Compiled
+    public <T> ListCons<T> produce_n(Function1<T,Cons> f, T a, int n) {
+      T elem = first(f.apply(a));
+      return n == 0 ? cons(elem, null) : cons(elem, produce_n(f, second(f.apply(a)), n - 1));
+    }
+
+    @Compiled
+    public <T> ListCons<T> zip_with(Function2<T,T,T> f, ListCons<T> x, ListCons<T> y) {
+      return 
+            x == null ? null 
+          : y == null ? null
+          : cons (f.apply(head(x), head(y)), zip_with(f, tail(x), tail(y)));
+    }
+
+    @Compiled
+    public ListCons<Integer> bit_split(Integer x) {
+      return produce_n((Integer a) -> cons(a == ((a / 2) * 2) ? 0 : 1, a / 2), x, 7);
+    }
+
+    @Compiled
+    public Integer emulate_bitop(Integer x, Integer y, Function2<Integer, Integer, Integer> f) {
+      ListCons<Integer> bits_x = bit_split(x);
+      ListCons<Integer> bits_y = bit_split(y);
+      return foldr((Integer elem, Integer acc) -> acc * 2 + elem,
+                   0,
+                   zip_with(f, bits_x, bits_y));
+    }
+
+    @Compiled
+    public GHCState ghcstate_bitop(GHCState state, Cons arg_cons, Cons val_cons, int type) {
+      Integer arg = ghcstate_read_val(state, arg_cons);
+      Integer val = ghcstate_read_val(state, val_cons);
+      Integer result = emulate_bitop(arg, val, 
+            type == GHCOps.AND ? ((x, y) -> x * y)
+          : type == GHCOps.OR ? ((x, y) -> (x + y) > 0 ? 1 : 0)
+          : ((x, y) -> x != y ? 1 : 0));
+      return ghcstate_write_val(state, arg_cons, result);
+    }
     
     @Compiled
     public Integer runGhostStep(SortedMap<Cons> prog, WorldState world, int lev, GHCState state, Cons step) {
@@ -603,9 +644,9 @@ public class Sample1 extends VMExtras {
           : GHCOps.SUB == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) - ghcstate_read_val(inc_pc, head(second(args)))))
           : GHCOps.MUL == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) * ghcstate_read_val(inc_pc, head(second(args)))))
           : GHCOps.DIV == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) / ghcstate_read_val(inc_pc, head(second(args)))))
-          : GHCOps.AND == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) & ghcstate_read_val(inc_pc, head(second(args)))))
-          : GHCOps.OR == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) | ghcstate_read_val(inc_pc, head(second(args)))))
-          : GHCOps.XOR == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) ^ ghcstate_read_val(inc_pc, head(second(args)))))
+          : GHCOps.AND == opcode ? runGhost(prog, world, lev, ghcstate_bitop(inc_pc, first(args), head(second(args)), GHCOps.AND))
+          // : GHCOps.OR == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) | ghcstate_read_val(inc_pc, head(second(args)))))
+          // : GHCOps.XOR == opcode ? runGhost(prog, world, lev, ghcstate_write_val(inc_pc, first(args), ghcstate_read_val(inc_pc, first(args)) ^ ghcstate_read_val(inc_pc, head(second(args)))))
           : GHCOps.JLT == opcode ? runGhost(prog, world, lev,
                   ghcstate_read_val(state, first(tail(args))) < ghcstate_read_val(state, second(tail(args)))
                       ? new GHCState(state.ghostState, sorted_map_assoc(state.regs, 8, (Integer)first(args)), state.data)
@@ -660,26 +701,23 @@ public class Sample1 extends VMExtras {
         }
 
         WorldState worldState = convertMap(theMap);
-        ListCons<Cons> spec =
-                cons(cons(cons(0, cons(cons(0, 0), cons(cons(2, 1), null))),
-                                cons(cons(13, cons(0, null)), cons(cons(14, null), null))),
-                        cons(cons(cons(0, cons(cons(0, 0), cons(cons(2, 1), null))),
-                                        cons(cons(13, cons(0, null)), cons(cons(14, null), null))),
-                                cons(cons(cons(0, cons(cons(0, 0), cons(cons(2, 1), null))),
-                                                cons(cons(13, cons(0, null)), cons(cons(14, null), null))),
-                                        cons(cons(cons(0, cons(cons(0, 0),
-                                                cons(cons(2, 1), null))), cons(cons(13, cons(0, null)), cons(cons(14, null), null))), null)))
-                );
+        if (true) {
+          System.out.println(new Sample1().bit_split(10) + ":" + new Sample1().bit_split(127));
+          System.out.println(new Sample1().emulate_bitop(13, 5, (xx, yy) -> xx * yy));
+          ListCons<Cons> spec =
+                   cons(cons(cons(0, cons(cons(0, 0), cons(cons(2, 1), null))),
+                                   cons(cons(13, cons(0, null)), cons(cons(14, null), null))),
+                           cons(cons(cons(0, cons(cons(0, 0), cons(cons(2, 1), null))),
+                                           cons(cons(13, cons(0, null)), cons(cons(14, null), null))),
+                                   cons(cons(cons(0, cons(cons(0, 0), cons(cons(2, 1), null))),
+                                                   cons(cons(13, cons(0, null)), cons(cons(14, null), null))),
+                                           cons(cons(cons(0, cons(cons(0, 0),
+                                                   cons(cons(2, 1), null))), cons(cons(13, cons(0, null)), cons(cons(14, null), null))), null)))
+                  );
 
-//        ListCons<Cons> spec =
-//            new ListCons<Cons> (
-
-//                            cons (3, cons (cons (0, 1), cons (cons (1, 2), null))), //; add b,[c] - command cons (program head)
-//                            cons (cons (14, 0), null)                //; hlt - list of commands (program tail)
-//                    );
-
-        System.out.println("direction:" + new Sample1().getGhostDirection(worldState, first(spec)));
-//        System.exit(0);
+          System.out.println("direction:" + new Sample1().getGhostDirection(worldState, first(spec)));
+          System.exit(0);
+        }
 
         Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> initResult = new Sample1().entryPoint(worldState, null);
         AIState aistate = initResult.a;
