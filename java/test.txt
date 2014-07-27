@@ -1,0 +1,2 @@
+LDC    4242         ;  <== entryPoint  [WorldState ws, Object undocumented] (as blk)
+DBUG                
