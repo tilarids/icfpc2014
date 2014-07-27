@@ -1,0 +1,179 @@
+mov h, 255                    ; initialize stack  #0
+jgt 4,[2],0                   ;<=init =>main  #1
+mov [1], 255                  ; #2
+mov [2], 6                    ; for now 9 is the start for visited  #3
+mov [h], pc                   ; call get_surround_walls <=main  #4
+add [h], 4                    ; #5
+sub h, 1                      ; #6
+mov pc, 90                    ;=>get_surround_walls  #7
+jlt 17,a,2                    ;=>node  #8
+int 3                         ;<=patrol  #9
+int 6                         ; #10
+mov a, b                      ; #11
+inc a                         ; #12
+and a, 3                      ; #13
+mov [1], a                    ; #14
+int 0                         ; #15
+jgt 86, 1, 0                  ;hlt =>end_w  #16
+mov g, [2]                    ;<=node  #17
+mov c,a                       ; copy (a,b) -> (c,d)  #18
+mov d,b                       ; #19
+int 3                         ;get_cur_pos   #20
+int 5                         ;  #21
+mov e, 6                      ; 6 = 9-3, for now 9 is the start for visited  #22
+add e, 3                      ;<=loop  #23
+jgt 30, e, g                  ;=>no_match  #24
+jeq 27, a,[e]                 ;=>+2  #25
+jeq 23,0,0                    ;=>loop  #26
+inc e                         ; #27
+jeq 68, b,[e]                 ;=>has_match  #28
+jeq 23,0,0                    ;=>loop  #29
+add e, 3                      ;<=no_match  #30
+mov [2], e                    ; #31
+mov [e], a                    ; #32
+inc e                         ; #33
+mov [e], b                    ; #34
+inc e                         ; #35
+mov a, d                      ; #36
+mov [h], pc                   ; call mask_to_some_dir  #37
+add [h], 4                    ; #38
+sub h, 1                      ; #39
+mov pc, 158                   ;=>mask_to_some_dir  #40
+mov d, [1]                    ; #41
+mov [1], a                    ; #42
+int 0                         ; #43
+mov a,d                       ; #44
+add a, 252                    ; 4 - a  #45
+mov [h], pc                   ; call dir_to_mask  #46
+add [h], 4                    ; #47
+sub h, 1                      ; #48
+mov pc, 143                   ;=>dir_to_mask  #49
+or b, a                       ; #50
+mov [e], b                    ; #51
+jlt 67, [2], 200              ; we reached memory limit, copy some data =>after_shrink  #52
+mov e, 9                      ; #53
+mov g, [2]                    ; #54
+int 8                         ; #55
+mov [e],[g]                   ;<=do_shrink  #56
+inc e                         ; #57
+inc g                         ; #58
+mov [e],[g]                   ; #59
+inc e                         ; #60
+inc g                         ; #61
+mov [e],[g]                   ; #62
+inc e                         ; #63
+sub g, 5                      ; #64
+jlt 56, e,g                   ;=>do_shrink  #65
+mov [2], g                    ; #66
+jeq 86, 0, 0                  ;hlt <=after_shrink =>end_w  #67
+inc e                         ;<=has_match  #68
+mov b, [e]                    ; load visited mask  #69
+xor b, 15                     ; invert mask  #70
+mov a, d                      ; #71
+xor a, 15                     ; #72
+and a, b                      ; #73
+jgt 77, a, 0                  ; if there are no non-visited directions - clear mask and start again =>after_clear_mask  #74
+mov [e],0                     ; #75
+mov a, d                      ; #76
+mov [h], pc                   ; call mask_to_some_dir <=after_clear_mask  #77
+add [h], 4                    ; #78
+sub h, 1                      ; #79
+mov pc, 158                   ;=>mask_to_some_dir  #80
+or b, [e]                     ; #81
+mov [e], b                    ; #82
+mov [1], a                    ; #83
+int 0                         ; #84
+jeq 86, 0, 0                  ;hlt =>end_w  #85
+and a,b                       ;<=end0  #86
+or b,c                        ; #87
+jgt 86, 1, 0                  ;=>end0  #88
+hlt                           ;fake  #89
+int 3                         ;get_cur_pos  <=get_surround_walls  #90
+int 5                         ;  #91
+mov e,a                       ; keep a  #92
+mov c,0                       ; # of surrounding walls  #93
+mov d,0                       ; surrounding walls mask  #94
+dec b                         ; #95
+int 7                         ; get (a,b-1) value (zero is a wall)  #96
+jgt 105,a,0                   ;=>not_wall1  #97
+inc c                         ; wall found  #98
+mov a,0                       ; #99
+mov [h], pc                   ; call dir_to_mask  #100
+add [h], 4                    ; #101
+sub h, 1                      ; #102
+mov pc, 143                   ;=>dir_to_mask  #103
+or d,a                        ; #104
+add b,2                       ;<=not_wall1  #105
+mov a,e                       ; restore a  #106
+int 7                         ; get (a,b+1) value  #107
+jgt 116,a,0                   ;=>not_wall2  #108
+inc c                         ; wall found  #109
+mov a,2                       ; #110
+mov [h], pc                   ; call dir_to_mask  #111
+add [h], 4                    ; #112
+sub h, 1                      ; #113
+mov pc, 143                   ;=>dir_to_mask  #114
+or d,a                        ; #115
+dec b                         ; restore original b <=not_wall2  #116
+dec e                         ; #117
+mov a,e                       ; #118
+int 7                         ; get (a-1,b) value  #119
+jgt 128,a,0                   ;=>not_wall3  #120
+inc c                         ; wall found  #121
+mov a,3                       ; #122
+mov [h], pc                   ; call dir_to_mask  #123
+add [h], 4                    ; #124
+sub h, 1                      ; #125
+mov pc, 143                   ;=>dir_to_mask  #126
+or d,a                        ; #127
+add e,2                       ;<=not_wall3  #128
+mov a,e                       ; #129
+int 7                         ; get (a+1,b) value  #130
+jgt 139,a,0                   ;=>not_wall4  #131
+inc c                         ; wall found  #132
+mov a,0                       ; #133
+mov [h], pc                   ; call dir_to_mask  #134
+add [h], 4                    ; #135
+sub h, 1                      ; #136
+mov pc, 143                   ;=>dir_to_mask  #137
+or d,a                        ; #138
+mov a,c                       ;<=not_wall4  #139
+mov b,d                       ; #140
+add h, 1                      ;return  #141
+mov pc, [h]                   ; #142
+jgt 147, a, 0                 ;up <=dir_to_mask =>+4  #143
+mov a,1                       ; #144
+add h, 1                      ;return  #145
+mov pc, [h]                   ; #146
+jgt 151, a, 1                 ;right =>+4  #147
+mov a,2                       ; #148
+add h, 1                      ;return  #149
+mov pc, [h]                   ; #150
+jgt 155, a, 2                 ;down =>+4  #151
+mov a,4                       ; #152
+add h, 1                      ;return  #153
+mov pc, [h]                   ; #154
+mov a, 8                      ;left  #155
+add h, 1                      ;return  #156
+mov pc, [h]                   ; #157
+jlt 163, a, 8                 ;left <=mask_to_some_dir =>+5  #158
+mov a,3                       ; #159
+mov b,8                       ; #160
+add h, 1                      ;return  #161
+mov pc, [h]                   ; #162
+and a, 7                      ; #163
+jlt 169, a, 4                 ;down =>+5  #164
+mov a,2                       ; #165
+mov b,4                       ; #166
+add h, 1                      ;return  #167
+mov pc, [h]                   ; #168
+and a, 3                      ; #169
+jlt 175, a, 2                 ;right =>+5  #170
+mov a,1                       ; #171
+mov b, 2                      ; #172
+add h, 1                      ;return  #173
+mov pc, [h]                   ; #174
+mov a, 0                      ;up  #175
+mov b, 1                      ; #176
+add h, 1                      ;return  #177
+mov pc, [h]                   ; #178

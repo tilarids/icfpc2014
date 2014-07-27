@@ -568,6 +568,13 @@ public class VM {
         }
     }
 
+    public <T,X> X sorted_node_walk(SortedMapNode<T> node, X acc, Function2<X, Tuple<Integer, T>, X> fun) {
+        return
+                node == null ? acc
+              : node.hi != null ? sorted_node_walk(node.hi, fun.apply(sorted_node_walk(node.lo, acc, fun), new Tuple<>(node.key, node.val)), fun)
+              : fun.apply(sorted_node_walk(node.lo, acc, fun), new Tuple<>(node.key, node.val));
+    }
+
     @Compiled
     public <T> int sorted_map_count(SortedMap<T> m) {
         return m.node != null ? m.node.count : 0;
@@ -591,10 +598,13 @@ public class VM {
     @Compiled
     public <T> SortedMap<T> sorted_map_assoc_all(SortedMap<T> m, ListCons<Tuple<Integer, T>> l) {
         return fold0(l,
-                     m,
-                     (SortedMap<T> acc, Tuple<Integer, T> elem) -> sorted_map_assoc(acc, elem.a, elem.b));
+                m,
+                (SortedMap<T> acc, Tuple<Integer, T> elem) -> sorted_map_assoc(acc, elem.a, elem.b));
     }
 
+    public <T,X> X sorted_map_walk(SortedMap<T> map, X acc, Function2<X, Tuple<Integer, T>, X> fun) {
+        return map.node == null ? acc : sorted_node_walk(map.node, acc, fun);
+    }
 
     @Compiled
     public <T> SortedMap<T> sorted_map_if_changed(SortedMap<T> thisMap, SortedMapNode<T> node, SortedMapNode<T> another_node) {
