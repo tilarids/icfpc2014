@@ -1,0 +1,29 @@
+;silly hunter
+int 1                         ; get lambdaman current coords in (a,b)
+mov c, a
+mov d, b
+div c, 2
+div d, 2
+int 3
+int 5                         ; get our curr. coords in (a,b)
+div a, 2
+div b, 2
+sub c, a
+sub d, b                      ; (c,d) - relative coords of enemy  #10
+
+mov e, c
+mov f, d
+mul c, 255
+sub f, e                      ; f = y - x
+sub d, c                      ; d = y - (-x)
+
+mov [1], 2                    ;#16
+jlt 19, d, 128
+mov [1], 3                    ;#19
+jgt 24, f, 127
+mov [1], 0
+jgt 24, d, 127
+mov [1], 1
+mov a, [1]                    ;#24
+int 0
+hlt

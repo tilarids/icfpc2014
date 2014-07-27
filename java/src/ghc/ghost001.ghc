@@ -1,8 +1,18 @@
-;patrol
+;silly right patrol
 int 3
 int 6
 mov A, B
 inc A
+and A, 3
+int 0
+hlt
+
+
+;silly left patrol
+int 3
+int 6
+mov A, B
+dec A
 and A, 3
 int 0
 hlt
