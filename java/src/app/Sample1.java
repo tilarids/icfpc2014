@@ -221,7 +221,7 @@ public class Sample1 extends VMExtras {
         Tuple<EdgeDangerWaveItem, Queue<EdgeDangerWaveItem>> smaller = queue_dequeue(queue);
         EdgeDangerWaveItem a = smaller.a;
         ListCons<ParsedEdge> precedingEdges = findPrecedingEdgesSimple(aistate.parsedStaticMap.parsedEdges, a.pe);
-        precedingEdges = filter(precedingEdges, (ParsedEdge fe) -> noneof(visitedEdges, (ve) -> fe.edgeNumber == ve ? 1 : 0));
+        precedingEdges = filter(precedingEdges, (ParsedEdge fe) -> noneof(visitedEdges, (Integer ve) -> ((ParsedEdge)fe).edgeNumber == ve ? 1 : 0));
         int countNewEdges = length(precedingEdges);
         ListCons<Integer> __ = map(precedingEdges, (ParsedEdge fe) -> addEdgeDanger(fe, a.peDanger / countNewEdges));
         ListCons<Integer> nvisited = concat2_set(visitedEdges, map(precedingEdges, (ParsedEdge fe) -> fe.edgeNumber));
@@ -660,7 +660,8 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     public ListCons<ParsedEdge> findEdgesForPoint(AIState state, Point pos) {
-        return filter(state.parsedStaticMap.parsedEdges, (e) -> pointInEdge(pos, e));
+        return state.parsedStaticMap.edgesForPoint.apply(pos);
+//        return filter(state.parsedStaticMap.parsedEdges, (e) -> pointInEdge(pos, e));
     }
 
     @Compiled
