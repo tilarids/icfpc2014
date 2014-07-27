@@ -4,36 +4,39 @@
         int 6
         mov g,b     ; our current dir
         int 1       ; get lambdaman current coords in (a,b)
-        mov c,a
+        div a,2
+        div b,2
+        mov c,a     ; lambdaman scaled coords in (c,d) 0..127
         mov d,b
         int 3
-        int 5       ; get our curr. coords in (a,b)
+        int 5       ; get our curr. coords in (a,b) 0..127
+        div a,2
+        div b,2     ; our scaled coords in (a,b)
         sub c,a
-        sub d,b     ; (c,d) - relative coords of enemy
-
-        jlt lower,d,0
+        sub d,b     ; (c,d) - relative coords of enemy -127..127
+        jgt lower,d,127
         ; y > 0 - upper half
-        jlt nw,c,0
+        jgt nw,c,127
         ; x > 0 - NE quadrant
-        jlt dir0,c,d
+        jlt dir2,c,d
         jeq dir1,a,a
 
 nw:     ; x < 0 - NW quadrant
         mov a,0
         sub a,c     ; a = -x
-        jlt dir0,a,d
+        jlt dir2,a,d
         jeq dir3,a,a
-dir0:   ; -x < y (NW quadrant) => dir 0
-        ;  x < y (NE quadrant) => dir 0
-        mov c,0
+dir2:   ; -x < y (NW quadrant) => dir 2
+        ;  x < y (NE quadrant) => dir 2
+        mov c,2
         jeq done,a,a
 
 lower:  ; y < 0 - lower half
         mov b,0
         sub b,d     ; b = -y
-        jlt sw,c,0
+        jgt sw,c,127
         ; x > 0 - SE quadrant
-        jlt dir2,c,b
+        jlt dir0,c,b
 dir1:   ; x > -y (SE quadrant) => dir 1
         ; x >  y (NE quadrant) => dir 1
         mov c,1
@@ -42,14 +45,14 @@ dir1:   ; x > -y (SE quadrant) => dir 1
 sw:     ; x < 0 - SW quadrant
         mov a,0
         sub a,c     ; a = -x
-        jlt dir2,a,b
+        jlt dir0,a,b
 dir3:   ; -x > -y (SW quadrant) => dir 3
         ; -x >  y (NW quadrant) => dir 3
         mov c,3
         jeq done,a,a
-dir2:   ; -x < -y (SW quadrant) => dir 2
-        ;  x < -y (SE quadrant) => dir 2
-        mov c,2
+dir0:   ; -x < -y (SW quadrant) => dir 0
+        ;  x < -y (SE quadrant) => dir 0
+        mov c,0
 
 done:
         int 3
@@ -57,9 +60,24 @@ done:
         jeq panic,a,1
         ; normal or invisible mode
         xor c,2     ; inverse direction
-panic:
-        xor c,2     ; inverse direction
+panic:  xor c,2     ; inverse direction
         mov a,c
 exit:
         int 0
-        hlt
+loop:
+        call rng
+        mov b,a
+        call rng
+        int 7
+        jeq loop,a,a
+;        hlt
+
+rng:
+        mov a,[42]
+        jeq do_xor,a,0
+        add a,a
+        jeq 6,a,0
+        jlt 6,a,128
+do_xor: xor a,29
+no_xor: mov [42],a
+        ret
