@@ -1,5 +1,7 @@
 package app;
 
+import org.eclipse.equinox.internal.p2.metadata.expression.Function;
+
 import java.util.ArrayList;
 
 import static app.SortedMap.*;
@@ -167,13 +169,9 @@ public class Sample1 extends VMExtras {
         Point newLocation;
         int direction;
         ParsedEdge startEdge;
-//            long l = System.nanoTime();
         startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
-//            l = System.nanoTime() - l;
-//            System.out.println("Search time: "+l);
-//            if (l > 1000000) {
-//                findBestDistantEdge(edgesForPoint, aistate, worldState);
-//            }
+        ListCons<Integer> __ = map(aistate.parsedStaticMap.parsedEdges, (e) -> e.danger.apply(VMExtras.GET_WRITER, 0).apply(0));
+        __ = map(worldState.ghosts, (g) -> placeGhostDanger(aistate, worldState, g));
         ListCons<Point> pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
         System.out.println("Chosen long way: " + startEdge.toString());
         if (length(pathToWalk) >= 2) {
@@ -198,6 +196,62 @@ public class Sample1 extends VMExtras {
         oldValue = oldValue == CT.PILL ? newRowAccessor.apply(VMExtras.GET_WRITER, nx).apply(CT.SPACE) : oldValue;
         return retval;
     }
+
+    @Compiled
+    class EdgeDangerWaveItem {
+        ParsedEdge pe;
+        int peDanger;
+        int distance;
+
+        EdgeDangerWaveItem(ParsedEdge pe, int peDanger, int distance) {
+            this.pe = pe;
+            this.peDanger = peDanger;
+            this.distance = distance;
+        }
+    }
+
+    @Compiled
+    private int waveGhostDangerAcc(AIState aistate, Queue<EdgeDangerWaveItem> queue, ListCons<Integer> visitedEdges) {
+        Tuple<EdgeDangerWaveItem, Queue<EdgeDangerWaveItem>> smaller = queue_dequeue(queue);
+        EdgeDangerWaveItem a = smaller.a;
+        ListCons<ParsedEdge> followingEdges = findFollowingEdges(aistate.parsedStaticMap.parsedEdges, a.pe);
+    }
+
+    @Compiled
+    private int waveGhostDanger(AIState aistate, EdgeDangerWaveItem item) {
+        Queue<EdgeDangerWaveItem> q = queue_enqueue(queue_new(), item);
+        waveGhostDangerAcc(aistate, q, cons(item.pe.edgeNumber, cons(item.pe.opposingEdgeNumber, null)));
+        return 0;
+    }
+
+    @Compiled
+    private int placeGhostDanger(AIState aistate, WorldState worldState, GhostState gs) {
+        ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate, gs.location);
+        int direction = gs.direction;
+        int nx = direction == 1 ? gs.location.x + 1 : direction == 3 ? gs.location.x - 1 : gs.location.x;
+        int ny = direction == 0 ? gs.location.y -1 : direction == 2 ? gs.location.y + 1 : gs.location.y;
+        Point nextPoint = new Point(nx, ny);
+        // keep only those occuped edges which align to the direction of ghost (agains ghost movement, to be included in danger!)
+        // will be mostly proper all time (for straight corridors)
+        // todo: make properly
+        edgesForPoint = filter(edgesForPoint, (e) -> pointEquals(head(remainingPath(e, gs.location)), nextPoint) == 1 ? 0 : 1);
+        ListCons<Integer> __ = map(edgesForPoint, (ParsedEdge e) -> addEdgeDange(e, 100));
+        __ = map(edgesForPoint, (e) -> waveGhostDanger(aistate, new EdgeDangerWaveItem(e, 100, length(remainingPath(e, gs.location)))));
+        return 0;
+    }
+
+    private int addEdgeDange(ParsedEdge e, int danger) {
+        Integer oldValue = e.danger.apply(GET_READER, 0).apply(0);
+        Integer oldValue2 = e.danger.apply(GET_WRITER, 0).apply(oldValue + danger);
+        return 0;
+    }
+
+    @Compiled
+    ListCons<Point> remainingPath(ParsedEdge pe, Point location) {
+        ListCons<Point> meAndFurther = dropWhile(pe.edge, (Point t) -> pointEquals(t, location) == 0 ? 1 : 0);
+        return tail(meAndFurther);
+    }
+
 
     @Compiled
     private ListCons<ListCons<ParsedEdge>> waveFromEdgeToNearestEdges(
@@ -379,8 +433,9 @@ public class Sample1 extends VMExtras {
         int count;
         int edgeNumber;
         int opposingEdgeNumber;
+        Function2<Integer, Integer, Function1<Integer, Integer>> danger;
 
-        ParsedEdge(Point a, Point b, ListCons<Point> edge, ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess, int count, int edgeNumber, int opposingEdgeNumber) {
+        ParsedEdge(Point a, Point b, ListCons<Point> edge, ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess, int count, int edgeNumber, int opposingEdgeNumber, Function2<Integer, Integer, Function1<Integer, Integer>> danger) {
             this.a = a;
             this.b = b;
             this.edge = edge;
@@ -388,6 +443,7 @@ public class Sample1 extends VMExtras {
             this.count = count;
             this.edgeNumber = edgeNumber;
             this.opposingEdgeNumber = opposingEdgeNumber;
+            this.danger = danger;
         }
 
         @Override
@@ -481,11 +537,6 @@ public class Sample1 extends VMExtras {
         return isWalkable(getMapItem(map, p.y, p.x));
     }
 
-    @Compiled
-    public static int isWalkable3(ListCons<ListCons<Integer>> map, int x, int y) {
-        return isWalkable(getMapItem(map, y, x));
-    }
-
 
     @Compiled
     public static int isJunction(ListCons<ListCons<Integer>> map, int x, int y) {
@@ -519,7 +570,7 @@ public class Sample1 extends VMExtras {
                         allJunctions2,
                         sorted_map_assoc(new SortedMap<>(null, 0), getPointKey(somePoint), somePoint), null);
         return map(allNeighbourJunctionsPaths, (p) ->
-                new ParsedEdge(head(p), last(p), p, makeEdgeAccess(p, accessors), length(p) - 1, -1, -1));
+                new ParsedEdge(head(p), last(p), p, makeEdgeAccess(p, accessors), length(p) - 1, -1, -1, array_1()));
     }
 
 
@@ -621,9 +672,9 @@ public class Sample1 extends VMExtras {
         ListCons<ParsedEdge> allParsedEdges = concat(map(junctionsList, (j) -> findNeighbourJunctions(m, j, junctions, junctionsList, accessors)));
         // renumber them.
         debug(4000009);
-        ListCons<ParsedEdge> allParsedEdges2 = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, ix, -1));
+        ListCons<ParsedEdge> allParsedEdges2 = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, ix, -1, pe.danger));
         debug(4000010);
-        ListCons<ParsedEdge> allParsedEdges3 = mapi(allParsedEdges2, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, pe.edgeNumber, edgeNumber(findEdge(pe.b, pe.a, allParsedEdges2))));
+        ListCons<ParsedEdge> allParsedEdges3 = mapi(allParsedEdges2, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, pe.edgeNumber, edgeNumber(findEdge(pe.b, pe.a, allParsedEdges2)), pe.danger));
         debug(4000011);
         return new ParsedStaticMap(walkable, junctions, allParsedEdges3, null, null, accessors);
     }
@@ -855,7 +906,7 @@ public class Sample1 extends VMExtras {
             }
             if (isWalkable(getMapItem(ws.map, ny, nx)) == 1) {
                 // keep moving
-                System.out.println("Ghost moved on: "+ghostState.location+" -> "+new Point(nx, ny));
+                // System.out.println("Ghost moved on: "+ghostState.location+" -> "+new Point(nx, ny));
                 ghostState.location.x = nx;
                 ghostState.location.y = ny;
             } else shouldRecalc = true;
@@ -870,7 +921,7 @@ public class Sample1 extends VMExtras {
             if (nx < gx) ghostState.direction = 3;
             if (ny < gy) ghostState.direction = 0;
             if (ny > gy) ghostState.direction = 2;
-            System.out.println("Ghost moved new: "+ghostState.location+" -> "+new Point(nx, ny));
+            // System.out.println("Ghost moved new: "+ghostState.location+" -> "+new Point(nx, ny));
             ghostState.location.x = nx;
             ghostState.location.y = ny;
         }

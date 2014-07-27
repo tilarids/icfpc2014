@@ -14,6 +14,12 @@ public class VMExtras extends VM {
         return create_array_accessor(256);
     }
 
+    @Compiled
+    @Native(nlocals = 0)
+    public Function2<Integer, Integer, Function1<Integer,Integer>> array_1() {
+        return create_array_accessor(256);
+    }
+
     public Function2<Integer, Integer, Function1<Integer,Integer>> create_array_accessor(int n) {
         final int[] d = new int[n];
         Function2<Integer,Integer,Function1<Integer,Integer>> f = (final Integer op, final Integer ix) ->  {
