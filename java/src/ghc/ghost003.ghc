@@ -1,22 +1,22 @@
 mov h, 255                    ; initialize stack  #0
-int 1                         ; get lambdaman current coordinates in (a,b)  #1
+int 1                         ; get lambdaman current coordinates in (a,b) ;less silly hunter  #1
 mov c, a                      ; #2
 mov d, b                      ; #3
 int 3                         ; #4
 int 5                         ; #5
 mov e, a                      ; #6
 mov f, b                      ;ghost coordinates in e (x) and f (y);  #7
-jeq 30, d, f                  ;=>x-direction  #8
+jeq 30, d, f                  ; choose desired y-direction and put it in [1] =>x-direction  #8
 mov [1], 0                    ; #9
 jlt 12, d, f                  ;=>check  #10
 mov [1], 2                    ; #11
-int 3                         ;<=check  #12
+int 3                         ;int 8 ;mov a, [1] ;<=check ; at first check current direction ; check chosen y-direction  #12
 int 6                         ;current direction in b  #13
-add b, 2                      ; #14
+add b, 2                      ;int 8  #14
 and b, 3                      ; #15
 mov a, [1]                    ; #16
-jeq 30, b, [1]                ;we can't move back; =>x-direction  #17
-int 3                         ; #18
+jeq 30, b, [1]                ;we can't move back; ;int 8 =>x-direction  #17
+int 3                         ;maybe there is a wall?  #18
 int 5                         ;ghost coordinates in a and b  #19
 dec b                         ; #20
 jeq 28, [1], 0                ;=>wall_check  #21
@@ -26,11 +26,17 @@ dec b                         ; #24
 dec a                         ; #25
 jeq 28, [1], 3                ;=>wall_check  #26
 add a,2                       ; #27
-int 7                         ;content of the cell in desired direction now in a ;<=wall_check  #28
-jgt 33, a, 0                  ;if a!=0 then we will make the step in chosen direction =>submit  #29
-mov [1], 1                    ;<=x-direction  #30
-jgt 33, c, e                  ;=>submit  #31
+int 7                         ;content of the cell in desired direction now in a ;int 8 ;mov g, [1] ;<=wall_check  #28
+jgt 33, a, 0                  ;if a!=0 then we will make the step in chosen direction ;int 8 =>presubmit  #29
+mov [1], 1                    ;<=x-direction ; choose desired x-direction and put it in [1] ;It appear that we were not able to move in y-direction or we just didn't want to  #30
+jgt 33, c, e                  ;=>presubmit  #31
 mov [1], 3                    ; #32
-mov a, [1]                    ;#31 ;<=submit  #33
-int 0                         ; #34
-hlt                           ; #35
+int 3                         ;<=presubmit  #33
+int 6                         ; #34
+and a, 1                      ; #35
+jeq 39, a, 0                  ;=>submit  #36
+add [1], 2                    ; #37
+and [1], 3                    ; #38
+mov a, [1]                    ;#31 ;<=submit  #39
+int 0                         ;int 8  #40
+hlt                           ; #41
