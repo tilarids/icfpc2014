@@ -487,9 +487,17 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private int test3() {
+//        Integer[] test = {23, 2, 11, 3, 2, 34, 1, 17, 2, 3};
+//        ListCons<Tuple<Integer, Integer>> arr = null;
+//        for (Integer x : test) {
+//            arr = cons (new Tuple<>(x, 42), arr);
+//        }
         SortedMap<Integer> map = new SortedMap<Integer>(null, 0);
-        SortedMap<Integer> new_map = sorted_map_assoc(sorted_map_assoc(sorted_map_assoc(map, 30, 31), 20, 21), 10, 11);
-        return sorted_map_get(sorted_map_assoc(new_map, 20, 33), 20, 88);
+//        SortedMap<Integer> new_map = sorted_map_assoc_all(map, arr);
+//        System.out.println("sorted:" + sorted_map_walk(new_map, null, (ListCons<Integer> acc, Tuple<Integer, Integer> x) -> cons(x.a, acc)));
+
+        SortedMap<Integer> new_map2 = sorted_map_assoc(sorted_map_assoc(sorted_map_assoc(map, 30, 31), 20, 21), 10, 11);
+        return sorted_map_get(sorted_map_assoc(new_map2, 20, 33), 20, 88);
     }
 
 
@@ -701,7 +709,8 @@ public class Sample1 extends VMExtras {
         }
 
         WorldState worldState = convertMap(theMap);
-        if (false) {
+        if (true) {
+          new Sample1().test3();
           System.out.println(new Sample1().bit_split(10) + ":" + new Sample1().bit_split(127));
           System.out.println(new Sample1().emulate_bitop(13, 5, (xx, yy) -> xx * yy));
           ListCons<Cons> spec =
