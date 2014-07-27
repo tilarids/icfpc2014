@@ -47,6 +47,29 @@ public class GCCEmulator {
             this.tag = Tag.Frame;
             this.frame_p = frame_p;
         }
+
+        public String toString() {
+            switch (this.tag) {
+                case Int:
+                    return int_p.toString();
+                case Dum:
+                    return "DUM";
+                case Closure:
+                    return "Closure{" + closure_p.index.toString()+"}";
+                case Cons:
+                    return "("+cons_p.data.toString()+","+cons_p.addr.toString()+")";
+                case Frame:
+                    return "Frame{" + this.frame_p.value.size()+"}";
+                case Join:
+                    return "Join{" + this.control_p.toString() + "}";
+                case Ret:
+                    return "Ret{" + this.control_p.toString() + "}";
+                case Stop:
+                    return "STOP";
+                default:
+                    return "Unsupported";
+            }
+        }
     }
 
     static class Frame {
@@ -341,7 +364,7 @@ public class GCCEmulator {
                         throw new RuntimeException("FrameMismatch");
                     if (reg_e != fp)
                         throw new RuntimeException("FrameMismatch");
-                    Integer i = op.param.get(0);
+                    Integer i = op.param.get(0) - 1;
                     while (i != -1) {
                         D y = pop_ds();
                         fp.value.set(i, y);
