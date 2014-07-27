@@ -205,10 +205,15 @@ public class Compiler {
 
         // output
 
+        FileOutputStream fos = new FileOutputStream("test.txt");
+        PrintStream ps = new PrintStream(fos);
         for (int i = 0; i < global.size(); i++) {
             Opcode opcode = global.get(i);
-            System.out.println(String.format("%s ; %d", opcode.toString(), i));
+            String line = String.format("%s ; %d", opcode.toString(), i);
+            System.out.println(line);
+            ps.println(line);
         }
+        ps.close();
         System.out.println("=========");
         System.out.println("Total ops: " + global.size());
     }
