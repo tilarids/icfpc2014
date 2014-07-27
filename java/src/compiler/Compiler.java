@@ -238,6 +238,8 @@ public class Compiler {
         return myMethod;
     }
 
+    int branchSeq;
+
     private void generateStatement(MyMethod myMethod, Statement statement) {
         ASTNode declarationOwner = statement.getParent().getParent();
         if (statement instanceof VariableDeclarationStatement) {
@@ -467,7 +469,8 @@ public class Compiler {
         } else if (expression instanceof ConditionalExpression) {
             ConditionalExpression ce = (ConditionalExpression) expression;
             generateExpression(myMethod, ce.getExpression());
-            myMethod.addOpcode(new Opcode("SEL", new ExpressionRef(myMethod, ce.getThenExpression()), new ExpressionRef(myMethod, ce.getElseExpression())));
+            int seq = ++branchSeq;
+            myMethod.addOpcode(new Opcode("SEL", new ExpressionRef(myMethod, ce.getThenExpression(),"THEN: "+seq), new ExpressionRef(myMethod, ce.getElseExpression(),"ELSE: "+seq)).commented("IF? "+seq));
         } else if (expression instanceof NullLiteral) {
             myMethod.addOpcode(new Opcode("LDC", 0).commented("NULL literal"));
         } else if (expression instanceof CastExpression) {
@@ -854,9 +857,10 @@ public class Compiler {
         Expression expr;
         String comment;
 
-        ExpressionRef(MyMethod mtd, Expression expr) {
+        ExpressionRef(MyMethod mtd, Expression expr, String comment) {
             this.mtd = mtd;
             this.expr = expr;
+            this.comment = comment;
         }
 
         public int resolve() {

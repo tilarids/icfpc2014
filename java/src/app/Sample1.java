@@ -178,7 +178,7 @@ public class Sample1 extends VMExtras {
                             isWalkable3(worldState.map, location.x, location.y + 1) == 1 && aistate.lastDirection != Direction.UP ?
                                     Direction.DOWN :
                                     Direction.LEFT;
-            retval = new Tuple<>(new AIState(aistate.parsedStaticMap, direction), direction);
+            retval = new Tuple<>(new AIState(aistate.parsedStaticMap, direction, null, 0), direction);
         } else if (length(pathToWalk) >= 2) {
             debug(1200008);
             newLocation = head(tail(pathToWalk));
@@ -294,10 +294,11 @@ public class Sample1 extends VMExtras {
         ListCons<Point> ghostStartPoints; //should be used to handle INT 4
         int tick;
 
-        AIState(ParsedStaticMap parsedStaticMap, int lastDirection, ListCons<Point> ghostStartPoints) {
+        AIState(ParsedStaticMap parsedStaticMap, int lastDirection, ListCons<Point> ghostStartPoints, int tick) {
             this.parsedStaticMap = parsedStaticMap;
             this.lastDirection = lastDirection;
             this.ghostStartPoints = ghostStartPoints;
+            this.tick = tick;
         }
     }
 
@@ -451,7 +452,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private AIState createInitialState(ListCons<ListCons<Integer>> map) {
-        return new AIState(parseStaticMap(map), 0);
+        return new AIState(parseStaticMap(map), 0, null, 0);
     }
 
     @Compiled
