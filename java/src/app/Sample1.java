@@ -1,4 +1,5 @@
 package app;
+import static app.SortedMap.*;
 
 /**
  * Created by san on 7/25/14.
