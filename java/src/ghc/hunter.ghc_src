@@ -11,51 +11,45 @@
         sub c,a
         sub d,b     ; (c,d) - relative coords of enemy
 
-        jlt m0,d,0
+        jlt lower,d,0
         ; y > 0 - upper half
-        jlt m1,c,0
+        jlt nw,c,0
         ; x > 0 - NE quadrant
-        jlt m2,c,d
-        ; x > y => dir 1
-        mov c,1
-        jeq done,a,a
-m2:     ; x < y => dir 0
-        mov c,0
-        jeq done,a,a
+        jlt dir0,c,d
+        jeq dir1,a,a
 
-m1:     ; x < 0 - NW quadrant
+nw:     ; x < 0 - NW quadrant
         mov a,0
         sub a,c     ; a = -x
-        jlt m3,a,d
-        ; -x > y => dir 3
-        mov c,3
-        jeq done,a,a
-m3:     ; -x < y => dir 0
+        jlt dir0,a,d
+        jeq dir3,a,a
+dir0:   ; -x < y (NW quadrant) => dir 0
+        ;  x < y (NE quadrant) => dir 0
         mov c,0
         jeq done,a,a
 
-m0:     ; y < 0 - lower half
+lower:  ; y < 0 - lower half
         mov b,0
         sub b,d     ; b = -y
-        jlt m5,c,0
+        jlt sw,c,0
         ; x > 0 - SE quadrant
-        jlt m4,c,b
-        ; x > -y => dir 1
+        jlt dir2,c,b
+dir1:   ; x > -y (SE quadrant) => dir 1
+        ; x >  y (NE quadrant) => dir 1
         mov c,1
         jeq done,a,a
-m4:     ; x < -y => dir 2
-        mov c,2
-        jeq done,a,a
 
-m5:     ; x < 0 - SW quadrant
+sw:     ; x < 0 - SW quadrant
         mov a,0
         sub a,c     ; a = -x
-        jlt m6,a,b
-        ; -x > -y => dir 3
+        jlt dir2,a,b
+dir3:   ; -x > -y (SW quadrant) => dir 3
+        ; -x >  y (NW quadrant) => dir 3
         mov c,3
         jeq done,a,a
-m6:     ; -x < -y => dir 2
-        mov c,0
+dir2:   ; -x < -y (SW quadrant) => dir 2
+        ;  x < -y (SE quadrant) => dir 2
+        mov c,2
 
 done:
         int 3

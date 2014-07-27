@@ -1,0 +1,41 @@
+mov h, 255                    ; initialize stack  #0
+int 3                         ; our index  #1
+int 6                         ; #2
+mov g,b                       ; our current dir  #3
+int 1                         ; get lambdaman current coords in (a,b)  #4
+mov c,a                       ; #5
+mov d,b                       ; #6
+int 3                         ; #7
+int 5                         ; get our curr. coords in (a,b)  #8
+sub c,a                       ; #9
+sub d,b                       ; (c,d) - relative coords of enemy  #10
+jlt 21,d,0                    ;=>lower  #11
+jlt 15,c,0                    ;=>nw  #12
+jlt 19,c,d                    ;=>dir0  #13
+jeq 25,a,a                    ;=>dir1  #14
+mov a,0                       ;<=nw  #15
+sub a,c                       ; a = -x  #16
+jlt 19,a,d                    ;=>dir0  #17
+jeq 30,a,a                    ;=>dir3  #18
+mov c,0                       ;<=dir0  #19
+jeq 33,a,a                    ;=>done  #20
+mov b,0                       ;<=lower  #21
+sub b,d                       ; b = -y  #22
+jlt 27,c,0                    ;=>sw  #23
+jlt 32,c,b                    ;=>dir2  #24
+mov c,1                       ;<=dir1  #25
+jeq 33,a,a                    ;=>done  #26
+mov a,0                       ;<=sw  #27
+sub a,c                       ; a = -x  #28
+jlt 32,a,b                    ;=>dir2  #29
+mov c,3                       ;<=dir3  #30
+jeq 33,a,a                    ;=>done  #31
+mov c,2                       ;<=dir2  #32
+int 3                         ;<=done  #33
+int 6                         ; a = vitality  #34
+jeq 37,a,1                    ;=>panic  #35
+xor c,2                       ; inverse direction  #36
+xor c,2                       ; inverse direction <=panic  #37
+mov a,c                       ; #38
+int 0                         ;<=exit  #39
+hlt                           ; #40
