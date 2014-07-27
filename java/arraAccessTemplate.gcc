@@ -1,0 +1,211 @@
+
+
+$fun$:
+
+    LDC 0
+    LDC 0
+    LDC 0
+    LDC 0
+    LDC 0
+    LDC 0
+    LDC 0
+
+    LDF $create_accessor_7$
+    AP 7
+    RTN
+
+$create_accessor_7$:
+    LDF  $accessor7$
+    RTN
+
+$accessor7$:
+
+    LD  0   0       ; opcode
+    LDC 100         ; read?
+    CEQ
+    TSEL    $$pc$+1$ $accessor7_w$
+
+    LD  0   1       ; ix
+    LDC 0
+    CEQ
+    TSEL    $$read0$+2$ $$pc$+1$
+
+    LD  0   1       ; ix
+    LDC 1
+    CEQ
+    TSEL    $$read1$+2$ $$pc$+1$
+
+    LD  0   1       ; ix
+    LDC 2
+    CEQ
+    TSEL    $$read2$+2$ $$pc$+1$
+
+    LD  0   1       ; ix
+    LDC 3
+    CEQ
+    TSEL    $$read3$+2$ $$pc$+1$
+
+    LD  0   1       ; ix
+    LDC 4
+    CEQ
+    TSEL    $$read4$+2$ $$pc$+1$
+
+    LD  0   1       ; ix
+    LDC 5
+    CEQ
+    TSEL    $$read5$+2$ $$pc$+1$
+
+    LD  0   1       ; ix
+    LDC 6
+    CEQ
+    TSEL    $$read6$+2$ $$pc$+1$
+
+    LDC  0           ; nothing found
+    RTN
+
+$accessor7_w$:
+    LD  0   1       ; ix
+    LDC 0
+    CEQ
+    TSEL    $$write0$+4$ $$pc$+1$
+
+    LD  0   1       ; ix
+    LDC 1
+    CEQ
+    TSEL    $$write1$+4$ $$pc$+1$
+
+    LD  0   1       ; ix
+    LDC 2
+    CEQ
+    TSEL    $$write2$+4$ $$pc$+1$
+
+    LD  0   1       ; ix
+    LDC 3
+    CEQ
+    TSEL    $$write3$+4$ $$pc$+1$
+
+    LD  0   1       ; ix
+    LDC 4
+    CEQ
+    TSEL    $$write4$+4$ $$pc$+1$
+
+    LD  0   1       ; ix
+    LDC 5
+    CEQ
+    TSEL    $$write5$+4$ $$pc$+1$
+
+    LD  0   1       ; ix
+    LDC 6
+    CEQ
+    TSEL    $$write6$+4$ $$pc$+1$
+
+    LDC  0           ; nothing found
+    RTN
+
+
+$read0$:
+    LD  2   0
+    RTN
+; read accessor
+    LDF $read0$
+    RTN
+
+$read1$:
+    LD  2   1
+    RTN
+; read accessor
+    LDF $read1$
+    RTN
+
+$read2$:
+    LD  2   2
+    RTN
+; read accessor
+    LDF $read2$
+    RTN
+
+$read3$:
+    LD  2   3
+    RTN
+; read accessor
+    LDF $read3$
+    RTN
+
+$read4$:
+    LD  2   4
+    RTN
+; read accessor
+    LDF $read4$
+    RTN
+
+$read5$:
+    LD  2   5
+    RTN
+; read accessor
+    LDF $read5$
+    RTN
+
+$read6$:
+    LD  2   6
+    RTN
+; read accessor
+    LDF $read6$
+    RTN
+
+$write0$:
+    LD  2   0
+    LD  0   0
+    ST  2   0
+    LDC 0
+    RTN
+; read accessor
+    LDF $write0$
+    RTN
+
+$write1$:
+    LD  2   1
+    LD  0   0
+    ST  2   1
+    RTN
+    LDF $write1$
+    RTN
+
+$write2$:
+    LD  2   2
+    LD  0   0
+    ST  2   2
+    RTN
+    LDF $write2$
+    RTN
+
+$write3$:
+    LD  2   3
+    LD  0   0
+    ST  2   3
+    RTN
+    LDF $write3$
+    RTN
+
+$write4$:
+    LD  2   4
+    LD  0   0
+    ST  2   4
+    RTN
+    LDF $write4$
+    RTN
+
+$write5$:
+    LD  2   5
+    LD  0   0
+    ST  2   5
+    RTN
+    LDF $write5$
+    RTN
+
+$write6$:
+    LD  2   6
+    LD  0   0
+    ST  2   6
+    RTN
+    LDF $write6$
+    RTN

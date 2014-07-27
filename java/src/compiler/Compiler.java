@@ -4,6 +4,7 @@ import java.io.*;
 import java.lang.reflect.Field;
 import java.util.*;
 
+import app.Native;
 import org.apache.log4j.Logger;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.*;
@@ -132,15 +133,26 @@ public class Compiler {
         addTypes(parseFile(new File("src/app/VM.java")));
         addTypes(parseFile(new File("src/app/VMExtras.java")));
         addTypes(parseFile(new File("src/app/Sample1.java")));
-        ArrayGenerator.generate(methods);
         ArrayList<Opcode> global = new ArrayList<>();
         MyMethod run = getMethod("entryPoint");
         methods.remove(run);
         methods.add(0, run);
+
+        // first pass - compile methods to bytecodes, obtain metadata
         for (int m = 0; m < methods.size(); m++) {
             MyMethod method = methods.get(m);
-            method.offset = global.size();
             generateMethod(method.name, method);
+        }
+
+        // replace some methods with native
+
+        NativeFuncionsIncluder.generate(methods, global);
+
+        // resolve function references with regard to native functions, produce opcodes
+
+        for (int m = 0; m < methods.size(); m++) {
+            MyMethod method = methods.get(m);
+            method.setOffsetAndMaybeCompile(global.size());
             ArrayList<Opcode> opcodes = method.opcodes;
             for (int oi = 0; oi < opcodes.size(); oi++) {
                 Opcode opcode = opcodes.get(oi);
@@ -154,6 +166,8 @@ public class Compiler {
             }
             global.addAll(method.opcodes);
         }
+
+        // compile remaining lambdas, etc and produce rest of opcodes
 
         for (int m = 0; m < methods.size(); m++) {
             MyMethod method = methods.get(m);
@@ -173,6 +187,8 @@ public class Compiler {
             }
         }
 
+        // output
+
         for (int i = 0; i < global.size(); i++) {
             Opcode opcode = global.get(i);
             System.out.println(String.format("%s", opcode.toString()));
@@ -182,7 +198,7 @@ public class Compiler {
     }
 
     private MyMethod generateMethod(String name, MyMethod myMethod) {
-        if (myMethod.opcodes.size() == 0) {
+        if (myMethod.opcodes.size() == 0 && !myMethod.isNative) {
             if (name.contains("lambda_1000")) {
                 name = name;
             }
@@ -452,7 +468,7 @@ public class Compiler {
             final List parameters = ((LambdaExpression) expression).parameters();
             final ASTNode body = le.getBody();
             String name = "lambda_" + (lambdaCount++);
-            MyMethod mm = new MyMethod(name, parameters, body, myMethod.importDeclarations);
+            MyMethod mm = new MyMethod(name, parameters, body, myMethod.importDeclarations, false);
             mm.parentMethod = myMethod;
             methods.add(mm);
             myMethod.addOpcode(new Opcode("LDF", new FunctionRef(name)));
@@ -671,7 +687,6 @@ public class Compiler {
 
     ArrayList<MyMethod> methods = new ArrayList<>();
 
-
     private void addTypes(Tuple<TypeDeclaration, ImportPackages> tuple) {
         TypeDeclaration typeDeclaration = tuple.a;
         TypeDeclaration[] types = typeDeclaration.getTypes();
@@ -687,19 +702,39 @@ public class Compiler {
         MethodDeclaration[] methods = typeDeclaration.getMethods();
         for (int i = 0; i < methods.length; i++) {
             MethodDeclaration method = methods[i];
+            boolean compiled = false;
+            boolean isNative = false;
+            int nativeArguments = 0;
             for (Object o : method.modifiers()) {
-                if (o instanceof MarkerAnnotation) {
+                if (o instanceof Annotation) {
                     if (o.toString().equals("@Compiled")) {
-                        addMethod(method, tuple.b);
+                        compiled = true;
+                    }
+                    if (o.toString().startsWith("@Native")) {
+                        NormalAnnotation na = (NormalAnnotation)o;
+                        isNative = true;
+                        nativeArguments = Integer.parseInt((((MemberValuePair)na.values().get(0)).getValue()).toString());
+                    }
+                }
+            }
+            if (compiled) {
+                MyMethod myMethod = addMethod(method, tuple.b, isNative);
+                if (isNative) {
+                    for (int z = 0; z < nativeArguments; z++) {
+                        int varix = myMethod.variables.size();
+                        myMethod.variables.put("native_"+0, varix);
+                        myMethod.variableTypes.put(varix, "@native@");
                     }
                 }
             }
         }
     }
 
-    private void addMethod(MethodDeclaration method, ImportPackages importDeclarations) {
+    private MyMethod addMethod(MethodDeclaration method, ImportPackages importDeclarations, boolean isNative) {
         SimpleName name = method.getName();
-        methods.add(new MyMethod(name.toString(), method.parameters(), method.getBody(), importDeclarations));
+        MyMethod mtd = new MyMethod(name.toString(), method.parameters(), method.getBody(), importDeclarations, isNative);
+        methods.add(mtd);
+        return mtd;
     }
 
     private void addTuple(TypeDeclaration type) {
@@ -843,19 +878,36 @@ public class Compiler {
         HashMap<String, Integer> variables = new HashMap<>();
 
         HashMap<Integer, String> variableTypes = new HashMap<>();
-        ArrayList<Opcode> opcodes = new ArrayList<>();
+        private ArrayList<Opcode> opcodes = new ArrayList<>();
         public final ASTNode body;
         public final ImportPackages importDeclarations;
+        private boolean isNative;
+        public String source;   // for native methods
 
-        private MyMethod(String name, List<VariableDeclaration> parameters, ASTNode body, ImportPackages importDeclarations) {
+        private MyMethod(String name, List<VariableDeclaration> parameters, ASTNode body, ImportPackages importDeclarations, boolean isNative) {
             this.parameters = parameters;
             this.body = body;
             this.name = name;
             this.importDeclarations = importDeclarations;
+            this.isNative = isNative;
         }
 
         public void addOpcode(Opcode op) {
             opcodes.add(op);
+        }
+
+        public void setOffsetAndMaybeCompile(int offset) {
+            this.offset = offset;
+            if (source != null) {
+                List<String> strings = Arrays.asList(source.split("\n"));
+                strings = NativeFuncionsIncluder.assembler(strings, offset);
+                for (String string : strings) {
+                    if (string.length() > 0) {
+                        opcodes.add(new Opcode(string));
+                    }
+                }
+                opcodes.get(0).comment = "generated from native: "+name;
+            }
         }
 
         public int addVariable(String type, String name) {
@@ -864,6 +916,7 @@ public class Compiler {
             variableTypes.put(ix, type);
             return ix;
         }
+
     }
 
     private static class ImportPackages {

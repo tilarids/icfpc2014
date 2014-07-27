@@ -59,6 +59,16 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryFactual(WorldState ws) {
+
+        debug(101);
+        Function2<Integer, Integer, Function1<Integer, Integer>> accessor = array_256();
+        Function1<Integer, Integer> reader101 = accessor.apply(VMExtras.GET_READER, 101);
+        Function1<Integer, Integer> writer101 = accessor.apply(VMExtras.GET_WRITER, 101);
+        Integer __ = writer101.apply(77);
+        Integer value = reader101.apply(0);
+        debug(value);
+
+
         AIState initialState = createInitialState(ws.map);
         return new Tuple<>(initialState, (nextaistate, worldState) -> performMove(nextaistate, worldState));
     }
