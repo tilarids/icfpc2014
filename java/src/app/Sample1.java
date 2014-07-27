@@ -43,9 +43,9 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    public Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, Object undocumented) {
-        //debug(test01());
-        return entryFactual(ws);
+    public Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, ListCons<ListCons> ghostSpecs) {
+        debug(test01());
+        return entryFactual(ws, ghostSpecs);
 //        int x = location.a;
 //        int y = location.b;
 
@@ -59,8 +59,8 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    private Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryFactual(WorldState ws) {
-        AIState initialState = createInitialState(ws.map);
+    private Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryFactual(WorldState ws, ListCons<ListCons> ghostSpecs) {
+        AIState initialState = createInitialState(ws, ghostSpecs);
 
         Function2<Integer, Integer, Function1<Integer, Integer>> newRowAccessor = list_item(initialState.parsedStaticMap.mapAccessors, 1);
         Integer oldValue = newRowAccessor.apply(VMExtras.GET_READER, 1).apply(0);
@@ -280,14 +280,13 @@ public class Sample1 extends VMExtras {
         ParsedStaticMap parsedStaticMap;
         int lastDirection;
         int tick;
-        ListCons<Point> ghostStartPoints; //should be used to handle INT 4
+        ListCons<GhostInfo> ghostInfos;
 
-        AIState(ParsedStaticMap parsedStaticMap, int lastDirection, int tick, ListCons<Point> ghostStartPoints) {
+        AIState(ParsedStaticMap parsedStaticMap, int lastDirection, int tick, ListCons<GhostInfo> ghostInfos) {
             this.parsedStaticMap = parsedStaticMap;
             this.lastDirection = lastDirection;
             this.tick = tick;
-            this.ghostStartPoints = ghostStartPoints;
-            this.tick = tick;
+            this.ghostInfos = ghostInfos;
         }
     }
 
@@ -440,21 +439,22 @@ public class Sample1 extends VMExtras {
 
 
     @Compiled
-    private AIState createInitialState(ListCons<ListCons<Integer>> map) {
-        return new AIState(parseStaticMap(map), 0, 0, null);
+    private AIState createInitialState(WorldState ws, ListCons<ListCons> ghostSpecs) {
+        return new AIState(parseStaticMap(ws.map), 0, 0,
+                zip_with((g, s) -> new GhostInfo(g.location, s), ws.ghosts, ghostSpecs));
     }
 
     @Compiled
     public int isWall(int test) {
-        return test == 0 ? 1 : 0;
+        return test == CT.WALL ? 1 : 0;
     }
 
     @Compiled
     public static int isWalkable(int test) {
-        int retvla = 77;
-        if (test == 0) retvla = 0;
-        else retvla = 1;
-        return retvla;
+        int retval = 77;
+        if (test == CT.WALL) retval = 0;
+        else retval = 1;
+        return retval;
     }
 
     @Compiled
@@ -661,6 +661,18 @@ public class Sample1 extends VMExtras {
         }
     }
 
+
+    @Compiled
+    static class GhostInfo {
+        Point initialPoint; //should be used to handle INT 4
+        ListCons<Cons> spec;
+
+        GhostInfo(Point initialPoint, ListCons<Cons> spec) {
+            this.initialPoint = initialPoint;
+            this.spec = spec;
+        }
+    }
+
     @Compiled
     public Integer ghcstate_read_val(GHCState state, Cons val_cons) {
         Integer val_tag = first(val_cons);
@@ -713,6 +725,14 @@ public class Sample1 extends VMExtras {
                         : 6 == num ? processGhostInfoRequest(world, state, sorted_map_get(state.regs, 0, 0), 6)
                         : 7 == num ? new GHCState(gs, sorted_map_assoc(state.regs, 0, getMapItem(world.map, sorted_map_get(state.regs, 0, 0), sorted_map_get(state.regs, 1, 0))), state.data)
                         : state; // 8 is unsupported
+    }
+
+    // produce_n f a n = (first (f a)) : iterate f (second (f a)) (n - 1)
+    // produce_n f a 0 = (first (f a))
+    @Compiled
+    public <T> ListCons<T> produce_n(Function1<T, Cons> f, T a, int n) {
+        T elem = first(f.apply(a));
+        return n == 0 ? cons(elem, null) : cons(elem, produce_n(f, second(f.apply(a)), n - 1));
     }
 
     @Compiled
