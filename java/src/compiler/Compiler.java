@@ -132,7 +132,7 @@ public class Compiler {
         addTypes(parseFile(new File("src/app/VM.java")));
         addTypes(parseFile(new File("src/app/VMExtras.java")));
         addTypes(parseFile(new File("src/app/Sample1.java")));
-        ArrayGenerator.generate(methods);
+        //ArrayGenerator.generate(methods);
         ArrayList<Opcode> global = new ArrayList<>();
         MyMethod run = getMethod("entryPoint");
         methods.remove(run);
@@ -223,9 +223,10 @@ public class Compiler {
     }
 
     private void generateStatement(MyMethod myMethod, Statement statement) {
+        ASTNode declarationOwner = statement.getParent().getParent();
         if (statement instanceof VariableDeclarationStatement) {
-            if (!(statement.getParent().getParent() instanceof MethodDeclaration)) {
-                throw new CompilerException("Vardecl must be in method-level only, not in blocks", statement);
+            if (!(declarationOwner instanceof MethodDeclaration)  ) {
+                throw new CompilerException("Vardecl must be in method-level only, not in any blocks", statement);
             }
             VariableDeclarationStatement vds = (VariableDeclarationStatement) statement;
             List fragments = vds.fragments();
@@ -242,7 +243,7 @@ public class Compiler {
             }
 
         } else if (statement instanceof ReturnStatement) {
-            if (!(statement.getParent().getParent() instanceof MethodDeclaration)) {
+            if (!(declarationOwner instanceof MethodDeclaration)) {
                 throw new CompilerException("Return must be from main method only", statement);
             }
             Expression expression = ((ReturnStatement) statement).getExpression();
@@ -439,6 +440,13 @@ public class Compiler {
                     myMethod.addOpcode(opcode);
                 }
             }
+        } else if (expression instanceof FieldAccess) {
+            // simple class cast expression in qualified field chain
+            FieldAccess fa = (FieldAccess) expression;
+            QualifiedNameResolved qnr = resolveName(myMethod, expression);
+            for (Opcode opcode : qnr.accessor) {
+                myMethod.addOpcode(opcode);
+            }
             // qn.
         } else if (expression instanceof ConditionalExpression) {
             ConditionalExpression ce = (ConditionalExpression) expression;
@@ -506,7 +514,7 @@ public class Compiler {
                 }
             }
         } else {
-            throw new CompilerException("Unknown expression", expression);
+            throw new CompilerException("Unknown expression: "+expression.getClass(), expression);
         }
         // expression.resolveTypeBinding();
     }
@@ -609,34 +617,61 @@ public class Compiler {
         }
     }
 
-    private QualifiedNameResolved resolveName(MyMethod myMethod, Name qualifier) {
+    private QualifiedNameResolved resolveName(MyMethod myMethod, Expression qualifier) {
         if (qualifier instanceof SimpleName) {
             QualifiedNameResolved qualifiedNameResolved = generateLoadSimpleName(myMethod, (SimpleName) qualifier);
             return qualifiedNameResolved;
-        } else if (qualifier instanceof QualifiedName) {
-            if (qualifier.toString().equals("ec.pe")) {
-                qualifier = qualifier;
+        } else if (qualifier instanceof FieldAccess) {
+            FieldAccess fa = (FieldAccess)qualifier;
+            Expression expression = fa.getExpression();
+            if (expression instanceof ParenthesizedExpression) {
+                ParenthesizedExpression pe = (ParenthesizedExpression)expression;
+                expression = pe.getExpression();
+            } else throw new CompilerException("This form of field access cannot be compiled, cast expression wanted maybe", qualifier);
+            Type type = null;
+            if (expression instanceof CastExpression) {
+                CastExpression cast = (CastExpression) expression;
+                type = cast.getType();
+                expression = cast.getExpression();
+            } else throw new CompilerException("This form of field access cannot be compiled, cast expression expected", qualifier);
+            QualifiedNameResolved mt = resolveName(myMethod, expression);
+            if (type != null && mt != null) {
+                if (mt.tuple != null) {
+                    if (!cleanupTemplates(type.toString()).equals(mt.tuple.name)) {
+                        throw new CompilerException("Class cast, but actual type assertion check failed", qualifier);
+                    } else {
+                        // matching types!
+                    }
+                } else {
+                    mt.tuple = tuples.get(cleanupTemplates(type.toString()));
+                }
             }
+            return generateQualifiedNameAccessWithQNR(qualifier, fa.getName(), mt);
+        } else if (qualifier instanceof QualifiedName) {
+            SimpleName name = ((QualifiedName) qualifier).getName();
             Name qn = ((QualifiedName) qualifier).getQualifier();
             QualifiedNameResolved mt = resolveName(myMethod, qn);
-            if (mt == null) throw new CompilerException("Unable to completely resolve qualified name: ", qn);
-            if (mt.tuple == null) {
-                resolveName(myMethod, qn);
-                throw new CompilerException("Could not find type of base expression, maybe forgot @Compile in class declaration or untyped lambda arg?", qualifier);
-            }
-            ArrayList<Opcode> accessor = new ArrayList<>();
-            SimpleName name = ((QualifiedName) qualifier).getName();
-            Integer position = mt.tuple.positions.get(name.toString());
-            accessor.addAll(mt.accessor);
-
-            generateTupleAccess(accessor, position, mt.tuple.positions.size());
-            String typleIndex = mt.tuple.types.get(position);
-            MyTyple myTyple = tuples.get(cleanupTemplates(typleIndex != null ? typleIndex : "XXXXX@NONEXIST"));
-            return new QualifiedNameResolved(myTyple, accessor);
+            return generateQualifiedNameAccessWithQNR(qualifier, name, mt);
         } else throw new CompilerException("Unsupported (yet?) name", qualifier);
     }
 
-    private void generateTupleAccess(ArrayList<Opcode> accessor, Integer position, int tupleSize) {
+    private QualifiedNameResolved generateQualifiedNameAccessWithQNR(Expression qualifier, SimpleName name, QualifiedNameResolved mt) {
+        if (mt == null) throw new CompilerException("Unable to completely resolve qualified name: ", qualifier);
+        if (mt.tuple == null) {
+            throw new CompilerException("Could not find type of base expression, maybe forgot @Compile in class declaration or untyped lambda arg? Or add explicit type cast.", qualifier);
+        }
+        ArrayList<Opcode> accessor = new ArrayList<>();
+        Integer position = mt.tuple.positions.get(name.toString());
+        accessor.addAll(mt.accessor);
+
+        generateTupleAccess(accessor, position, mt.tuple);
+        String typleIndex = mt.tuple.types.get(position);
+        MyTyple myTyple = tuples.get(cleanupTemplates(typleIndex != null ? typleIndex : "XXXXX@NONEXIST"));
+        return new QualifiedNameResolved(myTyple, accessor);
+    }
+
+    private void generateTupleAccess(ArrayList<Opcode> accessor, Integer position, MyTyple tuple) {
+        int tupleSize = tuple.positions.size();
         int ix = accessor.size();
         if (position == tupleSize - 1) {
             for (int i = 0; i < tupleSize - 2; i++) {
