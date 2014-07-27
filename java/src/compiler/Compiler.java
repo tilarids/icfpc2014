@@ -617,8 +617,6 @@ public class Compiler {
 
     private Class<?> findClassByName(String className, ImportPackages packages, TypeDeclaration ownerType) {
         Tuple<String, ImportPackages> key = new Tuple<>(className, packages);
-        if ("Args".equals(className))
-            System.err.println("AAAA");
         if (!_knownClassesCache.containsKey(key)) {
             Class<?> aClass = null;
             for (String packageName : packages.packages) {
