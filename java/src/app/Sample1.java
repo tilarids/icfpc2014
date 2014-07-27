@@ -291,11 +291,13 @@ public class Sample1 extends VMExtras {
 
         ParsedStaticMap parsedStaticMap;
         int lastDirection;
+        ListCons<Point> ghostStartPoints; //should be used to handle INT 4
+        int tick;
 
-
-        AIState(ParsedStaticMap parsedStaticMap, int lastDirection) {
+        AIState(ParsedStaticMap parsedStaticMap, int lastDirection, ListCons<Point> ghostStartPoints) {
             this.parsedStaticMap = parsedStaticMap;
             this.lastDirection = lastDirection;
+            this.ghostStartPoints = ghostStartPoints;
         }
     }
 
