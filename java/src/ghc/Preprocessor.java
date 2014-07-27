@@ -189,6 +189,13 @@ public class Preprocessor {
         protected String usedLabel;
 
         protected GHCInstruction(String raw) {
+            int commentPos = raw.indexOf(";");
+            if (commentPos != -1) {
+                this.comment = raw.substring(commentPos);
+                raw = raw.substring(0, commentPos).trim();
+            } else
+                this.comment = null;
+
             int labelPos = raw.indexOf(":");
             if (labelPos == -1)
                 this.instrLabel = null;
@@ -196,13 +203,6 @@ public class Preprocessor {
                 this.instrLabel = raw.substring(0, labelPos).toLowerCase();
                 raw = raw.substring(labelPos + 1).trim();
             }
-
-            int commentPos = raw.indexOf(";");
-            if (commentPos != -1) {
-                this.comment = raw.substring(commentPos);
-                raw = raw.substring(0, commentPos).trim();
-            } else
-                this.comment = null;
 
             if (raw.length() > 0)
                 this.srcInstruction = raw;
