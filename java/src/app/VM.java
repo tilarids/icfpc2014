@@ -589,6 +589,14 @@ public class VM {
     }
 
     @Compiled
+    public <T> SortedMap<T> sorted_map_assoc_all(SortedMap<T> m, ListCons<Tuple<Integer, T>> l) {
+        return fold0(l,
+                     m,
+                     (SortedMap<T> acc, Tuple<Integer, T> elem) -> sorted_map_assoc(acc, elem.a, elem.b));
+    }
+
+
+    @Compiled
     public <T> SortedMap<T> sorted_map_if_changed(SortedMap<T> thisMap, SortedMapNode<T> node, SortedMapNode<T> another_node) {
         return node == another_node ?  // same node!
             thisMap : // no change
