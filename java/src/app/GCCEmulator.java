@@ -12,9 +12,15 @@ import java.util.*;
 public class GCCEmulator {
     static class Op {
         String op;
+        String source;
         List<Integer> param = new ArrayList();
-        Op(String op) {
+        Op(String source, String op) {
             this.op = op;
+        }
+
+        @Override
+        public String toString() {
+            return source;
         }
     }
     enum Tag {Int, Dum, Cons, Join, Closure, Frame, Ret, Stop};
@@ -123,6 +129,7 @@ public class GCCEmulator {
     void run(List<Op> ops) {
         while (reg_c < ops.size()) {
             Op op = ops.get(reg_c);
+            System.out.println("IP: "+reg_c+"  OP: "+ op.toString());
             switch(op.op) {
                 case "LDC": {
                     push_ds(new D(op.param.get(0)));
@@ -470,11 +477,12 @@ public class GCCEmulator {
         List<String> lines = Files.readAllLines(FileSystems.getDefault().getPath("test.txt"));
         List<Op> ops = new ArrayList<Op>();
         for (String line : lines) {
+            String source = line;
             if (line.indexOf(";") != -1) {
                 line = line.substring(0, line.indexOf(";"));
             }
             String[] tokens = line.split("\\s");
-            Op op = new Op(tokens[0]);
+            Op op = new Op(source, tokens[0]);
             for (int i = 1; i < tokens.length; ++i) {
                 if (tokens[i].length() > 0) {
                     op.param.add(Integer.parseInt(tokens[i]));
