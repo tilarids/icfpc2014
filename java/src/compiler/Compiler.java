@@ -4,7 +4,6 @@ import java.io.*;
 import java.lang.reflect.Field;
 import java.util.*;
 
-import app.Native;
 import org.apache.log4j.Logger;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.*;
@@ -470,7 +469,7 @@ public class Compiler {
             Name name = (Name) expression;
             Integer constVal = tryResolveConstant(myMethod, name);
             if (constVal != null) {
-                myMethod.addOpcode(new Opcode("LDC", constVal).commented(name.getFullyQualifiedName()));
+                myMethod.addOpcode(new Opcode("LDC", constVal).commented("Named Const = " + name.getFullyQualifiedName()));
             } else {
                 QualifiedNameResolved qnr = resolveName(myMethod, name);
                 for (Opcode opcode : qnr.accessor) {
@@ -503,7 +502,7 @@ public class Compiler {
             final List parameters = ((LambdaExpression) expression).parameters();
             final ASTNode body = le.getBody();
             String name = "lambda_" + (lambdaCount++);
-            MyMethod mm = new MyMethod(name, parameters, body, myMethod.importDeclarations, false);
+            MyMethod mm = new MyMethod(name, parameters, body, myMethod.importDeclarations, myMethod.ownerType, false);
             mm.parentMethod = myMethod;
             methods.add(mm);
             myMethod.addOpcode(new Opcode("LDF", new FunctionRef(name)));
@@ -579,8 +578,6 @@ public class Compiler {
         ld.comment = "var " + sn.toString();
         accessor.add(ld);
         MyTyple tuple = tuples.get(cleanupTemplates(vartype));
-        if ((tuple == null)  && ("m".equals(sn.toString())))
-            System.err.println("AAA " + sn.toString());
         return new QualifiedNameResolved(tuple, accessor);
     }
 
@@ -618,24 +615,35 @@ public class Compiler {
 
     HashMap<Tuple<String, ImportPackages>, Class<?>> _knownClassesCache = new HashMap<>();
 
-    private Class<?> findClassByName(String className, ImportPackages packages) {
+    private Class<?> findClassByName(String className, ImportPackages packages, TypeDeclaration ownerType) {
         Tuple<String, ImportPackages> key = new Tuple<>(className, packages);
+        if ("Args".equals(className))
+            System.err.println("AAAA");
         if (!_knownClassesCache.containsKey(key)) {
             Class<?> aClass = null;
             for (String packageName : packages.packages) {
                 String fullClassName = packageName + "." + className;
-                try {
-                    aClass = Class.forName(fullClassName);
-                } catch (ClassNotFoundException e) {
-                    //ignore
-                }
-                if (aClass == null)
-                    continue;
-                break;
+                aClass = safeGetClass(fullClassName);
+                if (aClass != null)
+                    break;
+
+                fullClassName = packageName + "." + ownerType.getName() + "$" + className;
+                aClass = safeGetClass(fullClassName);
+                if (aClass != null)
+                    break;
             }
             _knownClassesCache.put(key, aClass);
         }
         return _knownClassesCache.get(key);
+    }
+
+    private Class<?> safeGetClass(String fullClassName) {
+        try {
+            return Class.forName(fullClassName);
+        } catch (Throwable e) {
+            //ignore
+        }
+        return null;
     }
 
     private Integer tryResolveConstant(MyMethod myMethod, Name qualifier) {
@@ -646,7 +654,7 @@ public class Compiler {
         String fieldName = fullyQualifiedName.substring(lastDot + 1);
         String className = fullyQualifiedName.substring(0, lastDot);
 
-        Class<?> aClass = findClassByName(className, myMethod.importDeclarations);
+        Class<?> aClass = findClassByName(className, myMethod.importDeclarations, myMethod.ownerType);
         if (aClass == null)
             return null;
 
@@ -782,7 +790,7 @@ public class Compiler {
                 }
             }
             if (compiled) {
-                MyMethod myMethod = addMethod(method, tuple.b, isNative);
+                MyMethod myMethod = addMethod(typeDeclaration, method, tuple.b, isNative);
                 if (isNative) {
                     for (int z = 0; z < nativeArguments; z++) {
                         int varix = myMethod.variables.size();
@@ -794,9 +802,9 @@ public class Compiler {
         }
     }
 
-    private MyMethod addMethod(MethodDeclaration method, ImportPackages importDeclarations, boolean isNative) {
+    private MyMethod addMethod(TypeDeclaration ownerType, MethodDeclaration method, ImportPackages importDeclarations, boolean isNative) {
         SimpleName name = method.getName();
-        MyMethod mtd = new MyMethod(name.toString(), method.parameters(), method.getBody(), importDeclarations, isNative);
+        MyMethod mtd = new MyMethod(name.toString(), method.parameters(), method.getBody(), importDeclarations, ownerType, isNative);
         methods.add(mtd);
         return mtd;
     }
@@ -815,7 +823,7 @@ public class Compiler {
 
 
     private void addTupleIfNeeded(TypeDeclaration type) {
-        if(!isCompiled(type))
+        if (!isCompiled(type))
             return;
         List list = type.bodyDeclarations();
         int ix = 0;
@@ -961,14 +969,16 @@ public class Compiler {
         private ArrayList<Opcode> opcodes = new ArrayList<>();
         public final ASTNode body;
         public final ImportPackages importDeclarations;
-        private boolean isNative;
+        public final TypeDeclaration ownerType;
+        private final boolean isNative;
         public String source;   // for native methods
 
-        private MyMethod(String name, List<VariableDeclaration> parameters, ASTNode body, ImportPackages importDeclarations, boolean isNative) {
+        private MyMethod(String name, List<VariableDeclaration> parameters, ASTNode body, ImportPackages importDeclarations, TypeDeclaration ownerType, boolean isNative) {
             this.parameters = parameters;
             this.body = body;
             this.name = name;
             this.importDeclarations = importDeclarations;
+            this.ownerType = ownerType;
             this.isNative = isNative;
         }
 

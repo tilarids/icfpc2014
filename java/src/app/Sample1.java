@@ -1,4 +1,5 @@
 package app;
+
 import static app.SortedMap.*;
 
 /**
@@ -47,7 +48,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     public Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, ListCons<ListCons> ghostSpecs) {
-        return 1 == 1 ? entryFactual(ws,ghostSpecs) : entryCPUEmulator();
+        return 1 == 1 ? entryFactual(ws, ghostSpecs) : entryCPUEmulator();
 //        int x = location.a;
 //        int y = location.b;
 
@@ -61,7 +62,7 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    private Tuple<AIState,Function2<AIState,WorldState,Tuple<AIState,Integer>>> entryCPUEmulator() {
+    private Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryCPUEmulator() {
         debug(1000001);
         WorldState ws = (WorldState) sample_map();
         debug(1000002);
@@ -76,7 +77,7 @@ public class Sample1 extends VMExtras {
         Tuple<AIState, Integer> apply = b.apply(a, ws);
         return null;
     }
-    
+
     @Compiled
     private Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryFactual(WorldState ws, ListCons<ListCons> ghostSpecs) {
         AIState initialState = createInitialState(ws, ghostSpecs);
@@ -100,7 +101,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private ListCons<Tuple<Function1<Integer, Integer>, Point>> collectEdgePills(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map) {
-        ListCons<Tuple<Function1<Integer, Integer>, Point>> pathRemaining = dropWhile(edge.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> t) -> ((Point)t.b).x != start.x || ((Point)t.b).y != start.y ? 1 : 0);
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> pathRemaining = dropWhile(edge.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> t) -> ((Point) t.b).x != start.x || ((Point) t.b).y != start.y ? 1 : 0);
         ListCons<Tuple<Function1<Integer, Integer>, Point>> rv = filter(pathRemaining, (Tuple<Function1<Integer, Integer>, Point> t) -> t.a.apply(0) == CT.PILL ? 1 : 0);
         return rv;
     }
@@ -129,7 +130,7 @@ public class Sample1 extends VMExtras {
     @Compiled
     private Integer countMyEdgePills(ParsedEdge edge, Point start) {
         ListCons<Tuple<Function1<Integer, Integer>, Point>> pathRemaining = dropWhile(edge.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> t) -> ((Point)t.b).x != start.x || ((Point)t.b).y != start.y ? 1 : 0);
-        Integer rv = fold0(pathRemaining, 0, (Integer acc, Tuple<Function1<Integer, Integer>, Point> t) -> acc + (t.a.apply(0) == CT.PILL ? 1 : 0));
+        Integer rv = fold0(pathRemaining, 0, (Integer acc, Tuple<Function1<Integer, Integer>, Point> t) -> t.a.apply(0) == CT.PILL ? 1 : 0);
         return rv;
     }
 
@@ -156,7 +157,6 @@ public class Sample1 extends VMExtras {
     }
 
 
-
     @Compiled
     private Tuple<AIState, Integer> performMove(AIState aistate, WorldState worldState) {
         Point location = worldState.lambdaManState.location;
@@ -170,6 +170,7 @@ public class Sample1 extends VMExtras {
         Point newLocation;
         int direction;
         ParsedEdge startEdge;
+        debug(1200008);
         if (length(pathToWalk) < 2 || ec.count == 0 || 1 == 1 ) { // nothing close to me
 //            long l = System.nanoTime();
             startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
@@ -380,7 +381,7 @@ public class Sample1 extends VMExtras {
         Point a;
         Point b;
         ListCons<Point> edge;
-        ListCons<Tuple<Function1<Integer,Integer>, Point>> edgeAccess;
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess;
         int count;
         int edgeNumber;
         int opposingEdgeNumber;
@@ -447,7 +448,6 @@ public class Sample1 extends VMExtras {
         ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> mapAccessors;
 
 
-
         ParsedStaticMap(SortedMap<Point> walkable, SortedMap<Point> junctions,
                         ListCons<ParsedEdge> parsedEdges, ListCons<VerticalRow> verticalFinders,
                         ListCons<HorizontalRow> horizontalFinders,
@@ -464,8 +464,9 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private AIState createInitialState(WorldState ws, ListCons<ListCons> ghostSpecs) {
+        ListCons<Integer> ghostNumbers = range_n(length(ws.ghosts));
         return new AIState(parseStaticMap(ws.map), 0, 0,
-                zip_with(((GhostState g, ListCons s) -> new GhostInfo(g.location, s)), ws.ghosts, ghostSpecs));
+                zip3_with(((GhostState g, ListCons s, Integer ind) -> new GhostInfo(g.location, s, ind)), ws.ghosts, ghostSpecs, ghostNumbers));
     }
 
     @Compiled
@@ -696,13 +697,14 @@ public class Sample1 extends VMExtras {
     static class GhostInfo {
         Point initialPoint; //should be used to handle INT 4
         ListCons<Cons> spec;
+        int index;
 
-        GhostInfo(Point initialPoint, ListCons<Cons> spec) {
+        GhostInfo(Point initialPoint, ListCons<Cons> spec, int index) {
             this.initialPoint = initialPoint;
             this.spec = spec;
+            this.index = index;
         }
     }
-
 
 
     public static void main(String[] args) {
