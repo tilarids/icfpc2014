@@ -50,7 +50,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     public Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, ListCons<ListCons> ghostSpecs) {
-        return 1 == 1 ? entryFactual(ws,ghostSpecs) : entryCPUEmulator();
+        return 1 == 1 ? entryFactual(ws, ghostSpecs) : entryCPUEmulator();
 //        int x = location.a;
 //        int y = location.b;
 
@@ -131,7 +131,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private Integer countMyEdgePills(ParsedEdge edge, Point start) {
-        ListCons<Tuple<Function1<Integer, Integer>, Point>> pathRemaining = dropWhile(edge.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> t) -> ((Point)t.b).x != start.x || ((Point)t.b).y != start.y ? 1 : 0);
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> pathRemaining = dropWhile(edge.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> t) -> ((Point) t.b).x != start.x || ((Point) t.b).y != start.y ? 1 : 0);
         Integer rv = fold0(pathRemaining, 0, (Integer acc, Tuple<Function1<Integer, Integer>, Point> t) -> acc + (t.a.apply(0) == CT.PILL ? 1 : 0));
         return rv;
     }
@@ -220,7 +220,7 @@ public class Sample1 extends VMExtras {
         Tuple<EdgeDangerWaveItem, Queue<EdgeDangerWaveItem>> smaller = queue_dequeue(queue);
         EdgeDangerWaveItem a = smaller.a;
         ListCons<ParsedEdge> precedingEdges = findPrecedingEdgesSimple(aistate.parsedStaticMap.parsedEdges, a.pe);
-        precedingEdges = filter(precedingEdges, (ParsedEdge fe) -> noneof(visitedEdges, (ve) -> fe.edgeNumber == ve ? 1:0));
+        precedingEdges = filter(precedingEdges, (ParsedEdge fe) -> noneof(visitedEdges, (ve) -> fe.edgeNumber == ve ? 1 : 0));
         int countNewEdges = length(precedingEdges);
         map(precedingEdges, (fe) -> addEdgeDanger(fe, a.peDanger / countNewEdges));
         ListCons<Integer> nvisited = concat2_set(visitedEdges, map(precedingEdges, (fe) -> fe.edgeNumber));
@@ -241,7 +241,7 @@ public class Sample1 extends VMExtras {
         ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate, gs.location);
         int direction = gs.direction;
         int nx = direction == 1 ? gs.location.x + 1 : direction == 3 ? gs.location.x - 1 : gs.location.x;
-        int ny = direction == 0 ? gs.location.y -1 : direction == 2 ? gs.location.y + 1 : gs.location.y;
+        int ny = direction == 0 ? gs.location.y - 1 : direction == 2 ? gs.location.y + 1 : gs.location.y;
         Point nextPoint = new Point(nx, ny);
         // keep only those occuped edges which align to the direction of ghost (agains ghost movement, to be included in danger!)
         // will be mostly proper all time (for straight corridors)
@@ -478,18 +478,21 @@ public class Sample1 extends VMExtras {
         ListCons<VerticalRow> verticalFinders;
         ListCons<HorizontalRow> horizontalFinders;
         ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> mapAccessors;
+        final Function2<Integer, Point, Function1<ParsedEdge, ParsedEdge>> edgesForPoint;
 
 
         ParsedStaticMap(SortedMap<Point> walkable, SortedMap<Point> junctions,
                         ListCons<ParsedEdge> parsedEdges, ListCons<VerticalRow> verticalFinders,
                         ListCons<HorizontalRow> horizontalFinders,
-                        ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> mapAccessors) {
+                        ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> mapAccessors,
+                        Function2<Integer, Point, Function1<ParsedEdge, ParsedEdge>> edgesForPoint) {
             this.junctions = junctions;
             this.walkable = walkable;
             this.parsedEdges = parsedEdges;
             this.verticalFinders = verticalFinders;
             this.horizontalFinders = horizontalFinders;
             this.mapAccessors = mapAccessors;
+            this.edgesForPoint = edgesForPoint;
         }
     }
 
@@ -658,7 +661,13 @@ public class Sample1 extends VMExtras {
         debug(4000010);
         ListCons<ParsedEdge> allParsedEdges3 = mapi(allParsedEdges2, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, pe.edgeNumber, edgeNumber(findEdge(pe.b, pe.a, allParsedEdges2)), pe.danger));
         debug(4000011);
-        return new ParsedStaticMap(walkable, junctions, allParsedEdges3, null, null, accessors);
+
+        Function2<Integer, Point, Function1<ParsedEdge, ParsedEdge>> edgesForPoint = emptyEdgesArrayForMap(length(m));
+        Object ignore = map(allParsedEdges3, (ParsedEdge e) -> {
+            return map(e.edge, (Point p) -> edgesForPoint.apply(GET_WRITER, p).apply(e));
+        });
+
+        return new ParsedStaticMap(walkable, junctions, allParsedEdges3, null, null, accessors, edgesForPoint);
     }
 
     @Compiled
@@ -817,7 +826,7 @@ public class Sample1 extends VMExtras {
         printMap(theMap, worldState);
 
 
-        int[] ghostSpeed = new int[] {130, 132, 134, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, };
+        int[] ghostSpeed = new int[]{130, 132, 134, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136,};
         int[] ghostTimers = new int[length(worldState.ghosts)];
         int userTimer = 0;
 
@@ -873,18 +882,26 @@ public class Sample1 extends VMExtras {
         int gy = ghostState.location.y;
 
         ArrayList<Point> possibleMoves = new ArrayList<>();
-        if (isWalkable(getMapItem(ws.map, gy - 1, gx)) == 1) possibleMoves.add(new Point(gx, gy-1));
-        if (isWalkable(getMapItem(ws.map, gy + 1, gx)) == 1) possibleMoves.add(new Point(gx, gy+1));
-        if (isWalkable(getMapItem(ws.map, gy, gx+1)) == 1) possibleMoves.add(new Point(gx+1, gy));
-        if (isWalkable(getMapItem(ws.map, gy, gx-1)) == 1) possibleMoves.add(new Point(gx-1,gy));
+        if (isWalkable(getMapItem(ws.map, gy - 1, gx)) == 1) possibleMoves.add(new Point(gx, gy - 1));
+        if (isWalkable(getMapItem(ws.map, gy + 1, gx)) == 1) possibleMoves.add(new Point(gx, gy + 1));
+        if (isWalkable(getMapItem(ws.map, gy, gx + 1)) == 1) possibleMoves.add(new Point(gx + 1, gy));
+        if (isWalkable(getMapItem(ws.map, gy, gx - 1)) == 1) possibleMoves.add(new Point(gx - 1, gy));
         boolean shouldRecalc = false;
         if (possibleMoves.size() == 2) {
             int nx = gx, ny = gy;
-            switch(ghostState.direction) {
-                case 0: ny--; break;
-                case 1: nx++; break;
-                case 2: ny++; break;
-                case 3: nx--; break;
+            switch (ghostState.direction) {
+                case 0:
+                    ny--;
+                    break;
+                case 1:
+                    nx++;
+                    break;
+                case 2:
+                    ny++;
+                    break;
+                case 3:
+                    nx--;
+                    break;
             }
             if (isWalkable(getMapItem(ws.map, ny, nx)) == 1) {
                 // keep moving
@@ -893,7 +910,7 @@ public class Sample1 extends VMExtras {
                 ghostState.location.y = ny;
             } else shouldRecalc = true;
         } else {
-            shouldRecalc= true;
+            shouldRecalc = true;
         }
         if (shouldRecalc) {
             int nextPoint = ((int) (Math.random() * 256)) % possibleMoves.size();
@@ -913,9 +930,9 @@ public class Sample1 extends VMExtras {
         String[] _rows = theMap.split("\n");
         StringBuffer[] rows = new StringBuffer[_rows.length];
         for (int i = 0; i < rows.length; i++) {
-            rows[i] = new StringBuffer(_rows[i].replace("="," "));
+            rows[i] = new StringBuffer(_rows[i].replace("=", " "));
         }
-        map(worldState.ghosts, (g)-> {
+        map(worldState.ghosts, (g) -> {
             rows[g.location.y].setCharAt(g.location.x, '=');
             return null;
         });

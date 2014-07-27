@@ -11,27 +11,32 @@ public class VMExtras extends VM {
     @Compiled
     public static Function2<Integer, Integer, Function1<Integer, Integer>> array_256() {
         return array_256_impl();
-//        return array_256_impl(Integer.class);
     }
 
     @Compiled
-    public static Function2<Integer, Point, Function1<ParsedEdge, ParsedEdge>> edgesArrayForMap(int w, int h) {
+    @Native(nlocals = 0)
+    public Function2<Integer, Integer, Function1<Integer,Integer>> array_1() {
+        return array_256_impl();
+    }
+
+    @Compiled
+    public static Function2<Integer, Point, Function1<ParsedEdge, ParsedEdge>> emptyEdgesArrayForMap(int h) {
         // I'm very generic, mwa-ha-ha!
         Function2<Integer, Integer, Function1<Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>, Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>>> wrapper = array_256_impl();
-        fillArrayForMap(wrapper, w);
+        fillArrayForMap(wrapper, h);
         return (final Integer op, final Point p) -> {
-            Function1<Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>, Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>> outerAccessor = wrapper.apply(GET_READER, p.x);
+            Function1<Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>, Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>> outerAccessor = wrapper.apply(GET_READER, p.y);
             Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>> innerAccessor = outerAccessor.apply(null);
-            return innerAccessor.apply(op, p.y);
+            return innerAccessor.apply(op, p.x);
         };
     }
 
     @Compiled
-    private static void fillArrayForMap(Function2<Integer, Integer, Function1<Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>, Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>>> wrapper, int w) {
-        if (w > 0) {
-            Function1<Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>, Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>> accessor = wrapper.apply(GET_WRITER, w - 1);
+    private static void fillArrayForMap(Function2<Integer, Integer, Function1<Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>, Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>>> wrapper, int h) {
+        if (h > 0) {
+            Function1<Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>, Function2<Integer, Integer, Function1<ParsedEdge, ParsedEdge>>> accessor = wrapper.apply(GET_WRITER, h - 1);
             accessor.apply(array_256_impl());
-            fillArrayForMap(wrapper, w - 1);
+            fillArrayForMap(wrapper, h - 1);
         }
     }
 
@@ -103,16 +108,16 @@ public class VMExtras extends VM {
 
     @Compiled
     static class ParsedEdge {
-        Sample1.Point a;
-        Sample1.Point b;
-        ListCons<Sample1.Point> edge;
-        ListCons<Tuple<Function1<Integer, Integer>, Sample1.Point>> edgeAccess;
+        Point a;
+        Point b;
+        ListCons<Point> edge;
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess;
         int count;
         int edgeNumber;
         int opposingEdgeNumber;
         Function2<Integer, Integer, Function1<Integer, Integer>> danger;
 
-        ParsedEdge(Sample1.Point a, Sample1.Point b, ListCons<Sample1.Point> edge, ListCons<Tuple<Function1<Integer, Integer>, Sample1.Point>> edgeAccess, int count, int edgeNumber, int opposingEdgeNumber, Function2<Integer, Integer, Function1<Integer, Integer>> danger) {
+        ParsedEdge(Point a, Point b, ListCons<Point> edge, ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess, int count, int edgeNumber, int opposingEdgeNumber, Function2<Integer, Integer, Function1<Integer, Integer>> danger) {
             this.a = a;
             this.b = b;
             this.edge = edge;
@@ -144,5 +149,4 @@ public class VMExtras extends VM {
             return "Point(" + x + "," + y + ")";
         }
     }
-
 }
