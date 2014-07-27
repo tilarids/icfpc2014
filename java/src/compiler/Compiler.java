@@ -181,6 +181,8 @@ public class Compiler {
         System.out.println("Total ops: " + global.size());
     }
 
+//    private int traceInt = 4242;
+
     private MyMethod generateMethod(String name, MyMethod myMethod) {
         if (myMethod.opcodes.size() == 0) {
             if (name.contains("lambda_1000")) {
@@ -199,6 +201,9 @@ public class Compiler {
                 }
             }
             ASTNode b = myMethod.body;
+//            myMethod.addOpcode(new Opcode("LDC", new Integer(traceInt++)));
+//            myMethod.addOpcode(new Opcode("DBUG"));
+
             if (b instanceof Block) {
                 Block body = (Block) b;
                 List<Statement> statements = body.statements();
