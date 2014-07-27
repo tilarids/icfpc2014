@@ -1,5 +1,7 @@
 package app;
 
+import com.sun.javafx.geom.Edge;
+
 /**
  * Created by san on 7/25/14.
  */
@@ -60,7 +62,8 @@ public class Sample1 extends VMExtras {
     @Compiled
     private Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryFactual(WorldState ws) {
         AIState initialState = createInitialState(ws.map);
-        return new Tuple<>(initialState, (nextaistate, worldState) -> performMove(nextaistate, worldState));
+        return new Tuple<>(initialState, (AIState nextaistate, WorldState worldState) -> performMove(new AIState(nextaistate.parsedStaticMap, nextaistate.lastDirection, nextaistate.tick + 1),
+                                                                                  worldState));
     }
 
 
@@ -98,19 +101,37 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
+
+    Integer scorePoint(Integer cell, Integer vitality, Integer tick) {
+        return
+                cell == CT.FRUIT ? (((tick > 127 * 200) && (tick < 127 * 280)) || ((tick > 127 * 400) && (tick < 127 * 480)) ? 300 : 0)
+              : cell == CT.GHOST ? (vitality > 0 ? vitality : -1000)
+              : cell == CT.PILL ? 10
+              : cell == CT.POWER? 50
+              : 0;
+    }
+
+    @Compiled
+    Tuple<ParsedEdge, Integer> scoreEdge(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map, Integer vitality, Integer tick) {
+        ListCons<Point> pathOnEdge = dropWhile(edge.edge, (Point p) -> p.x != start.x || p.y != start.y ? 1 : 0);
+        Integer score = fold0(pathOnEdge,
+                0,
+                (Integer acc, Point p) -> acc + scorePoint(getMapItem(map, p.y, p.x), vitality, tick));
+        return new Tuple<>(edge, score);
+    }
+
+    @Compiled
     private Tuple<AIState, Integer> performMove(AIState aistate, WorldState worldState) {
         Point location = worldState.lambdaManState.location;
         ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate, location);
-        ListCons<EdgeAndCount> collectedPoints = map(edgesForPoint, (e) -> new EdgeAndCount(e,
-                length(collectEdgePills(e, location, worldState.map)),
-                length(collectEdgeGhosts(e, location, worldState.map))));
-        EdgeAndCount ec = maximum_by(collectedPoints, (EdgeAndCount cp) -> (cp.count - 100 * cp.ghostCount));
-        ListCons<Point> pathToWalk = dropWhile(ec.pe.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
+        ListCons<Tuple<ParsedEdge, Integer>> edgesScored = map(edgesForPoint, (e) -> scoreEdge(e, location, worldState.map, worldState.lambdaManState.vitality, aistate.tick));
+        Tuple<ParsedEdge, Integer> es = maximum_by(edgesScored, (Tuple<ParsedEdge, Integer> cp) -> cp.b);
+        ListCons<Point> pathToWalk = dropWhile(((ParsedEdge)es.a).edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
         Tuple<AIState, Integer> retval;
         Point newLocation;
         int direction;
         ParsedEdge startEdge;
-        if (length(pathToWalk) < 2 || ec.count == 0) { // nothing close to me
+        if (length(pathToWalk) < 2 || es.b == 0) { // nothing close to me
 //            long l = System.nanoTime();
             startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
 //            l = System.nanoTime() - l;
@@ -121,7 +142,7 @@ public class Sample1 extends VMExtras {
             pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
             System.out.println("Chosen long way: " + startEdge.toString());
         }
-        if (ec.count == 0 && 1 == 2) {
+        if (1 == 2) {
             // ensure that we don't stuck when there is no pills nearby. just go somewhere (and don't go back)
             // branch svg
             direction = isWalkable3(worldState.map, location.x, location.y - 1) == 1 && aistate.lastDirection != Direction.DOWN ?
@@ -131,7 +152,7 @@ public class Sample1 extends VMExtras {
                             isWalkable3(worldState.map, location.x, location.y + 1) == 1 && aistate.lastDirection != Direction.UP ?
                                     Direction.DOWN :
                                     Direction.LEFT;
-            retval = new Tuple<>(new AIState(aistate.parsedStaticMap, direction), direction);
+            retval = new Tuple<>(new AIState(aistate.parsedStaticMap, direction, aistate.tick), direction);
         } else if (length(pathToWalk) >= 2) {
             newLocation = head(tail(pathToWalk));
             direction = (newLocation.x > location.x) ?
@@ -215,11 +236,12 @@ public class Sample1 extends VMExtras {
 
         ParsedStaticMap parsedStaticMap;
         int lastDirection;
+        int tick;
 
-
-        AIState(ParsedStaticMap parsedStaticMap, int lastDirection) {
+        AIState(ParsedStaticMap parsedStaticMap, int lastDirection, int tick) {
             this.parsedStaticMap = parsedStaticMap;
             this.lastDirection = lastDirection;
+            this.tick = tick;
         }
     }
 
@@ -362,7 +384,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private AIState createInitialState(ListCons<ListCons<Integer>> map) {
-        return new AIState(parseStaticMap(map), 0);
+        return new AIState(parseStaticMap(map), 0, 0);
     }
 
     @Compiled
@@ -465,7 +487,7 @@ public class Sample1 extends VMExtras {
         ListCons<Point> junctionsList = filter(walkableList, (Point w) -> isJunction(m, w.x, w.y));
         SortedMap<Point> walkable = sorted_map_assoc_all(new SortedMap<Point>(null, 0), addPointKeyAll(walkableList));
         SortedMap<Point> junctions = sorted_map_assoc_all(new SortedMap<Point>(null, 0),
-                                                          addPointKeyAll(junctionsList));
+                addPointKeyAll(junctionsList));
         ListCons<ParsedEdge> allParsedEdges = concat(map(junctionsList, (j) -> findNeighbourJunctions(m, j, junctions)));
         // renumber them.
         allParsedEdges = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.edge, pe.count, pe.a, pe.b, ix));
