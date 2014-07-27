@@ -128,7 +128,16 @@ public class Preprocessor {
             for (Map.Entry<String, Integer> p : labelPos.entrySet()) {
                 if (asm.contains(p.getKey())) {
                     realInstr.appendComment("=>" + p.getKey());
-                    return asm.replace(p.getKey(), p.getValue().toString());
+                    // replace labels as whole-words only
+//                    return asm.replace(p.getKey(), p.getValue().toString());
+                    int pos = asm.indexOf(p.getKey());
+                    if (pos == -1)
+                        continue;
+                    boolean goodStart = (pos == 0) || Character.isWhitespace(asm.charAt(pos - 1)) || (asm.charAt(pos - 1) == ',');
+                    int endPos = pos + p.getKey().length();
+                    boolean goodEnd = (endPos == asm.length()) || Character.isWhitespace(asm.charAt(endPos)) || (asm.charAt(endPos) == ',') || (asm.charAt(endPos) == ';');
+                    if (goodStart && goodEnd)
+                        return asm.replace(p.getKey(), p.getValue().toString());
                 }
             }
 
