@@ -111,7 +111,7 @@ public class Compiler {
         return new Tuple<>(mainClass, new ImportPackages(root));
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         try {
             new Compiler().run();
         } catch (CompilerException e) {
@@ -126,6 +126,8 @@ public class Compiler {
             System.out.println("ERROR:     => " + e.node);
             System.out.println("ERROR!! ");
         }
+        System.out.flush();
+        Thread.sleep(500);
 
     }
 
@@ -152,6 +154,7 @@ public class Compiler {
 
         for (int m = 0; m < methods.size(); m++) {
             MyMethod method = methods.get(m);
+            generateMethod(method.name, method);
             method.setOffsetAndMaybeCompile(global.size());
             ArrayList<Opcode> opcodes = method.opcodes;
             for (int oi = 0; oi < opcodes.size(); oi++) {
@@ -191,7 +194,7 @@ public class Compiler {
 
         for (int i = 0; i < global.size(); i++) {
             Opcode opcode = global.get(i);
-            System.out.println(String.format("%s", opcode.toString()));
+            System.out.println(String.format("%s ; %d", opcode.toString(), i));
         }
         System.out.println("=========");
         System.out.println("Total ops: " + global.size());

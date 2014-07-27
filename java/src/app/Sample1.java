@@ -46,7 +46,7 @@ public class Sample1 extends VMExtras {
     @Compiled
     public Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, ListCons<ListCons> ghostSpecs) {
         debug(test01());
-        return entryFactual(ws, ghostSpecs);
+        return 1 == 1 ? entryFactual(ws, ghostSpecs) : entryCPUEmulator();
 //        int x = location.a;
 //        int y = location.b;
 
@@ -59,6 +59,23 @@ public class Sample1 extends VMExtras {
 
     }
 
+    @Compiled
+    private Tuple<AIState,Function2<AIState,WorldState,Tuple<AIState,Integer>>> entryCPUEmulator() {
+        debug(1000001);
+        WorldState ws = (WorldState) sample_map();
+        debug(1000002);
+        debug(ws);
+        breakpoint();
+        Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> initialDone = entryFactual(ws);
+        debug(1000003);
+        debug(ws);
+        breakpoint();
+        Function2<AIState, WorldState, Tuple<AIState, Integer>> b = initialDone.b;
+        AIState a = initialDone.a;
+        Tuple<AIState, Integer> apply = b.apply(a, ws);
+        return null;
+    }
+    
     @Compiled
     private Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryFactual(WorldState ws, ListCons<ListCons> ghostSpecs) {
         AIState initialState = createInitialState(ws, ghostSpecs);
@@ -165,7 +182,9 @@ public class Sample1 extends VMExtras {
             debug(12000080);
             debug(startEdge.edge);
             debug(location);
+            breakpoint();
             pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
+            breakpoint();
             debug(12000081);
             System.out.println("Chosen long way: " + startEdge.toString());
         }
@@ -325,13 +344,14 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    static class WorldState {
+    static class WorldState extends Cons {
         ListCons<ListCons<Integer>> map;
         LambdaManState lambdaManState;
         ListCons<GhostState> ghosts;
         int fruitStatus;
 
         WorldState(ListCons<ListCons<Integer>> map, LambdaManState lambdaManState, ListCons<GhostState> ghosts, int fruitStatus) {
+            super(null, null);
             this.map = map;
             this.lambdaManState = lambdaManState;
             this.ghosts = ghosts;
@@ -694,6 +714,7 @@ public class Sample1 extends VMExtras {
 
         WorldState worldState = convertMap(theMap);
         if (false) {
+            /*
             new Sample1().test3();
             System.out.println(LambdaGhostEmulator.bit_split(10) + ":" + LambdaGhostEmulator.bit_split(127));
             System.out.println(LambdaGhostEmulator.emulate_bitop(13, 5, (xx, yy) -> xx * yy));
@@ -710,6 +731,7 @@ public class Sample1 extends VMExtras {
 
             System.out.println("direction:" + LambdaGhostEmulator.getGhostDirection(worldState, first(spec)));
             System.exit(0);
+            */
         }
 
         Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> initResult = new Sample1().entryPoint(worldState, null);
