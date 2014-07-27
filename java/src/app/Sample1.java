@@ -153,7 +153,7 @@ public class Sample1 extends VMExtras {
             AIState aistate,
             WorldState worldState,
             Queue<ListCons<ParsedEdge>> edgeQueue,
-            ListCons<Integer> visited,
+            SortedMap<Integer> visited,
             ListCons<ListCons<ParsedEdge>> acc) {
         ListCons<ListCons<ParsedEdge>> retval;
         if (queue_isempty(edgeQueue)) {
@@ -165,14 +165,14 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    private ListCons<ListCons<ParsedEdge>> waveFromEdgeToNearestEdges0(AIState aistate, WorldState worldState, Queue<ListCons<ParsedEdge>> edgeQueue, ListCons<Integer> visited, ListCons<ListCons<ParsedEdge>> acc) {
+    private ListCons<ListCons<ParsedEdge>> waveFromEdgeToNearestEdges0(AIState aistate, WorldState worldState, Queue<ListCons<ParsedEdge>> edgeQueue, SortedMap<Integer> visited, ListCons<ListCons<ParsedEdge>> acc) {
         ListCons<ListCons<ParsedEdge>> retval;
         Tuple<ListCons<ParsedEdge>, Queue<ListCons<ParsedEdge>>> reduced = queue_dequeue(edgeQueue);
         ListCons<ParsedEdge> lookingEdge = reduced.a;
         ListCons<ParsedEdge> following = findFollowingEdges(aistate.parsedStaticMap.parsedEdges, lookingEdge);
-        following = filter(following, (ParsedEdge f) -> noneof(visited, (v) -> (v == f.edgeNumber) ? 1 : 0));
+        following = filter(following, (ParsedEdge f) -> 1 - sorted_map_contains(visited, f.edgeNumber));
         ListCons<ParsedEdge> withDots = filter(following, (pe) -> length(collectAnyEdgePills(pe, worldState.map)) > 0 ? 1 : 0);
-        ListCons<Integer> nvisited = concat2_set(visited, map(following, (ParsedEdge f) -> f.edgeNumber));
+        SortedMap<Integer> nvisited = sorted_map_assoc_all(visited, map(following, (ParsedEdge f) -> new Tuple<>(f.edgeNumber, 0)));
         ListCons<ListCons<ParsedEdge>> newRoutes = map(following, (ParsedEdge next) -> cons(next, lookingEdge));
         Queue<ListCons<ParsedEdge>> newqq = fold0(newRoutes, reduced.b, (Queue<ListCons<ParsedEdge>> qq, ListCons<ParsedEdge> nr) -> queue_enqueue(qq, nr));
         ListCons<ListCons<ParsedEdge>> newAcc = concat2_set(newRoutes, acc);
@@ -203,7 +203,7 @@ public class Sample1 extends VMExtras {
     private ParsedEdge findBestDistantEdge(ListCons<ParsedEdge> currentEdges, AIState aistate, WorldState worldState) {
         Queue<ListCons<ParsedEdge>> q = queue_new();
         q = fold0(currentEdges, q, (Queue<ListCons<ParsedEdge>> qq, ParsedEdge e) -> queue_enqueue(qq, cons(e, null)));
-        ListCons<ListCons<ParsedEdge>> reverseDests = reverse(waveFromEdgeToNearestEdges(aistate, worldState, q, map(currentEdges, (ParsedEdge e) -> e.edgeNumber), null));
+        ListCons<ListCons<ParsedEdge>> reverseDests = reverse(waveFromEdgeToNearestEdges(aistate, worldState, q, sorted_map_assoc_all(new SortedMap<Integer>(null, 0), map(currentEdges, (ParsedEdge e) -> new Tuple<>(e.edgeNumber, 0))), null));
         ListCons<ListCons<ParsedEdge>> sortedRoutes = filter(reverseDests, (r) -> (any(r, (r0) -> length(collectAnyEdgePills(r0, worldState.map)) > 0 ? 1 : 0) > 0 && length(r) >= 2) ? 1 : 0);
         ListCons<ParsedEdge> someRoute = head(sortedRoutes);
         ParsedEdge myStart = head(reverse(someRoute));
