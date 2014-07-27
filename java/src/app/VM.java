@@ -512,12 +512,12 @@ public class VM {
 
     @Compiled
     public <T> SortedMapNode<T> sorted_node_with_lo(SortedMapNode<T> node, SortedMapNode<T> lo) {
-        return lo == node.lo ? node : sorted_node_with_lo_hi(node, lo, node.hi);
+        return sorted_node_with_lo_hi(node, lo, node.hi);
     }
 
     @Compiled
     public <T> SortedMapNode<T> sorted_node_with_hi(SortedMapNode<T> node, SortedMapNode<T> hi) {
-        return hi == node.hi ? node : sorted_node_with_lo_hi(node, node.lo, hi);
+        return sorted_node_with_lo_hi(node, node.lo, hi);
     }
 
     // go_lo = key < node.key
@@ -592,7 +592,7 @@ public class VM {
 
     @Compiled
     public <T> SortedMap<T> sorted_map_assoc(SortedMap<T> m, int key, T val) {
-        return sorted_map_if_changed(m, m.node, sorted_node_put(m.node, key, val));
+        return new SortedMap<T>(sorted_node_put(m.node, key, val), 0);
     }
 
     @Compiled
@@ -606,10 +606,4 @@ public class VM {
         return map.node == null ? acc : sorted_node_walk(map.node, acc, fun);
     }
 
-    @Compiled
-    public <T> SortedMap<T> sorted_map_if_changed(SortedMap<T> thisMap, SortedMapNode<T> node, SortedMapNode<T> another_node) {
-        return node == another_node ?  // same node!
-            thisMap : // no change
-            new SortedMap<T>(another_node, 0); // create new map
-    } 
 }
