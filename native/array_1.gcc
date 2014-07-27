@@ -1,0 +1,49 @@
+    LDC 0
+
+    LDF $create_accessor_1$
+    AP 1
+    RTN
+
+$create_accessor_1$:
+    LDF  $accessor1$
+    RTN
+
+$accessor1$:
+
+    LD  0   0       ; opcode
+    LDC 100         ; read?
+    CEQ
+    TSEL    $$pc$+1$ $accessor1_w$
+
+
+    LD  0   1       ; ix
+    LDC 0
+    CEQ
+    TSEL    $$read0$+2$ $$pc$+1$
+    LDC  0           ; nothing found
+    RTN
+
+$accessor1_w$:
+    LD  0   1       ; ix
+    LDC 0
+    CEQ
+    TSEL    $$write0$+4$ $$pc$+1$
+    LDC  0           ; nothing found
+    RTN
+
+$read0$:
+    LD  2   0
+    RTN
+; read accessor
+    LDF $read0$
+    RTN
+
+$write0$:
+    LD  2   0
+    LD  0   0
+    ST  2   0
+    RTN
+; write accessor
+    LDF $write0$
+    RTN
+
