@@ -495,6 +495,8 @@ public class Compiler {
             String methodName = mi.getName().toString();
             if (methodName.toString().equals("cons")) {
                 myMethod.addOpcode(new Opcode("CONS"));
+            } else if (methodName.toString().equals("lcons")) {
+                myMethod.addOpcode(new Opcode("CONS"));
             } else if (methodName.toString().equals("tail")) {
                 myMethod.addOpcode(new Opcode("CDR"));
             } else if (methodName.toString().equals("head")) {
