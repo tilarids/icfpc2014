@@ -381,22 +381,6 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    public static class Point {
-        int x;
-        int y;
-
-        public Point(int x, int y) {
-            this.x = x;
-            this.y = y;
-        }
-
-        @Override
-        public String toString() {
-            return "Point(" + x + "," + y + ")";
-        }
-    }
-
-    @Compiled
     public static class LambdaManState {
         int vitality;
         Point location;
@@ -443,34 +427,6 @@ public class Sample1 extends VMExtras {
     }
 
     // ((12, 16), (-1, (((12, 16), ((11, 16), ((10, 16), 0))), (2, (90, (10, 16))))))
-
-    @Compiled
-    class ParsedEdge {
-        Point a;
-        Point b;
-        ListCons<Point> edge;
-        ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess;
-        int count;
-        int edgeNumber;
-        int opposingEdgeNumber;
-        Function2<Integer, Integer, Function1<Integer, Integer>> danger;
-
-        ParsedEdge(Point a, Point b, ListCons<Point> edge, ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess, int count, int edgeNumber, int opposingEdgeNumber, Function2<Integer, Integer, Function1<Integer, Integer>> danger) {
-            this.a = a;
-            this.b = b;
-            this.edge = edge;
-            this.edgeAccess = edgeAccess;
-            this.count = count;
-            this.edgeNumber = edgeNumber;
-            this.opposingEdgeNumber = opposingEdgeNumber;
-            this.danger = danger;
-        }
-
-        @Override
-        public String toString() {
-            return "[Edge: form=" + a + " to=" + b + " count=" + count + " id=" + edgeNumber + "]";
-        }
-    }
 
     @Compiled
     class HorizontalRow {
