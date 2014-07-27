@@ -123,14 +123,15 @@ public class GCCEmulator {
     }
 
     D pop_control() {
-        return data_stack.remove(--reg_d);
+        return (D) control_stack.remove(--reg_d);
     }
 
 
     void run(List<Op> ops) {
+        boolean trace = false;
         while (reg_c < ops.size()) {
             Op op = ops.get(reg_c);
-            System.out.println("IP: "+reg_c+"  OP: "+ op.toString());
+            if (trace) { System.out.print("IP: " + reg_c + "  OP: " + op.toString()); System.out.flush(); }
             switch(op.op) {
                 case "LDC": {
                     push_ds(new D(op.param.get(0)));
@@ -147,6 +148,8 @@ public class GCCEmulator {
                     if (f.tag == Tag.Dum)
                         throw new RuntimeException("FrameMismatch");
                     D d = f.value.get(op.param.get(1));
+                    String dts = d.toString();
+                    if (trace) { System.out.print("  -> Loaded:" + dts.substring(0, Math.min(30, dts.length()))); System.out.flush(); }
                     push_ds(d);
                     reg_c++;
                     break;
@@ -297,7 +300,7 @@ public class GCCEmulator {
                     if (x.tag != Tag.Int)
                         throw new RuntimeException("TagMismatch");
                     push_control(new D(Tag.Join, reg_c + 1));
-                    if (x.int_p == 0) {
+                    if (x.int_p != 0) {
                         reg_c = op.param.get(0);
                     } else {
                         reg_c = op.param.get(1);
@@ -332,7 +335,7 @@ public class GCCEmulator {
                         fp.value.set(i, y);
                         i--;
                     }
-                    push_control(new D(e));
+                    push_control(new D(reg_e));
                     push_control(new D(Tag.Ret, reg_c + 1));
                     reg_e = fp;
                     reg_c = f;
@@ -393,7 +396,7 @@ public class GCCEmulator {
                     D x = pop_ds();
                     if (x.tag != Tag.Int)
                         throw new RuntimeException("TagMismatch");
-                    if (x.int_p == 0) {
+                    if (x.int_p != 0) {
                         reg_c = op.param.get(1);
                     } else {
                         reg_c = op.param.get(0);
@@ -471,6 +474,7 @@ public class GCCEmulator {
                 default:
                     throw new RuntimeException("Unsupported");
             }
+            if (trace) System.out.println();
         }
     }
 
