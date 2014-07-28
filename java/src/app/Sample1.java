@@ -1,5 +1,7 @@
 package app;
 
+import java.io.IOException;
+
 import static app.SortedMap.*;
 
 /**
@@ -48,34 +50,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     public Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, ListCons<ListCons> ghostSpecs) {
-        return 1 == 1 ? entryFactual(ws,ghostSpecs) : entryCPUEmulator();
-//        int x = location.a;
-//        int y = location.b;
-
-
-//        CT left = getMapItem(map, y, x-1);
-//        CT right = getMapItem(map, y, x+1);
-//        CT top = getMapItem(map, y-1, x);
-//        CT bottom = getMapItem(map, y+1, x);
-
-
-    }
-
-    @Compiled
-    private Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryCPUEmulator() {
-        debug(1000001);
-        WorldState ws = (WorldState) sample_map();
-        debug(1000002);
-        debug(ws);
-        breakpoint();
-        Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> initialDone = entryFactual(ws, null);
-        debug(1000003);
-        debug(ws);
-        breakpoint();
-        Function2<AIState, WorldState, Tuple<AIState, Integer>> b = initialDone.b;
-        AIState a = initialDone.a;
-        Tuple<AIState, Integer> apply = b.apply(a, ws);
-        return null;
+        return entryFactual(ws,ghostSpecs);
     }
 
     @Compiled
@@ -726,7 +701,10 @@ public class Sample1 extends VMExtras {
     }
 
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+        if (1 == 1) runInteractiveGCC();
+
+
         String theMap = map1;
 
         int x = -1;
@@ -767,6 +745,7 @@ public class Sample1 extends VMExtras {
         Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> initResult = new Sample1().entryPoint(worldState, null);
         AIState aistate = initResult.a;
         Function2<AIState, WorldState, Tuple<AIState, Integer>> stepFunction = initResult.b;
+
         printMap(theMap);
         while (true) {
             Tuple<AIState, Integer> apply = stepFunction.apply(aistate, worldState);
@@ -774,6 +753,75 @@ public class Sample1 extends VMExtras {
             int direction = apply.b;
             int nx = worldState.lambdaManState.location.x, ny = worldState.lambdaManState.location.y;
             switch (direction) {
+                case Direction.UP:
+                    ny--;
+                    break;
+                case Direction.RIGHT:
+                    nx++;
+                    break;
+                case Direction.DOWN:
+                    ny++;
+                    break;
+                case Direction.LEFT:
+                    nx--;
+                    break;
+                default:
+                    throw new RuntimeException("Invalid move: " + direction);
+            }
+            if (isWalkable2(worldState.map, new Point(nx, ny)) == 1) {
+                System.out.println("WALKING: " + direction);
+                String newMap = replaceMap(theMap, worldState.lambdaManState.location.x, worldState.lambdaManState.location.y, ' ');
+                newMap = replaceMap(newMap, nx, ny, '\\');
+                theMap = newMap;
+                worldState = convertMap(theMap);
+            } else {
+                System.out.println("CANNOT WALK: " + direction);
+            }
+            printMap(theMap);
+        }
+    }
+
+    private static void runInteractiveGCC() throws Exception {
+        String theMap = map1;
+
+        int x = -1;
+        int y = -1;
+        String[] rows = theMap.split("\n");
+        for (int yy = rows.length - 1; yy >= 0; yy--) {
+            String row = rows[yy];
+            for (int ii = row.length() - 1; ii >= 0; ii--) {
+                if (row.charAt(ii) == '\\') {
+                    x = ii;
+                    y = yy;
+                }
+            }
+        }
+
+        WorldState worldState = convertMap(theMap);
+
+        GCCEmulator cpu = new GCCEmulator("test.txt", 2);
+        cpu.storeInFrame(0, worldState);
+        cpu.storeInFrame(1, new GCCEmulator.D(0));
+
+        GCCEmulator.D initialRun = cpu.run(0);
+        assert initialRun.tag == GCCEmulator.Tag.Cons;
+        GCCEmulator.D aistate = initialRun.cons_p.data;
+        GCCEmulator.D stepFun = initialRun.cons_p.addr;
+
+        printMap(theMap);
+        while (true) {
+            cpu.load(aistate);
+            cpu.load(worldState);
+
+            GCCEmulator.D apply = cpu.cont(stepFun, 2);
+            assert apply.tag == GCCEmulator.Tag.Cons;
+
+
+            aistate = apply.cons_p.data;
+            GCCEmulator.D direction = apply.cons_p.addr;
+            assert direction.tag == GCCEmulator.Tag.Int;
+            int nx = worldState.lambdaManState.location.x, ny = worldState.lambdaManState.location.y;
+            switch (direction.int_p) {
                 case Direction.UP:
                     ny--;
                     break;
