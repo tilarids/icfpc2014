@@ -195,6 +195,8 @@ public class GCCEmulator {
         return null;
     }
 
+    int countStart = 0;
+
     public Callable<D> makeExecutable(Op op) {
         switch(op.op) {
             case "LDC": {
@@ -589,7 +591,14 @@ public class GCCEmulator {
             case "DBUG": {
                 return () -> {
                     D x = pop_ds();
-                    System.out.println(x);
+                    if (x.int_p != null && x.int_p == 89001) {
+                        countStart = instructionCount;
+                    } else if (x.int_p != null && x.int_p == 89002) {
+                        countStart = instructionCount - countStart;
+                        System.out.println("MEASURED COUNT: "+countStart);
+                    } else {
+                        System.out.println(x);
+                    }
                     reg_c++;
                     return null;
                 };

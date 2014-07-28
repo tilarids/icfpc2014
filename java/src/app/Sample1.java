@@ -1,7 +1,6 @@
 package app;
 
 import java.util.ArrayList;
-import java.io.IOException;
 
 import static app.SortedMap.*;
 
@@ -83,13 +82,6 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    private ListCons<Point> collectEdgeGhosts(ParsedEdge edge, Point start, ListCons<ListCons<Integer>> map) {
-        ListCons<Point> pathOnEdge = dropWhile(edge.edge, (Point p) -> p.x != start.x || p.y != start.y ? 1 : 0);
-        return filter(pathOnEdge, (Point p) -> getMapItem(map, p.y, p.x) == CT.GHOST ? 1 : 0);
-    }
-
-
-    @Compiled
     private ListCons<Tuple<Function1<Integer, Integer>, Point>> collectAnyEdgePills(ParsedEdge edge, ListCons<ListCons<Integer>> map) {
         ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess = edge.edgeAccess;
         ListCons<Tuple<Function1<Integer, Integer>, Point>> rv = filter(edgeAccess, (Tuple<Function1<Integer, Integer>, Point> t) -> t.a.apply(0) == CT.PILL ? 1 : 0);
@@ -136,22 +128,22 @@ public class Sample1 extends VMExtras {
     @Compiled
     private Tuple<AIState, Integer> performMove(AIState aistate, WorldState worldState) {
         Point location = worldState.lambdaManState.location;
-        ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate, location);
+        ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate.parsedStaticMap.edgesForPoint, location);
         Tuple<AIState, Integer> retval;
-        Point newLocation;
+        Tuple<Function1<Integer, Integer>, Point> newLocation;
         int direction;
         ParsedEdge startEdge;
-        ListCons<Integer> __ = map(aistate.parsedStaticMap.parsedEdges, (ParsedEdge e) -> e.danger.apply(VMExtras.GET_WRITER, 0).apply(0));
+        ListCons<Integer> __ = map(aistate.parsedStaticMap.parsedEdges, (ParsedEdge e) -> e.dangerA.apply(VMExtras.GET_WRITER, 0).apply(0));
         __ = map(worldState.ghosts, (g) -> placeGhostDanger(aistate, g));
         startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
-        ListCons<Point> pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> pathToWalk = dropWhile(startEdge.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> ea) -> ea.b.x != location.x || ea.b.y != location.y ? 1 : 0);
         if (length(pathToWalk) >= 2) {
             newLocation = head(tail(pathToWalk));
-            direction = (newLocation.x > location.x) ?
+            direction = (newLocation.b.x > location.x) ?
                     Direction.RIGHT :
-                    (newLocation.x < location.x) ?
+                    (newLocation.b.x < location.x) ?
                             Direction.LEFT :
-                            (newLocation.y < location.y) ?
+                            (newLocation.b.y < location.y) ?
                                     Direction.UP :
                                     Direction.DOWN;
             retval = new Tuple<>(aistate, direction);
@@ -183,36 +175,38 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    private int waveGhostDangerAcc0(AIState aistate, Queue<EdgeDangerWaveItem> queue, ListCons<Integer> visitedEdges) {
+    private int waveGhostDangerAcc0(AIState aistate, Queue<EdgeDangerWaveItem> queue) {
         return queue_isempty(queue) ?
                 mydebug(0)
-                : waveGhostDangerAcc(aistate, queue, visitedEdges);
+                : waveGhostDangerAcc(aistate, queue);
     }
 
     @Compiled
-    private int waveGhostDangerAcc(AIState aistate, Queue<EdgeDangerWaveItem> queue, ListCons<Integer> visitedEdges) {
+    private int waveGhostDangerAcc(AIState aistate, Queue<EdgeDangerWaveItem> queue) {
         Tuple<EdgeDangerWaveItem, Queue<EdgeDangerWaveItem>> smaller = queue_dequeue(queue);
         EdgeDangerWaveItem a = smaller.a;
-        ListCons<ParsedEdge> precedingEdges = findPrecedingEdgesSimple(aistate.parsedStaticMap.parsedEdges, a.pe);
-        precedingEdges = filter(precedingEdges, (ParsedEdge fe) -> noneof(visitedEdges, (Integer ve) -> ((ParsedEdge)fe).edgeNumber == ve ? 1 : 0));
+        ListCons<ParsedEdge> precedingEdges = a.pe.precedingEdgesR.apply(null);
+        precedingEdges = filter(precedingEdges, (ParsedEdge fe) -> fe.markedW.apply(1) == 0 ? 1: 0);        // mark and filter
         int countNewEdges = length(precedingEdges);
         ListCons<Integer> __ = map(precedingEdges, (ParsedEdge fe) -> addEdgeDanger(fe, a.peDanger / countNewEdges));
-        ListCons<Integer> nvisited = concat2_set(visitedEdges, map(precedingEdges, (ParsedEdge fe) -> fe.edgeNumber));
-        ListCons<Integer> nvisited2 = concat2_set(nvisited, map(precedingEdges, (ParsedEdge fe) -> fe.opposingEdgeNumber));
-        Queue<EdgeDangerWaveItem> newQueue = fold0(precedingEdges, smaller.b, (Queue<EdgeDangerWaveItem> qq, ParsedEdge pe) -> queue_enqueue(qq, new EdgeDangerWaveItem(pe, a.peDanger / countNewEdges, a.distance + pe.count)));
-        return a.peDanger >= 5 ? waveGhostDangerAcc0(aistate, newQueue, nvisited2) : 0;
+        Queue<EdgeDangerWaveItem> newQueue = fold0(precedingEdges, smaller.b, (Queue<EdgeDangerWaveItem> qq, ParsedEdge pe) -> queue_enqueue(qq, new EdgeDangerWaveItem(pe, a.peDanger / countNewEdges, a.distance + length(pe.edgeAccess))));
+        return a.peDanger >= 5 ? waveGhostDangerAcc0(aistate, newQueue) : 0;
     }
 
     @Compiled
     private int waveGhostDanger(AIState aistate, EdgeDangerWaveItem item) {
+        map(aistate.parsedStaticMap.parsedEdges, (pe) -> pe.markedW.apply(0));  // clear visited flag
+        item.pe.markedW.apply(1);   // mark first visited
         Queue<EdgeDangerWaveItem> q = queue_enqueue(queue_new(), item);
-        int __ = waveGhostDangerAcc0(aistate, q, cons(item.pe.edgeNumber, cons(item.pe.opposingEdgeNumber, null)));
+        int __ = waveGhostDangerAcc0(aistate, q);
         return 0;
     }
 
     @Compiled
     private int placeGhostDanger(AIState aistate, GhostState gs) {
-        ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate, gs.location);
+        debug(89006000);
+        debug(89001);
+        ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(aistate.parsedStaticMap.edgesForPoint, gs.location);
         int direction = gs.direction;
         int nx = direction == 1 ? gs.location.x + 1 : direction == 3 ? gs.location.x - 1 : gs.location.x;
         int ny = direction == 0 ? gs.location.y - 1 : direction == 2 ? gs.location.y + 1 : gs.location.y;
@@ -220,33 +214,33 @@ public class Sample1 extends VMExtras {
         // keep only those occuped edges which align to the direction of ghost (agains ghost movement, to be included in danger!)
         // will be mostly proper all time (for straight corridors)
         // todo: make properly
-        edgesForPoint = filter(edgesForPoint, (e) -> pointEquals(head(remainingPath(e, gs.location)), nextPoint) == 1 || pointEquals(head(remainingPath(e, gs.location)), gs.location) == 1 ? 1 : 0);
-        ListCons<Integer> __ = map(edgesForPoint, (ParsedEdge e) -> addEdgeDanger(e, initialDangerPercent(e.count, remainingPath(e, gs.location))));
+        edgesForPoint = filter(edgesForPoint, (e) -> pointEquals3(head(remainingPath(e, gs.location)), nextPoint) == 1 || pointEquals3(head(remainingPath(e, gs.location)), gs.location) == 1 ? 1 : 0);
+        debug(89002);
+        debug(89001);
+        ListCons<Integer> __ = map(edgesForPoint, (ParsedEdge e) -> addEdgeDanger(e, initialDangerPercent(length(e.edgeAccess), length(remainingPath(e, gs.location)))));
+        debug(89002);
+        debug(89001);
         __ = map(edgesForPoint, (e) -> waveGhostDanger(aistate, new EdgeDangerWaveItem(e, 100, length(remainingPath(e, gs.location)))));
+        debug(89002);
         return 0;
     }
 
     @Compiled
-    private int initialDangerPercent(int count, ListCons<Point> remainingPath) {
-        int completedPercent = 100 - (length(remainingPath) * 100) / count;
+    private int initialDangerPercent(int count, int remainingPath) {
+        int completedPercent = 100 - (remainingPath * 100) / count;
         return 50 + (completedPercent * 350) / 100;
     }
 
     @Compiled
-    private ParsedEdge findReverseEdge(AIState aistate, ParsedEdge e) {
-        return head(filter(aistate.parsedStaticMap.parsedEdges, (ParsedEdge pe) -> pe.edgeNumber == e.opposingEdgeNumber ? 1 : 0));
-    }
-
-    @Compiled
     private int addEdgeDanger(ParsedEdge e, int danger) {
-        Integer oldValue = e.danger.apply(VMExtras.GET_READER, 0).apply(0);
-        Integer oldValue2 = e.danger.apply(VMExtras.GET_WRITER, 0).apply(oldValue + danger);
+        Integer oldValue = e.dangerA.apply(VMExtras.GET_READER, 0).apply(0);
+        Integer oldValue2 = e.dangerA.apply(VMExtras.GET_WRITER, 0).apply(oldValue + danger);
         return 0;
     }
 
     @Compiled
-    ListCons<Point> remainingPath(ParsedEdge pe, Point location) {
-        ListCons<Point> meAndFurther = dropWhile(pe.edge, (Point t) -> pointEquals(t, location) == 0 ? 1 : 0);
+    ListCons<Tuple<Function1<Integer, Integer>, Point>> remainingPath(ParsedEdge pe, Point location) {
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> meAndFurther = dropWhile(pe.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> ea) -> pointEquals(ea.b, location) == 0 ? 1 : 0);
         return tail(meAndFurther) == null ? meAndFurther : tail(meAndFurther);
     }
 
@@ -256,60 +250,53 @@ public class Sample1 extends VMExtras {
             AIState aistate,
             WorldState worldState,
             Queue<ListCons<ParsedEdge>> edgeQueue,
-            SortedMap<Integer> visited,
             ListCons<ListCons<ParsedEdge>> acc,
             int edgesWithDotsSoFar) {
         ListCons<ListCons<ParsedEdge>> retval;
         if (queue_isempty(edgeQueue)) {
             retval = acc;
         } else {
-            retval = waveFromEdgeToNearestEdges0(aistate, worldState, edgeQueue, visited, acc, edgesWithDotsSoFar);
+            retval = waveFromEdgeToNearestEdges0(aistate, worldState, edgeQueue, acc, edgesWithDotsSoFar);
         }
         return retval;
     }
 
     @Compiled
-    private ListCons<ListCons<ParsedEdge>> waveFromEdgeToNearestEdges0(AIState aistate, WorldState worldState, Queue<ListCons<ParsedEdge>> edgeQueue, SortedMap<Integer> visited, ListCons<ListCons<ParsedEdge>> acc, int edgesWithDotsSoFar) {
+    private ListCons<ListCons<ParsedEdge>> waveFromEdgeToNearestEdges0(AIState aistate, WorldState worldState, Queue<ListCons<ParsedEdge>> edgeQueue, ListCons<ListCons<ParsedEdge>> acc, int edgesWithDotsSoFar) {
         ListCons<ListCons<ParsedEdge>> retval;
         Tuple<ListCons<ParsedEdge>, Queue<ListCons<ParsedEdge>>> reduced = queue_dequeue(edgeQueue);
         ListCons<ParsedEdge> lookingEdge = reduced.a;
-        ListCons<ParsedEdge> following = findFollowingEdges(aistate.parsedStaticMap.parsedEdges, lookingEdge);
-        following = filter(following, (ParsedEdge f) -> 1 - sorted_map_contains(visited, f.edgeNumber));
+        ParsedEdge lookingEdgeHead = head(lookingEdge);
+        ListCons<ParsedEdge> following = lookingEdgeHead.followingEdgesR.apply(null);
+        following = filter(following, (ParsedEdge f) -> f.markedW.apply(1) == 0 ? 1:0); // mark and filter
         ListCons<ParsedEdge> withDots = filter(following, (pe) -> length(collectAnyEdgePills(pe, worldState.map)) > 0 ? 1 : 0);
         // saving both forward/backward edges to visited
-        SortedMap<Integer> nvisited = sorted_map_assoc_all(visited, map(following, (ParsedEdge f) -> new Tuple<>(f.edgeNumber, 0)));
-        nvisited = sorted_map_assoc_all(nvisited, map(following, (ParsedEdge f) -> new Tuple<>(f.opposingEdgeNumber, 0)));
-        //
         ListCons<ListCons<ParsedEdge>> newRoutes = map(following, (ParsedEdge next) -> cons(next, lookingEdge));
         Queue<ListCons<ParsedEdge>> newqq = fold0(newRoutes, reduced.b, (Queue<ListCons<ParsedEdge>> qq, ListCons<ParsedEdge> nr) -> queue_enqueue(qq, nr));
         ListCons<ListCons<ParsedEdge>> newAcc = concat2_set(newRoutes, acc);
         // found some dots and
         boolean stopCondition = acc != null ? (edgesWithDotsSoFar > 3 && length(acc) > 15 && length(head(newAcc)) > length(head(acc))) : false;
-        retval = stopCondition ? acc : waveFromEdgeToNearestEdges(aistate, worldState, newqq, nvisited, newAcc, edgesWithDotsSoFar + length(withDots));
+        retval = stopCondition ? acc : waveFromEdgeToNearestEdges(aistate, worldState, newqq, newAcc, edgesWithDotsSoFar + length(withDots));
         return retval;
     }
 
     /**
      * find edges linked to given one
      */
-    @Compiled
-    private ListCons<ParsedEdge> findFollowingEdges(ListCons<ParsedEdge> parsedEdges, ListCons<ParsedEdge> lookingEdge) {
-        return filter(parsedEdges, (ParsedEdge pe) -> pointEquals(pe.a, endingPointOfEdgeRoute(lookingEdge)));
-    }
-
-    @Compiled
-    private ListCons<ParsedEdge> findFollowingEdgesSimple(ListCons<ParsedEdge> parsedEdges, ParsedEdge lookingEdge) {
-        return filter(parsedEdges, (ParsedEdge pe) -> pointEquals(pe.a, lookingEdge.b));
-    }
-
-    @Compiled
-    private ListCons<ParsedEdge> findPrecedingEdgesSimple(ListCons<ParsedEdge> parsedEdges, ParsedEdge assEdge) {
-        return filter(parsedEdges, (ParsedEdge pe) -> pointEquals(pe.b, assEdge.a));
-    }
 
     @Compiled
     private Integer pointEquals(Point a, Point b) {
         return (a.x == b.x && a.y == b.y) ? 1 : 0;
+    }
+
+    @Compiled
+    private Integer pointEquals2(Tuple<Function1<Integer, Integer>, Point> p, Tuple<Function1<Integer, Integer>, Point> q) {
+        return (p.b.x == q.b.x && p.b.y == q.b.y) ? 1 : 0;
+    }
+
+    @Compiled
+    private Integer pointEquals3(Tuple<Function1<Integer, Integer>, Point> p, Point q) {
+        return (p.b.x == q.x && p.b.y == q.y) ? 1 : 0;
     }
 
     @Compiled
@@ -326,16 +313,16 @@ public class Sample1 extends VMExtras {
     @Compiled
     private Integer safetyPercent(ListCons<ParsedEdge> routeDirected) {
         ParsedEdge hd = head(routeDirected);
-        int danger = hd.danger.apply(VMExtras.GET_READER, 0).apply(0);
+        int danger = hd.dangerA.apply(VMExtras.GET_READER, 0).apply(0);
         routeDirected = tail(routeDirected);
         if (routeDirected != null) {
             hd = head(routeDirected);
-            danger = danger + hd.danger.apply(VMExtras.GET_READER, 0).apply(0) / 5;
+            danger = danger + hd.dangerA.apply(VMExtras.GET_READER, 0).apply(0) / 5;
             routeDirected = tail(routeDirected);
         }
         if (routeDirected != null) {
             hd = head(routeDirected);
-            danger = danger + hd.danger.apply(VMExtras.GET_READER, 0).apply(0) / 15;
+            danger = danger + hd.dangerA.apply(VMExtras.GET_READER, 0).apply(0) / 15;
         }
         danger = (((danger > 100 ? 100 : danger) * 100) / 100);
         int safety = 100 - danger;
@@ -347,15 +334,28 @@ public class Sample1 extends VMExtras {
     @Compiled
     private ParsedEdge findBestDistantEdge(ListCons<ParsedEdge> currentEdges, AIState aistate, WorldState worldState) {
         Queue<ListCons<ParsedEdge>> q = queue_new();
+        debug(89999901);
+        debug(89001);
         q = fold0(currentEdges, q, (Queue<ListCons<ParsedEdge>> qq, ParsedEdge e) -> queue_enqueue(qq, cons(e, null)));
-        ListCons<ListCons<ParsedEdge>> dests = waveFromEdgeToNearestEdges(aistate, worldState, q, sorted_map_assoc_all(new SortedMap<Integer>(null, 0), map(currentEdges, (ParsedEdge e) -> new Tuple<>(e.edgeNumber, 0))), null, 0);
+        debug(89002);
+        debug(89001);
+        ListCons<Integer> ___ = map(aistate.parsedStaticMap.parsedEdges, (pe) -> pe.markedW.apply(0));// clear visited flag
+        map(currentEdges, (pe) -> pe.markedW.apply(1));     // mark starting visited
+        ListCons<ListCons<ParsedEdge>> dests = waveFromEdgeToNearestEdges(aistate, worldState, q, null, 0);
+        debug(89002);
+        debug(89001);
         ListCons<ListCons<ParsedEdge>> directedRoutes = map(dests, (d) -> reverse(d));
+        debug(89002);
+        debug(89001);
         ListCons<Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>>> scores = map(directedRoutes, (r) -> new Triple<>(r,
                 ((10 * countMyEdgePills(head(r), worldState.lambdaManState.location)
                         + 3 * countRoutePills(tail(r))) * safetyPercent(r)) / 100,
                 new Triple<>(countMyEdgePills(head(r), worldState.lambdaManState.location), countRoutePills(tail(r)), safetyPercent(r))
         ));
+        debug(89002);
+        debug(89001);
         Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>> winningRoute = maximum_by(scores, (Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>> t) -> t.b);
+        debug(89002);
         if (IN_JAVA) {
             if (traceScore) {
                 map(scores, (Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>> route) -> {
@@ -565,8 +565,27 @@ public class Sample1 extends VMExtras {
                         allJunctions,
                         allJunctions2,
                         sorted_map_assoc(new SortedMap<>(null, 0), getPointKey(somePoint), somePoint), null);
-        return map(allNeighbourJunctionsPaths, (p) ->
-                new ParsedEdge(head(p), last(p), p, makeEdgeAccess(p, accessors), length(p) - 1, -1, -1, array_1()));
+        return map(allNeighbourJunctionsPaths, (p) -> makeParsedEdge(p, accessors));
+    }
+
+    private Function1 eraseFunction1(Function1 f) {
+        return f;
+    }
+    private Function2 eraseFunction2(Function2 f) {
+        return f;
+    }
+    private ParsedEdge makeParsedEdge(ListCons<Point> p, ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> accessors) {
+        Function2<Integer, Integer, Function1<Object, Object>> a5 = array_5();
+        return new ParsedEdge(
+                makeEdgeAccess(p, accessors),
+                eraseFunction2(array_1()),
+                eraseFunction1(a5.apply(GET_READER, 0)),
+                eraseFunction1(a5.apply(GET_READER, 1)),
+                eraseFunction1(a5.apply(GET_WRITER, 2)),
+                eraseFunction1(a5.apply(GET_READER, 3)),
+                head(p),
+                last(p),
+                eraseFunction2(a5));
     }
 
 
@@ -635,50 +654,58 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    public ListCons<ParsedEdge> findEdgesForPoint(AIState state, Point pos) {
-        return state.parsedStaticMap.edgesForPoint.apply(pos);
+    public ListCons<ParsedEdge> findEdgesForPoint(Function1<Point, ListCons<ParsedEdge>> edgesForPoint, Point pos) {
+        return edgesForPoint.apply(pos);
 //        return filter(state.parsedStaticMap.parsedEdges, (e) -> pointInEdge(pos, e));
     }
 
     @Compiled
-    private Integer pointInEdge(Point pos, ParsedEdge e) {
-        return any(e.edge, (Point ep) -> pos.x == ep.x && pos.y == ep.y ? 1 : 0);
-    }
-
-    @Compiled
     private ParsedStaticMap parseMap(ListCons<ListCons<Integer>> m) {
-        debug(4000001);
         ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> accessors = map(m, (x) -> array_256());
-        debug(4000002);
         ListCons<Tuple<ListCons<Integer>, Function2<Integer, Integer, Function1<Integer, Integer>>>> mapAccessors = zip_with((a, b) -> new Tuple<>(a, b), m, accessors);
-        debug(4000003);
         ListCons<ListCons<Integer>> __ = map(mapAccessors, (Tuple<ListCons<Integer>, Function2<Integer, Integer, Function1<Integer, Integer>>> t) ->
                         mapi(t.a, 0, (val, ix) -> t.b.apply(VMExtras.GET_WRITER, ix).apply(val))
         );
-        debug(4000004);
         ListCons<ListCons<Point>> toConcat = mapi(m, 0, (row, rowy) -> my_cat_maybes(collectWalkableXY(row, rowy)));
-        debug(4000005);
         ListCons<Point> walkableList = concat(toConcat);
         ListCons<Point> junctionsList = filter(walkableList, (Point w) -> isJunction(m, w.x, w.y));
-        debug(4000006);
         SortedMap<Point> walkable = sorted_map_assoc_all(new SortedMap<Point>(null, 0), addPointKeyAll(walkableList));
-        debug(4000007);
         SortedMap<Point> junctions = sorted_map_assoc_all(new SortedMap<Point>(null, 0),
                 addPointKeyAll(junctionsList));
-        debug(4000008);
         ListCons<ParsedEdge> allParsedEdges = concat(map(junctionsList, (j) -> findNeighbourJunctions(m, j, junctions, junctionsList, accessors)));
-        // renumber them.
-        debug(4000009);
-        ListCons<ParsedEdge> allParsedEdges2 = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, ix, -1, pe.danger));
-        debug(4000010);
-        ListCons<ParsedEdge> allParsedEdges3 = mapi(allParsedEdges2, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, pe.edgeNumber, edgeNumber(findEdge(pe.b, pe.a, allParsedEdges2)), pe.danger));
-        debug(4000011);
 
         Function2<Integer, Point, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> edgesForPoint = emptyEdgesArrayForMap(length(m));
-        Object ignore = map(allParsedEdges3, (ParsedEdge e) -> map(e.edge, (Point p) -> edgesForPoint.apply(VMExtras.GET_WRITER, p).apply(lcons(e, edgesForPoint.apply(VMExtras.GET_READER, p).apply(null)))));
+        Object ignore = map(allParsedEdges, (ParsedEdge e) -> map(e.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> ea) -> edgesForPoint.apply(VMExtras.GET_WRITER, ea.b).apply(lcons(e, edgesForPoint.apply(VMExtras.GET_READER, ea.b).apply(null)))));
         Function1<Point, ListCons<ParsedEdge>> readOnlyEdgesForPoint = toReadOnlyAccessor(edgesForPoint);
 
-        return new ParsedStaticMap(walkable, junctions, allParsedEdges3, null, null, accessors, readOnlyEdgesForPoint);
+        // set opposing edge and preceding edges
+        ListCons<Integer> dummy = map(allParsedEdges, (pe) -> updateOtherParsedEdgeFields(pe, readOnlyEdgesForPoint));
+        // renumber them.
+        // ListCons<ParsedEdge> allParsedEdges2 = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(pe.a, pe.b, pe.edge, pe.edgeAccess, pe.count, ix, -1, pe.danger, null));
+
+        return new ParsedStaticMap(walkable, junctions, allParsedEdges, null, null, accessors, readOnlyEdgesForPoint);
+    }
+
+    private Integer updateOtherParsedEdgeFields(ParsedEdge pe, Function1<Point, ListCons<ParsedEdge>> readOnlyEdgesForPoint) {
+        Function2<Integer, Integer, Function1<Object, Object>> a5 = eraseFunction2(pe.a5);
+        ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(readOnlyEdgesForPoint, pe.a);
+        ListCons<ParsedEdge> oppositeEdge = filter(edgesForPoint, (ParsedEdge me) -> pointEquals(me.b, pe.a) * pointEquals(me.a, pe.b));
+        ListCons<ParsedEdge> precedingEdges = filter(edgesForPoint, (ParsedEdge me) -> pointEquals(me.b, pe.a) == 1 && pointEquals(me.b, pe.a) * pointEquals(me.a, pe.b) == 0 ? 1 : 0);
+        ListCons<ParsedEdge> following = findEdgesForPoint(readOnlyEdgesForPoint, pe.b);
+        ListCons<ParsedEdge> followingEdges = filter(following, (ParsedEdge me) -> pointEquals(me.a, pe.b) == 1 && pointEquals(me.b, pe.a) * pointEquals(me.a, pe.b) == 0 ? 1 : 0);
+        a5.apply(GET_WRITER, 1).apply(head(oppositeEdge));
+        a5.apply(GET_WRITER, 0).apply(precedingEdges);
+        a5.apply(GET_WRITER, 3).apply(followingEdges);
+        return 0;
+    }
+
+    @Compiled
+    private Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> makeReadonlyPrecedingEdges(Function1<Point, ListCons<ParsedEdge>> readOnlyEdgesForPoint, ParsedEdge pe) {
+        ListCons<ParsedEdge> someEdges = readOnlyEdgesForPoint.apply(pe.a);
+        ListCons<ParsedEdge> precedings = filter(someEdges, (ParsedEdge ppe) -> pointEquals(pe.b, ppe.a));
+        Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> a1 = array_1();
+        ListCons<ParsedEdge> __ = a1.apply(VMExtras.GET_WRITER, 0).apply(precedings);
+        return a1.apply(VMExtras.GET_READER, 0);
     }
 
     @Compiled
@@ -687,10 +714,6 @@ public class Sample1 extends VMExtras {
 
     }
 
-    @Compiled
-    private Integer edgeNumber(ParsedEdge edge) {
-        return edge.edgeNumber;
-    }
 
     @Compiled
     private ListCons<Point> my_cat_maybes(ListCons<Maybe<Point>> maybeListCons) {
@@ -794,7 +817,7 @@ public class Sample1 extends VMExtras {
 
 
     public static void main(String[] args) throws Exception {
-        if (1 == 1) runInteractiveGCC();
+    //    if (1 == 1) runInteractiveGCC();
 
 
         String theMap = map1;

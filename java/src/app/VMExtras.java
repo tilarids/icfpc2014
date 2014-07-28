@@ -10,8 +10,14 @@ public class VMExtras extends VM {
 
     @Compiled
     @Native(nlocals = 0)
-    public Function2<Integer, Integer, Function1<Integer, Integer>> array_1() {
+    public static<V> Function2<Integer, Integer, Function1<V, V>> array_1() {
         return create_array_accessor(1);
+    }
+
+    @Compiled
+    @Native(nlocals = 0)
+    public static<V> Function2<Integer, Integer, Function1<V, V>> array_5() {
+        return create_array_accessor(5);
     }
 
 
@@ -129,29 +135,31 @@ public class VMExtras extends VM {
 
     @Compiled
     static class ParsedEdge {
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess;
+        Function2<Integer, Integer, Function1<Integer, Integer>> dangerA;
+        Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> precedingEdgesR;      // 0
+        Function1<ParsedEdge, ParsedEdge> opposingEdgeR;                            // 1
+        Function1<Integer, Integer> markedW;                                        // 2
+        Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> followingEdgesR;      // 3
         Point a;
         Point b;
-        ListCons<Point> edge;
-        ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess;
-        int count;
-        int edgeNumber;
-        int opposingEdgeNumber;
-        Function2<Integer, Integer, Function1<Integer, Integer>> danger;
+        Function2<Integer, Integer, Function1<Integer, Integer>> a5;
 
-        ParsedEdge(Point a, Point b, ListCons<Point> edge, ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess, int count, int edgeNumber, int opposingEdgeNumber, Function2<Integer, Integer, Function1<Integer, Integer>> danger) {
+        ParsedEdge(ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess, Function2<Integer, Integer, Function1<Integer, Integer>> dangerA, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> precedingEdgesR, Function1<ParsedEdge, ParsedEdge> opposingEdgeR, Function1<Integer, Integer> markedW, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> followingEdgesR, Point a, Point b, Function2<Integer, Integer, Function1<Integer, Integer>> a5) {
+            this.edgeAccess = edgeAccess;
+            this.dangerA = dangerA;
+            this.precedingEdgesR = precedingEdgesR;
+            this.opposingEdgeR = opposingEdgeR;
+            this.markedW = markedW;
+            this.followingEdgesR = followingEdgesR;
             this.a = a;
             this.b = b;
-            this.edge = edge;
-            this.edgeAccess = edgeAccess;
-            this.count = count;
-            this.edgeNumber = edgeNumber;
-            this.opposingEdgeNumber = opposingEdgeNumber;
-            this.danger = danger;
+            this.a5 = a5;
         }
 
         @Override
         public String toString() {
-            return "[Edge: form=" + a + " to=" + b + " count=" + count + " id=" + edgeNumber + " danger="+danger.apply(VMExtras.GET_READER, 0).apply(0)+"]";
+            return "[Edge: form=" + a + " to=" + b + " danger="+dangerA.apply(VMExtras.GET_READER, 0).apply(0)+"]";
         }
     }
 
