@@ -1,6 +1,7 @@
 package app;
 
 import java.util.ArrayList;
+import java.io.IOException;
 
 import static app.SortedMap.*;
 
@@ -50,34 +51,7 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     public Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryPoint(WorldState ws, ListCons<ListCons> ghostSpecs) {
-        return 1 == 1 ? entryFactual(ws, ghostSpecs) : entryCPUEmulator();
-//        int x = location.a;
-//        int y = location.b;
-
-
-//        CT left = getMapItem(map, y, x-1);
-//        CT right = getMapItem(map, y, x+1);
-//        CT top = getMapItem(map, y-1, x);
-//        CT bottom = getMapItem(map, y+1, x);
-
-
-    }
-
-    @Compiled
-    private Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> entryCPUEmulator() {
-        debug(1000001);
-        WorldState ws = (WorldState) sample_map();
-        debug(1000002);
-        debug(ws);
-        breakpoint();
-        Tuple<AIState, Function2<AIState, WorldState, Tuple<AIState, Integer>>> initialDone = entryFactual(ws, null);
-        debug(1000003);
-        debug(ws);
-        breakpoint();
-        Function2<AIState, WorldState, Tuple<AIState, Integer>> b = initialDone.b;
-        AIState a = initialDone.a;
-        Tuple<AIState, Integer> apply = b.apply(a, ws);
-        return null;
+        return entryFactual(ws,ghostSpecs);
     }
 
     @Compiled
@@ -819,7 +793,10 @@ public class Sample1 extends VMExtras {
     }
 
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+        if (1 == 0) runInteractiveGCC();
+
+
         String theMap = map1;
 
         int x = -1;
@@ -963,6 +940,75 @@ public class Sample1 extends VMExtras {
         }
     }
 
+    private static void runInteractiveGCC() throws Exception {
+        String theMap = map1;
+
+        int x = -1;
+        int y = -1;
+        String[] rows = theMap.split("\n");
+        for (int yy = rows.length - 1; yy >= 0; yy--) {
+            String row = rows[yy];
+            for (int ii = row.length() - 1; ii >= 0; ii--) {
+                if (row.charAt(ii) == '\\') {
+                    x = ii;
+                    y = yy;
+                }
+            }
+        }
+
+        WorldState worldState = convertMap(theMap, null);
+
+        GCCEmulator cpu = new GCCEmulator("test.txt", 2);
+        cpu.storeInFrame(0, worldState);
+        cpu.storeInFrame(1, new GCCEmulator.D(0));
+
+        GCCEmulator.D initialRun = cpu.run(0);
+        assert initialRun.tag == GCCEmulator.Tag.Cons;
+        GCCEmulator.D aistate = initialRun.cons_p.data;
+        GCCEmulator.D stepFun = initialRun.cons_p.addr;
+
+        printMap(theMap, worldState);
+        while (true) {
+            cpu.load(aistate);
+            cpu.load(worldState);
+
+            GCCEmulator.D apply = cpu.cont(stepFun, 2);
+            assert apply.tag == GCCEmulator.Tag.Cons;
+
+
+            aistate = apply.cons_p.data;
+            GCCEmulator.D direction = apply.cons_p.addr;
+            assert direction.tag == GCCEmulator.Tag.Int;
+            int nx = worldState.lambdaManState.location.x, ny = worldState.lambdaManState.location.y;
+            switch (direction.int_p) {
+                case Direction.UP:
+                    ny--;
+                    break;
+                case Direction.RIGHT:
+                    nx++;
+                    break;
+                case Direction.DOWN:
+                    ny++;
+                    break;
+                case Direction.LEFT:
+                    nx--;
+                    break;
+                default:
+                    throw new RuntimeException("Invalid move: " + direction);
+            }
+            if (isWalkable2(worldState.map, new Point(nx, ny)) == 1) {
+                System.out.println("WALKING: " + direction);
+                String newMap = replaceMap(theMap, worldState.lambdaManState.location.x, worldState.lambdaManState.location.y, ' ');
+                newMap = replaceMap(newMap, nx, ny, '\\');
+                theMap = newMap;
+                worldState = convertMap(theMap, null);
+            } else {
+                System.out.println("CANNOT WALK: " + direction);
+            }
+            printMap(theMap, worldState);
+        }
+    }
+
     private static void printMap(String theMap, WorldState worldState) {
         String[] _rows = theMap.split("\n");
         StringBuffer[] rows = new StringBuffer[_rows.length];
@@ -973,6 +1019,7 @@ public class Sample1 extends VMExtras {
             rows[g.location.y].setCharAt(g.location.x, '=');
             return null;
         });
+
         int width = rows[0].length();
         System.out.print("      ");
         for (int x = 0; x < width; x++) {

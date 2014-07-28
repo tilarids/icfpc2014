@@ -1,7 +1,5 @@
 package app;
 
-import static app.VMExtras.GET_READER;
-
 /**
  * Created by san on 7/26/14.
  */
@@ -11,14 +9,9 @@ public class VMExtras extends VM {
     public static final int GET_WRITER = 101;
 
     @Compiled
-    public static Function2<Integer, Integer, Function1<Integer, Integer>> array_256() {
-        return array_256_impl();
-    }
-
-    @Compiled
     @Native(nlocals = 0)
     public Function2<Integer, Integer, Function1<Integer, Integer>> array_1() {
-        return array_256_impl();
+        return create_array_accessor(1);
     }
 
 
@@ -30,7 +23,7 @@ public class VMExtras extends VM {
     @Compiled
     public static Function2<Integer, Point, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> emptyEdgesArrayForMap(int h) {
         // I'm very generic, mwa-ha-ha!
-        Function2<Integer, Integer, Function1<Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>, Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>>> wrapper = array_256_impl();
+        Function2<Integer, Integer, Function1<Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>, Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>>> wrapper = array_256();
         int ignore = fillArrayForMap(wrapper, h);
         return (final Integer op, final Point p) -> wrapper.apply(VMExtras.GET_READER, p.y).apply(null).apply(op, p.x);
     }
@@ -40,7 +33,7 @@ public class VMExtras extends VM {
         int res = 0;
         Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> __;
         if (h > 0) {
-            __ = wrapper.apply(VMExtras.GET_WRITER, h - 1).apply(array_256_impl());
+            __ = wrapper.apply(VMExtras.GET_WRITER, h - 1).apply(array_256());
             res = fillArrayForMap(wrapper, h - 1) + 1;
         }
         return res;
@@ -48,7 +41,7 @@ public class VMExtras extends VM {
 
     @Compiled
     @Native(nlocals = 0)
-    public static <Stored> Function2<Integer, Integer, Function1<Stored, Stored>> array_256_impl() {
+    public static <Stored> Function2<Integer, Integer, Function1<Stored, Stored>> array_256() {
         return create_array_accessor(256);
     }
 
@@ -78,7 +71,7 @@ public class VMExtras extends VM {
     /*
     @Compiled
     @Native(nlocals = 0)
-    public static <Stored> Function2<Integer, Integer, Function1<Stored, Stored>> array_256_impl(Class<Stored> storedType) {
+    public static <Stored> Function2<Integer, Integer, Function1<Stored, Stored>> array_256(Class<Stored> storedType) {
         return create_array_accessor(storedType, 256);
     }
 

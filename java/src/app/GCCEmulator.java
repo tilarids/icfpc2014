@@ -1,10 +1,13 @@
 package app;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Stack;
+import java.util.concurrent.Callable;
 
 /**
  * Created by tilarids on 7/27/14.
@@ -15,11 +18,13 @@ public class GCCEmulator {
     static class Op {
         String op;
         String source;
-        Runnable runnable;
+        String comment;
+        Callable<D> callable;
         List<Integer> param = new ArrayList();
-        Op(String source, String op) {
-            this.op = op;
+        Op(String source, String comment, String op) {
             this.source = source;
+            this.comment = comment;
+            this.op = op;
         }
 
         @Override
@@ -95,13 +100,25 @@ public class GCCEmulator {
     }
 
     static class Closure {
+        String comment;
         Integer index;
         Frame frame;
-        Closure(Integer index, Frame frame) {
+        Closure(String comment, Integer index, Frame frame) {
+            this.comment = comment;
             this.index = index;
             this.frame = frame;
         }
     }
+
+    static class FunctionHit {
+        String comment;  // instead of name
+        int hits = 0;
+        FunctionHit(String comment) {
+            this.comment = comment;
+        }
+    }
+
+    List<Op> ops;
 
     int reg_c = 0; // %c
     int reg_s = 0; // %s
@@ -110,6 +127,24 @@ public class GCCEmulator {
 
     List<D> data_stack = new ArrayList<>();
     List<Object> control_stack = new ArrayList<>();
+
+    Stack<FunctionHit> functionHits = new Stack<>();
+    // Map<String, Integer> heatMap = new HashMap<>();
+
+    void processHit(FunctionHit hit) {
+        if (hit.comment.length() == 0) {
+            return;
+        }
+        if (hit.comment.equals("@entryFactual")) {
+            System.out.println("@entryFactual took " + hit.hits + " instructions");
+        }
+        if (hit.comment.equals("@lambda_1000")) {
+            System.out.println("@lambda_1000 took " + hit.hits + " instructions");
+        }
+
+        // create absolute time spent map
+    }
+
 
     void push_ds(D d) {
         data_stack.add(d);
@@ -133,7 +168,8 @@ public class GCCEmulator {
 
     int instructionCount = 0;
 
-    void run(List<Op> ops) {
+    D run(int start_c) {
+        reset(start_c);
         try {
             while (reg_c < ops.size()) {
                 Op op = ops.get(reg_c);
@@ -142,20 +178,30 @@ public class GCCEmulator {
                 instructionCount++;
                 if (instructionCount == 4340024-300) trace = true;
                 if (trace) System.out.println();
-                op.runnable.run();
+                D ret = op.callable.call();
+
+                if (functionHits.size() > 0) {
+                    functionHits.peek().hits++;
+                }
+
+                if (ret != null) {
+                    return ret;
+                }
             }
         } catch (Exception e) {
-            System.out.println("AT INSTRUCTION COUNT: "+instructionCount);
+            System.out.println("AT INSTRUCTION COUNT: "+instructionCount + "; %c = " + reg_c);
             e.printStackTrace();
         }
+        return null;
     }
 
-    public Runnable makeExecutable(Op op) {
+    public Callable<D> makeExecutable(Op op) {
         switch(op.op) {
             case "LDC": {
                 return () -> {
                     push_ds(new D(op.param.get(0)));
                     reg_c++;
+                    return null;
                 };
             }
             case "LD": {
@@ -175,6 +221,7 @@ public class GCCEmulator {
                     }
                     push_ds(d);
                     reg_c++;
+                    return null;
                 };
             }
             case "ADD": {
@@ -189,6 +236,7 @@ public class GCCEmulator {
                     D d = new D(x.int_p + y.int_p);
                     push_ds(d);
                     reg_c++;
+                    return null;
                 };
             }
             case "SUB": {
@@ -203,6 +251,7 @@ public class GCCEmulator {
                     D d = new D(x.int_p - y.int_p);
                     push_ds(d);
                     reg_c++;
+                    return null;
                 };
             }
             case "MUL": {
@@ -217,6 +266,7 @@ public class GCCEmulator {
                     D d = new D(x.int_p * y.int_p);
                     push_ds(d);
                     reg_c++;
+                    return null;
                 };
             }
             case "DIV": {
@@ -231,6 +281,7 @@ public class GCCEmulator {
                     D d = new D(x.int_p / y.int_p);
                     push_ds(d);
                     reg_c++;
+                    return null;
                 };
             }
             case "CEQ": {
@@ -249,6 +300,7 @@ public class GCCEmulator {
                     }
                     push_ds(z);
                     reg_c++;
+                    return null;
                 };
             }
             case "CGT": {
@@ -267,6 +319,7 @@ public class GCCEmulator {
                     }
                     push_ds(z);
                     reg_c++;
+                    return null;
                 };
             }
             case "CGTE": {
@@ -285,6 +338,7 @@ public class GCCEmulator {
                     }
                     push_ds(z);
                     reg_c++;
+                    return null;
                 };
             }
             case "ATOM": {
@@ -298,6 +352,7 @@ public class GCCEmulator {
                     }
                     push_ds(y);
                     reg_c++;
+                    return null;
                 };
             }
             case "CONS": {
@@ -307,6 +362,7 @@ public class GCCEmulator {
                     D z = new D(new Cons(x, y));
                     push_ds(z);
                     reg_c++;
+                    return null;
                 };
             }
             case "CAR": {
@@ -317,6 +373,7 @@ public class GCCEmulator {
                     D y = x.cons_p.data;
                     push_ds(y);
                     reg_c++;
+                    return null;
                 };
             }
             case "CDR": {
@@ -327,6 +384,7 @@ public class GCCEmulator {
                     D y = x.cons_p.addr;
                     push_ds(y);
                     reg_c++;
+                    return null;
                 };
             }
             case "SEL": {
@@ -340,6 +398,7 @@ public class GCCEmulator {
                     } else {
                         reg_c = op.param.get(1);
                     }
+                    return null;
                 };
             }
             case "JOIN": {
@@ -348,14 +407,16 @@ public class GCCEmulator {
                     if (x.tag != Tag.Join)
                         throw new RuntimeException("ControlMismatch");
                     reg_c = x.control_p;
+                    return null;
                 };
             }
             case "LDF": {
                 return () -> {
-                    Closure c = new Closure(op.param.get(0), reg_e);
+                    Closure c = new Closure(op.comment, op.param.get(0), reg_e);
                     D x = new D(c);
                     push_ds(x);
                     reg_c++;
+                    return null;
                 };
             }
             case "AP": {
@@ -377,10 +438,18 @@ public class GCCEmulator {
                     push_control(new D(Tag.Ret, reg_c + 1));
                     reg_e = fp;
                     reg_c = f;
+
+                    functionHits.push(new FunctionHit(x.closure_p.comment));
+                    return null;
                 };
             }
             case "RTN": {
                 return () -> {
+                    if (control_stack.size() == 0) {  // return from CPU
+                        D x = pop_ds();
+                        return x;
+                    }
+
                     D x = pop_control();
                     if (x.tag == Tag.Stop) {
                         throw new RuntimeException("MachineStop");
@@ -391,6 +460,9 @@ public class GCCEmulator {
                     assert y.tag == Tag.Frame;
                     reg_e = y.frame_p;
                     reg_c = x.control_p;
+
+                    processHit(functionHits.pop());
+                    return null;
                 };
             }
             case "DUM": {
@@ -400,6 +472,7 @@ public class GCCEmulator {
                     fp.tag = Tag.Dum;
                     reg_e = fp;
                     reg_c++;
+                    return null;
                 };
             }
             case "RAP": {
@@ -428,6 +501,7 @@ public class GCCEmulator {
                     fp.tag = Tag.Frame;
                     reg_e = fp;
                     reg_c = f;
+                    return null;
                 };
             }
             case "STOP": {
@@ -445,6 +519,7 @@ public class GCCEmulator {
                     } else {
                         reg_c = op.param.get(0);
                     }
+                    return null;
                 };
             }
             case "TAP": {
@@ -464,6 +539,7 @@ public class GCCEmulator {
                     }
                     reg_e = fp;
                     reg_c = f;
+                    return null;
                 };
             }
             case "TRAP": {
@@ -489,6 +565,7 @@ public class GCCEmulator {
                     fp.tag = Tag.Frame;
                     reg_e = fp;
                     reg_c = f;
+                    return null;
                 };
             }
             case "ST": {
@@ -506,6 +583,7 @@ public class GCCEmulator {
                     D v = pop_ds();
                     fp.value.set(i, v);
                     reg_c++;
+                    return null;
                 };
             }
             case "DBUG": {
@@ -513,10 +591,14 @@ public class GCCEmulator {
                     D x = pop_ds();
                     System.out.println(x);
                     reg_c++;
+                    return null;
                 };
             }
             case "BRK": {
-                return () -> reg_c++;
+                return () -> {
+                    reg_c++;
+                    return null;
+                };
             }
             default:
                 throw new RuntimeException("Unsupported");
@@ -524,30 +606,110 @@ public class GCCEmulator {
 
     }
 
+
     public static void main(String[] args) throws IOException {
-        new GCCEmulator().go();
+        new GCCEmulator("test.txt", 2).run(0);
     }
 
-    private void go() throws IOException {
-        List<String> lines = Files.readAllLines(FileSystems.getDefault().getPath("test.txt"));
+    public void load(D d) throws Exception {
+        push_ds(d);
+    }
+
+    public void load(Object o) throws Exception {
+        Field[] fields;
+        if (o.getClass().getDeclaredFields().length > 0) {
+            fields = o.getClass().getDeclaredFields();
+        } else {
+            fields = o.getClass().getFields();
+        }
+        for (Field field : fields) {
+            Object data = field.get(o);
+
+            if (data instanceof Integer) {
+                Op ldc = new Op("", "", "LDC");
+                ldc.param.add((Integer) data);
+                makeExecutable(ldc).call();
+            } else if (data == null) {
+                Op ldc = new Op("", "", "LDC");
+                ldc.param.add(0);
+                makeExecutable(ldc).call();
+            } else {
+                load(data);
+            }
+        }
+        for (int i = 1; i < fields.length; ++i) {
+            makeExecutable(new Op("", "", "CONS")).call();
+        }
+    }
+
+    public D cont(D x, Integer n) throws Exception {
+        assert x.tag == Tag.Closure;
+        Integer f = x.closure_p.index;
+        Frame e = x.closure_p.frame;
+        Frame fp = new Frame(n);
+        fp.parent = e;
+        for (int i = n - 1; i != -1; --i) {
+            D y = pop_ds();
+            fp.value.set(i, y);
+        }
+        // do not save anything so that return will actually return
+//        push_control(new D(reg_e));
+//        %d := PUSH(%e,%d)                     ; save frame pointer
+//        %d := PUSH(SET_TAG(TAG_RET,%c+1),%d)  ; save return address
+        reg_e = fp;
+
+//        reg_c = f;
+        return run(f);
+    }
+
+    public void storeInFrame(Integer i, D d) throws Exception {
+        load(d);
+        Op st = new Op("", "", "ST");
+        st.param.add(0);
+        st.param.add(i);
+        makeExecutable(st).call();
+    }
+
+    public void storeInFrame(Integer i, Object o) throws Exception {
+        load(o);
+        Op st = new Op("", "", "ST");
+        st.param.add(0);
+        st.param.add(i);
+        makeExecutable(st).call();
+    }
+
+    public void reset(int start_c) {
+        reg_c = start_c;
+        instructionCount = 0;
+    }
+
+    GCCEmulator(String path, int topFrameSize) throws IOException {
+        reg_e = new Frame(topFrameSize);
+
+
+        List<String> lines = Files.readAllLines(FileSystems.getDefault().getPath(path));
         List<Op> ops = new ArrayList<>();
         for (String line : lines) {
             String source = line;
+            String comment = "";
             if (line.contains(";")) {
-                line = line.substring(0, line.indexOf(";"));
+                int index = line.indexOf(";");
+                line = line.substring(0, index);
+                comment = line.substring(index);
             }
             String[] tokens = line.split("\\s");
             if (tokens[0].length() == 0) continue;
-            Op op = new Op(source, tokens[0]);
+            Op op = new Op(source, comment, tokens[0]);
             for (int i = 1; i < tokens.length; ++i) {
                 if (tokens[i].length() > 0) {
                     op.param.add(Integer.parseInt(tokens[i]));
                 }
             }
-            op.runnable = makeExecutable(op);
+            op.callable = makeExecutable(op);
             ops.add(op);
         }
-        run(ops);
+        this.ops = ops;
     }
+
 }
 

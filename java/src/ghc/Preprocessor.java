@@ -1,7 +1,6 @@
 package ghc;
 
 import compiler.Compiler;
-import org.eclipse.equinox.internal.p2.engine.phases.Collect;
 import sun.plugin.dom.exception.InvalidStateException;
 
 import java.io.BufferedReader;
@@ -123,9 +122,23 @@ public class Preprocessor {
         }
 
         public String containsLabel(String asm) {
+            Map.Entry<String, Integer> labelEntry = findContainingLabelImpl(asm);
+            return labelEntry != null ? labelEntry.getKey() : null;
+        }
+
+        private Map.Entry<String, Integer> findContainingLabelImpl(String asm) {
+            // replace labels as whole-words only
             for (Map.Entry<String, Integer> p : labelPos.entrySet()) {
-                if (asm.contains(p.getKey()))
-                    return p.getKey();
+                if (asm.contains(p.getKey())) {
+                    int pos = asm.indexOf(p.getKey());
+                    if (pos == -1)
+                        continue;
+                    boolean goodStart = (pos == 0) || Character.isWhitespace(asm.charAt(pos - 1)) || (asm.charAt(pos - 1) == ',');
+                    int endPos = pos + p.getKey().length();
+                    boolean goodEnd = (endPos == asm.length()) || Character.isWhitespace(asm.charAt(endPos)) || (asm.charAt(endPos) == ',') || (asm.charAt(endPos) == ';');
+                    if (goodStart && goodEnd)
+                        return p;
+                }
             }
             return null;
         }
@@ -134,21 +147,14 @@ public class Preprocessor {
             String asm = realInstr.getRealInstructionAsm();
             if (asm == null)
                 return null;
-            for (Map.Entry<String, Integer> p : labelPos.entrySet()) {
-                if (asm.contains(p.getKey())) {
-                    realInstr.appendComment("=>" + p.getKey());
-                    // replace labels as whole-words only
-//                    return asm.replace(p.getKey(), p.getValue().toString());
-                    int pos = asm.indexOf(p.getKey());
-                    if (pos == -1)
-                        continue;
-                    boolean goodStart = (pos == 0) || Character.isWhitespace(asm.charAt(pos - 1)) || (asm.charAt(pos - 1) == ',');
-                    int endPos = pos + p.getKey().length();
-                    boolean goodEnd = (endPos == asm.length()) || Character.isWhitespace(asm.charAt(endPos)) || (asm.charAt(endPos) == ',') || (asm.charAt(endPos) == ';');
-                    if (goodStart && goodEnd)
-                        return asm.replace(p.getKey(), p.getValue().toString());
-                }
+
+            // replace labels as whole-words only
+            Map.Entry<String, Integer> labelEntry = findContainingLabelImpl(asm);
+            if (labelEntry != null) {
+                realInstr.appendComment("=>" + labelEntry.getKey());
+                return asm.replace(labelEntry.getKey(), labelEntry.getValue().toString());
             }
+
 
             Matcher m = RELATIVE_LABEL.matcher(asm);
             if (m.matches()) {
