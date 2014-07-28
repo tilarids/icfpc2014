@@ -2,7 +2,6 @@
 ; takes desisions on intersections only
 
         call get_surround_walls
-    int 8
         jlt node,a,2 ; 0 or 1 wall nearby - node found
         ; not a junction - we cannot change direction anyway
 loop:
@@ -17,7 +16,6 @@ node:   ; a = walls count
         int 6
         mov [1],b ; keep curr. direction
         mov [4],a   ; save our vitality
-    int 8
     ; find desired direction
         int 1       ; get lambdaman current coords in (a,b)
         mov [2],a
@@ -47,9 +45,7 @@ m19:    jgt m24, f, 127  ;
 m24:
         mov c,a
 
-    int 8
         call invert_if_panic
-    int 8
     ; check if this direction is available
         call check_dir_avail
         jeq na,a,0
