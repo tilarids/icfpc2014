@@ -136,14 +136,14 @@ public class Sample1 extends VMExtras {
         ListCons<Integer> __ = map(aistate.parsedStaticMap.parsedEdges, (ParsedEdge e) -> e.dangerA.apply(VMExtras.GET_WRITER, 0).apply(0));
         __ = map(worldState.ghosts, (g) -> placeGhostDanger(aistate, g));
         startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
-        ListCons<Tuple<Function1<Integer, Integer>, Point>> pathToWalk = dropWhile(startEdge.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> ea) -> ea.b.x != location.x || ea.b.y != location.y ? 1 : 0);
+        ListCons<Tuple<Function1<Integer, Integer>, Point>> pathToWalk = dropWhile(startEdge.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> ea) -> ((Point)ea.b).x != location.x || ((Point)ea.b).y != location.y ? 1 : 0);
         if (length(pathToWalk) >= 2) {
             newLocation = head(tail(pathToWalk));
-            direction = (newLocation.b.x > location.x) ?
+            direction = (((Point)newLocation.b).x > location.x) ?
                     Direction.RIGHT :
-                    (newLocation.b.x < location.x) ?
+                    (((Point)newLocation.b).x < location.x) ?
                             Direction.LEFT :
-                            (newLocation.b.y < location.y) ?
+                            (((Point)newLocation.b).y < location.y) ?
                                     Direction.UP :
                                     Direction.DOWN;
             retval = new Tuple<>(aistate, direction);
@@ -195,10 +195,10 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private int waveGhostDanger(AIState aistate, EdgeDangerWaveItem item) {
-        map(aistate.parsedStaticMap.parsedEdges, (pe) -> pe.markedW.apply(0));  // clear visited flag
-        item.pe.markedW.apply(1);   // mark first visited
+        ListCons<Integer> ___ = map(aistate.parsedStaticMap.parsedEdges, (ParsedEdge pe) -> pe.markedW.apply(0));// clear visited flag
+        Integer __ = item.pe.markedW.apply(1);// mark first visited
         Queue<EdgeDangerWaveItem> q = queue_enqueue(queue_new(), item);
-        int __ = waveGhostDangerAcc0(aistate, q);
+        __ = waveGhostDangerAcc0(aistate, q);
         return 0;
     }
 
@@ -291,12 +291,12 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private Integer pointEquals2(Tuple<Function1<Integer, Integer>, Point> p, Tuple<Function1<Integer, Integer>, Point> q) {
-        return (p.b.x == q.b.x && p.b.y == q.b.y) ? 1 : 0;
+        return (((Point)p.b).x == ((Point)q.b).x && ((Point)p.b).y == ((Point)q.b).y) ? 1 : 0;
     }
 
     @Compiled
     private Integer pointEquals3(Tuple<Function1<Integer, Integer>, Point> p, Point q) {
-        return (p.b.x == q.x && p.b.y == q.y) ? 1 : 0;
+        return (((Point)p.b).x == q.x && ((Point)p.b).y == q.y) ? 1 : 0;
     }
 
     @Compiled
@@ -339,8 +339,8 @@ public class Sample1 extends VMExtras {
         q = fold0(currentEdges, q, (Queue<ListCons<ParsedEdge>> qq, ParsedEdge e) -> queue_enqueue(qq, cons(e, null)));
         debug(89002);
         debug(89001);
-        ListCons<Integer> ___ = map(aistate.parsedStaticMap.parsedEdges, (pe) -> pe.markedW.apply(0));// clear visited flag
-        map(currentEdges, (pe) -> pe.markedW.apply(1));     // mark starting visited
+        ListCons<Integer> ___ = map(aistate.parsedStaticMap.parsedEdges, (ParsedEdge pe) -> pe.markedW.apply(0));// clear visited flag
+        ___ = map(currentEdges, (ParsedEdge pe) -> pe.markedW.apply(1));// mark starting visited
         ListCons<ListCons<ParsedEdge>> dests = waveFromEdgeToNearestEdges(aistate, worldState, q, null, 0);
         debug(89002);
         debug(89001);
@@ -568,21 +568,26 @@ public class Sample1 extends VMExtras {
         return map(allNeighbourJunctionsPaths, (p) -> makeParsedEdge(p, accessors));
     }
 
+    @Compiled
     private Function1 eraseFunction1(Function1 f) {
         return f;
     }
+
+    @Compiled
     private Function2 eraseFunction2(Function2 f) {
         return f;
     }
+
+    @Compiled
     private ParsedEdge makeParsedEdge(ListCons<Point> p, ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> accessors) {
         Function2<Integer, Integer, Function1<Object, Object>> a5 = array_5();
         return new ParsedEdge(
                 makeEdgeAccess(p, accessors),
                 eraseFunction2(array_1()),
-                eraseFunction1(a5.apply(GET_READER, 0)),
-                eraseFunction1(a5.apply(GET_READER, 1)),
-                eraseFunction1(a5.apply(GET_WRITER, 2)),
-                eraseFunction1(a5.apply(GET_READER, 3)),
+                eraseFunction1(a5.apply(VMExtras.GET_READER, 0)),
+                eraseFunction1(a5.apply(VMExtras.GET_READER, 1)),
+                eraseFunction1(a5.apply(VMExtras.GET_WRITER, 2)),
+                eraseFunction1(a5.apply(VMExtras.GET_READER, 3)),
                 head(p),
                 last(p),
                 eraseFunction2(a5));
@@ -686,6 +691,7 @@ public class Sample1 extends VMExtras {
         return new ParsedStaticMap(walkable, junctions, allParsedEdges, null, null, accessors, readOnlyEdgesForPoint);
     }
 
+    @Compiled
     private Integer updateOtherParsedEdgeFields(ParsedEdge pe, Function1<Point, ListCons<ParsedEdge>> readOnlyEdgesForPoint) {
         Function2<Integer, Integer, Function1<Object, Object>> a5 = eraseFunction2(pe.a5);
         ListCons<ParsedEdge> edgesForPoint = findEdgesForPoint(readOnlyEdgesForPoint, pe.a);
@@ -693,9 +699,9 @@ public class Sample1 extends VMExtras {
         ListCons<ParsedEdge> precedingEdges = filter(edgesForPoint, (ParsedEdge me) -> pointEquals(me.b, pe.a) == 1 && pointEquals(me.b, pe.a) * pointEquals(me.a, pe.b) == 0 ? 1 : 0);
         ListCons<ParsedEdge> following = findEdgesForPoint(readOnlyEdgesForPoint, pe.b);
         ListCons<ParsedEdge> followingEdges = filter(following, (ParsedEdge me) -> pointEquals(me.a, pe.b) == 1 && pointEquals(me.b, pe.a) * pointEquals(me.a, pe.b) == 0 ? 1 : 0);
-        a5.apply(GET_WRITER, 1).apply(head(oppositeEdge));
-        a5.apply(GET_WRITER, 0).apply(precedingEdges);
-        a5.apply(GET_WRITER, 3).apply(followingEdges);
+        Object __ = a5.apply(VMExtras.GET_WRITER, 1).apply(head(oppositeEdge));
+        __ = a5.apply(VMExtras.GET_WRITER, 0).apply(precedingEdges);
+        __ = a5.apply(VMExtras.GET_WRITER, 3).apply(followingEdges);
         return 0;
     }
 
