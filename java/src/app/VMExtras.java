@@ -25,6 +25,19 @@ public class VMExtras extends VM {
         // I'm very generic, mwa-ha-ha!
         Function2<Integer, Integer, Function1<Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>, Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>>> wrapper = array_256();
         int ignore = fillArrayForMap(wrapper, h);
+        debug(911110000);
+        debug(ignore);
+
+        Point pt = new Point(2,3);
+
+        Function1<Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>, Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>> apply = wrapper.apply(VMExtras.GET_READER, pt.y);
+        debug(92222);
+        Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> apply1 = apply.apply(null);
+        debug(93333);
+        Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> apply2 = apply1.apply(VMExtras.GET_READER, pt.x);
+        debug(94444);
+        ListCons<ParsedEdge> apply3 = apply2.apply(null);
+        debug(95555);
         return (final Integer op, final Point p) -> wrapper.apply(VMExtras.GET_READER, p.y).apply(null).apply(op, p.x);
     }
 
@@ -32,8 +45,17 @@ public class VMExtras extends VM {
     private static int fillArrayForMap(Function2<Integer, Integer, Function1<Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>, Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>>>> wrapper, int h) {
         int res = 0;
         Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> __;
+        Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> testStuff;
+        Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> a256;
         if (h > 0) {
-            __ = wrapper.apply(VMExtras.GET_WRITER, h - 1).apply(array_256());
+            a256 = array_256();
+            breakpoint();
+            __ = wrapper.apply(VMExtras.GET_WRITER, h - 1).apply(a256);
+            testStuff = wrapper.apply(VMExtras.GET_READER, h - 1).apply(null);
+            breakpoint();
+            debug(91000001);
+            debug(testStuff);
+            debug(a256);
             res = fillArrayForMap(wrapper, h - 1) + 1;
         }
         return res;

@@ -20,7 +20,7 @@ public class BinarySearchGenerator {
 
     public static void main(String[] args) {
 //        System.out.println(generateBinarySearch(16, new FakeGenerator()));
-        System.out.println(generateLambdaBinarySearch(5));
+        System.out.println(generateLambdaBinarySearch(255));
     }
 
 
@@ -72,7 +72,7 @@ public class BinarySearchGenerator {
             buf.append("    LD 0 1 ; ix").append("\r\n");
             buf.append("    LDC " + val).append("\r\n");
             buf.append("    CGT ").append("\r\n");
-            buf.append("    TSEL ").append(lessLabel).append(" ").append(greaterLabel).append("\r\n");
+            buf.append("    TSEL ").append(greaterLabel).append(" ").append(lessLabel).append("\r\n");
             return buf.toString();
         }
 

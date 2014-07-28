@@ -116,20 +116,26 @@ public class Compiler {
         try {
             new Compiler().run();
         } catch (CompilerException e) {
-            CompilationUnit root = (CompilationUnit) e.node.getRoot();
-            String sourceFile = (String) root.getProperty("sourceFile");
-            int line = root.getLineNumber(e.node.getStartPosition());
-            int col = root.getColumnNumber(e.node.getStartPosition());
+            ASTNode problemNode = e.node;
+            String location = getLocation(problemNode);
             System.out.println("ERROR!! ");
             System.out.println("ERROR!! ");
             System.out.println("ERROR!! ");
-            System.out.println("ERROR: " + sourceFile + "(" + line + "," + col + "): " + e.getMessage());
-            System.out.println("ERROR:     => " + e.node);
+            System.out.println("ERROR: " + location + " : " + e.getMessage());
+            System.out.println("ERROR:     => " + problemNode);
             System.out.println("ERROR!! ");
         }
         System.out.flush();
         Thread.sleep(500);
 
+    }
+
+    public static String getLocation(ASTNode problemNode) {
+        CompilationUnit root = (CompilationUnit) problemNode.getRoot();
+        String sourceFile = (String) root.getProperty("sourceFile");
+        int line = root.getLineNumber(problemNode.getStartPosition());
+        int col = root.getColumnNumber(problemNode.getStartPosition());
+        return sourceFile + "(" + line + "," + col + ")";
     }
 
     private void run() throws IOException {
@@ -247,11 +253,11 @@ public class Compiler {
                 for (Statement statement : statements) {
                     generateStatement(myMethod, statement);
                 }
-                myMethod.opcodes.get(0).comment = " <== " + name + "  " + parameters + " (as blk)";
+                myMethod.opcodes.get(0).comment = " <== " + name + "  " + parameters + " (as blk) @"+getLocation(b);
             } else if (b instanceof Expression) {
                 generateExpression(myMethod, (Expression) b);
                 myMethod.addOpcode(new Opcode("RTN"));
-                myMethod.opcodes.get(0).comment = " <== " + name + "  " + parameters + " (as expr)";
+                myMethod.opcodes.get(0).comment = " <== " + name + "  " + parameters + " (as expr), @"+getLocation(b);
             } else {
                 System.out.println("Oh");
             }

@@ -794,7 +794,7 @@ public class Sample1 extends VMExtras {
 
 
     public static void main(String[] args) throws Exception {
-        if (1 == 0) runInteractiveGCC();
+        if (1 == 1) runInteractiveGCC();
 
 
         String theMap = map1;
@@ -973,6 +973,7 @@ public class Sample1 extends VMExtras {
             cpu.load(worldState);
 
             GCCEmulator.D apply = cpu.cont(stepFun, 2);
+            System.out.println("Single step instruction count: "+cpu.instructionCount);
             assert apply.tag == GCCEmulator.Tag.Cons;
 
 

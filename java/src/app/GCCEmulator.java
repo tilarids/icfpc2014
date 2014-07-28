@@ -173,12 +173,12 @@ public class GCCEmulator {
         try {
             while (reg_c < ops.size()) {
                 Op op = ops.get(reg_c);
-                if (trace) { System.out.print("IP: " + reg_c + "  OP: " + op.toString()+" dss:"+data_stack.size()); System.out.flush(); }
-                if (instructionCount % 1_000_000 == 0) System.out.println("Instructions: "+instructionCount/1_000_000+"M");
+                if (trace) { System.out.print("IP: " + reg_c + "  OP: " + op.toString()); System.out.flush(); }
+                // if (instructionCount % 1_000 == 0) System.out.println("Instructions: "+instructionCount/1_000+"K");
                 instructionCount++;
-                if (instructionCount == 4340024-300) trace = true;
-                if (trace) System.out.println();
+                // if (instructionCount == 4923097-300) trace = true;
                 D ret = op.callable.call();
+                if (trace) System.out.println();
 
                 if (functionHits.size() > 0) {
                     functionHits.peek().hits++;
@@ -515,9 +515,9 @@ public class GCCEmulator {
                     if (x.tag != Tag.Int)
                         throw new RuntimeException("TagMismatch");
                     if (x.int_p != 0) {
-                        reg_c = op.param.get(1);
-                    } else {
                         reg_c = op.param.get(0);
+                    } else {
+                        reg_c = op.param.get(1);
                     }
                     return null;
                 };
@@ -689,7 +689,8 @@ public class GCCEmulator {
 
         List<String> lines = Files.readAllLines(FileSystems.getDefault().getPath(path));
         List<Op> ops = new ArrayList<>();
-        for (String line : lines) {
+        for (int lineIndex = 0; lineIndex < lines.size(); lineIndex++) {
+            String line = lines.get(lineIndex);
             String source = line;
             String comment = "";
             if (line.contains(";")) {
@@ -702,7 +703,12 @@ public class GCCEmulator {
             Op op = new Op(source, comment, tokens[0]);
             for (int i = 1; i < tokens.length; ++i) {
                 if (tokens[i].length() > 0) {
-                    op.param.add(Integer.parseInt(tokens[i]));
+                    try {
+                        op.param.add(Integer.parseInt(tokens[i]));
+                    } catch (NumberFormatException e) {
+                        System.out.println("At line: "+lineIndex);
+                        throw e;
+                    }
                 }
             }
             op.callable = makeExecutable(op);

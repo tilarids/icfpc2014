@@ -92,7 +92,6 @@ public class NativeFuncionsIncluder {
                     // skip comment
                     if (line.contains(stringIntegerEntry.getKey())) {
                         line = line.replace(stringIntegerEntry.getKey(), "" + stringIntegerEntry.getValue()); // + " ; ref "+stringIntegerEntry.getKey().replace("$","_");
-                        break;
                     }
                 }
                 line = line.replace("$pc$", ""+pc);
@@ -103,7 +102,8 @@ public class NativeFuncionsIncluder {
                     if (ix2 != -1) {
                         String sub = line.substring(ix1+1, ix2);
                         int ix3 = sub.indexOf("+");
-                        if (ix3 == -1) throw new IllegalArgumentException("Bad expression in line ("+i+"): "+line);
+                        if (ix3 == -1)
+                            throw new IllegalArgumentException("Bad expression in line ("+i+"): "+line);
                         try {
                             int ls = Integer.parseInt(sub.substring(0, ix3).trim());
                             int rs = Integer.parseInt(sub.substring(ix3+1).trim());
