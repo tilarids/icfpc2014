@@ -1,5 +1,7 @@
 package app;
 
+import static app.VMExtras.GET_READER;
+
 /**
  * Created by san on 7/26/14.
  */
@@ -134,7 +136,7 @@ public class VMExtras extends VM {
 
         @Override
         public String toString() {
-            return "[Edge: form=" + a + " to=" + b + " count=" + count + " id=" + edgeNumber + "]";
+            return "[Edge: form=" + a + " to=" + b + " count=" + count + " id=" + edgeNumber + " danger="+danger.apply(VMExtras.GET_READER, 0).apply(0)+"]";
         }
     }
 

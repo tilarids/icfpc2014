@@ -132,8 +132,8 @@ public class Sample1 extends VMExtras {
     @Compiled
     private Integer countMyEdgePills(ParsedEdge edge, Point start) {
         ListCons<Tuple<Function1<Integer, Integer>, Point>> pathRemaining = dropWhile(edge.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> t) -> ((Point) t.b).x != start.x || ((Point) t.b).y != start.y ? 1 : 0);
-        Integer rv = fold0(pathRemaining, 0, (Integer acc, Tuple<Function1<Integer, Integer>, Point> t) -> acc + (t.a.apply(0) == CT.PILL ? 1 : 0));
-        return rv;
+        Tuple<Integer, Integer> rv = fold0(pathRemaining, new Tuple<Integer, Integer>(0, 100), (Tuple<Integer, Integer> acc, Tuple<Function1<Integer, Integer>, Point> t) -> new Tuple<>(acc.a + acc.b * (t.a.apply(0) == CT.PILL ? 1 : 0), max(acc.b * 100 / 20, 1)));
+        return rv.a;
     }
 
     @Compiled
@@ -167,11 +167,10 @@ public class Sample1 extends VMExtras {
         Point newLocation;
         int direction;
         ParsedEdge startEdge;
-        startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
         ListCons<Integer> __ = map(aistate.parsedStaticMap.parsedEdges, (ParsedEdge e) -> e.danger.apply(VMExtras.GET_WRITER, 0).apply(0));
         __ = map(worldState.ghosts, (g) -> placeGhostDanger(aistate, g));
+        startEdge = findBestDistantEdge(edgesForPoint, aistate, worldState);
         ListCons<Point> pathToWalk = dropWhile(startEdge.edge, (Point p) -> p.x != location.x || p.y != location.y ? 1 : 0);
-        System.out.println("Chosen long way: " + startEdge.toString());
         if (length(pathToWalk) >= 2) {
             newLocation = head(tail(pathToWalk));
             direction = (newLocation.x > location.x) ?
@@ -247,9 +246,9 @@ public class Sample1 extends VMExtras {
         // keep only those occuped edges which align to the direction of ghost (agains ghost movement, to be included in danger!)
         // will be mostly proper all time (for straight corridors)
         // todo: make properly
-        edgesForPoint = filter(edgesForPoint, (e) -> pointEquals(head(remainingPath(e, gs.location)), nextPoint) == 1 ? 0 : 1);
+        edgesForPoint = filter(edgesForPoint, (e) -> pointEquals(head(remainingPath(e, gs.location)), nextPoint) == 1 || pointEquals(head(remainingPath(e, gs.location)), gs.location) == 1 ? 1 : 0);
         ListCons<Integer> __ = map(edgesForPoint, (ParsedEdge e) -> addEdgeDanger(e, initialDangerPercent(e.count, remainingPath(e, gs.location))));
-        __ = map(edgesForPoint, (e) -> waveGhostDanger(aistate, new EdgeDangerWaveItem(findReverseEdge(aistate, e), 100, length(remainingPath(e, gs.location)))));
+        __ = map(edgesForPoint, (e) -> waveGhostDanger(aistate, new EdgeDangerWaveItem(e, 100, length(remainingPath(e, gs.location)))));
         return 0;
     }
 
@@ -378,8 +377,8 @@ public class Sample1 extends VMExtras {
         ListCons<ListCons<ParsedEdge>> dests = waveFromEdgeToNearestEdges(aistate, worldState, q, sorted_map_assoc_all(new SortedMap<Integer>(null, 0), map(currentEdges, (ParsedEdge e) -> new Tuple<>(e.edgeNumber, 0))), null, 0);
         ListCons<ListCons<ParsedEdge>> directedRoutes = map(dests, (d) -> reverse(d));
         ListCons<Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>>> scores = map(directedRoutes, (r) -> new Triple<>(r,
-                ((5 * countMyEdgePills(head(r), worldState.lambdaManState.location)
-                        + countRoutePills(tail(r))) * safetyPercent(r)) / 100,
+                ((10 * countMyEdgePills(head(r), worldState.lambdaManState.location)
+                        + 3 * countRoutePills(tail(r))) * safetyPercent(r)) / 100,
                 new Triple<>(countMyEdgePills(head(r), worldState.lambdaManState.location), countRoutePills(tail(r)), safetyPercent(r))
         ));
         Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>> winningRoute = maximum_by(scores, (Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>> t) -> t.b);
@@ -390,9 +389,11 @@ public class Sample1 extends VMExtras {
                     printList(route.a);
                     return 0;
                 });
+                traceScore = false;
             }
         }
         ParsedEdge myStart = head(winningRoute.a);
+        System.out.println("Chosen long way: " + winningRoute);
         return myStart;
     }
 
@@ -564,7 +565,8 @@ public class Sample1 extends VMExtras {
         int a2 = isWalkable(getMapItem(map, y + 1, x));
         int a3 = isWalkable(getMapItem(map, y, x - 1));
         int a4 = isWalkable(getMapItem(map, y, x + 1));
-        return a1 + a2 + a3 + a4 > 2 ? 1 : 0;
+        int sum = a1 + a2 + a3 + a4;
+        return sum > 2 || sum == 1 ? 1 : 0;
     }
 
     @Compiled

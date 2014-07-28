@@ -428,6 +428,12 @@ public class VM {
                 fold0(tail(c), arg.apply(init, head(c)), arg);
     }
 
+
+    @Compiled
+    public int max(int a, int b){
+        return a > b ? a: b;
+    }
+
     @Compiled
     public <T> Queue<T> queue_new() {
         return new Queue<T>(null, null);
