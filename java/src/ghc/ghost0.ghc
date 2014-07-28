@@ -1,0 +1,173 @@
+; hunter bot - try to run towards lambdaman and avoid if needed
+; takes desisions on intersections only
+; "predicts" lambdaman future coords and moves in advance
+mov h, 255                    ; initialize stack  #0
+int 1                         ; get lambdaman current coords in (a,b)   #1
+jeq 7,[2],a                   ;=>chky  #2
+mov [5],[2]                   ; keep prev coords in [5],[6] <=c0  #3
+mov [6],[3]                   ; #4
+mov [2],a                     ; #5
+mov [3],b                     ; keep new lambdaman coords in ([2],[3])  #6
+jeq 9,[3],b                   ;<=chky =>cont  #7
+jeq 3,a,a                     ;=>c0  #8
+mov a,[2]                     ; calc projected lambdaman coords 3 turns ahead <=cont  #9
+sub a,[5]                     ; #10
+mov [7],[2]                   ; #11
+add [7],a                     ; #12
+add [7],a                     ; #13
+add [7],a                     ; #14
+mov a,[3]                     ; #15
+sub a,[6]                     ; #16
+mov [8],[3]                   ; #17
+add [8],a                     ; #18
+add [8],a                     ; #19
+add [8],a                     ; ([7],[8]) contain projected lambdaman coords  #20
+mov [h], pc                   ; call get_surround_walls  #21
+add [h], 4                    ; #22
+sub h, 1                      ; #23
+mov pc, 134                   ;=>get_surround_walls  #24
+jlt 37,a,2                    ; 0 or 1 wall nearby - node found =>node  #25
+mov [h], pc                   ; call rng  #26
+add [h], 4                    ; #27
+sub h, 1                      ; #28
+mov pc, 107                   ;=>rng  #29
+mov b,a                       ; #30
+mov [h], pc                   ; call rng  #31
+add [h], 4                    ; #32
+sub h, 1                      ; #33
+mov pc, 107                   ;=>rng  #34
+int 7                         ; #35
+jeq 26,a,a                    ;=>loop  #36
+int 3                         ; a = walls count <=node  #37
+int 6                         ; #38
+mov [1],b                     ; keep curr. direction  #39
+mov [4],a                     ; save our vitality  #40
+mov a,[7]                     ; find desired direction  #41
+mov b,[8]                     ; #42
+div a,2                       ; #43
+div b,2                       ; #44
+mov c,a                       ; lambdaman scaled coords in (c,d) 0..127  #45
+mov d,b                       ; #46
+int 3                         ; #47
+int 5                         ; get our curr. coords in (a,b) 0..127  #48
+div a,2                       ; #49
+div b,2                       ; our scaled coords in (a,b)  #50
+sub c,a                       ; #51
+sub d,b                       ; (c,d) - relative coords of enemy -127..127  #52
+mov f, d                      ; y  #53
+sub f, c                      ; f = y - x  #54
+add d, c                      ; d = y + x  #55
+mov a, 1                      ; #56
+jlt 59, d, 128                ;=>m19  #57
+mov a, 0                      ; d < 0  #58
+jgt 63, f, 127                ; <=m19 =>m24  #59
+mov a, 3                      ; f > 0  #60
+jgt 63, d, 127                ;=>m24  #61
+mov a, 2                      ; d > 0  #62
+mov c,a                       ;<=m24  #63
+mov [h], pc                   ; call invert_if_panic  #64
+add [h], 4                    ; #65
+sub h, 1                      ; #66
+mov pc, 161                   ;=>invert_if_panic  #67
+mov [h], pc                   ; call check_dir_avail  #68
+add [h], 4                    ; #69
+sub h, 1                      ; #70
+mov pc, 116                   ;=>check_dir_avail  #71
+jeq 76,a,0                    ;=>na  #72
+mov a,c                       ;<=av  #73
+int 0                         ; set new dir  #74
+hlt                           ; #75
+int 3                         ;get_cur_pos  #76
+int 5                         ;  #77
+jeq 93,d,0                    ;=>vert  #78
+mov c,0                       ; compare y-coords in [3] and b ; check up or down is better  #79
+jgt 82,b,[3]                  ;=>yy  #80
+mov c,2                       ; #81
+mov [h], pc                   ; call invert_if_panic  #82
+add [h], 4                    ; #83
+sub h, 1                      ; #84
+mov pc, 161                   ;=>invert_if_panic  #85
+mov [h], pc                   ; call check_dir_avail  #86
+add [h], 4                    ; #87
+sub h, 1                      ; #88
+mov pc, 116                   ;=>check_dir_avail  #89
+jgt 73,a,0                    ;=>av  #90
+xor c,2                       ; bad luck - choose dir that left  #91
+jeq 73,a,a                    ;=>av  #92
+mov c,3                       ; compare x-coords in [2] and a ; check left or right ;<=vert  #93
+jgt 96,a,[2]                  ;=>xx  #94
+mov c,1                       ; #95
+mov [h], pc                   ; call invert_if_panic  #96
+add [h], 4                    ; #97
+sub h, 1                      ; #98
+mov pc, 161                   ;=>invert_if_panic  #99
+mov [h], pc                   ; call check_dir_avail  #100
+add [h], 4                    ; #101
+sub h, 1                      ; #102
+mov pc, 116                   ;=>check_dir_avail  #103
+jgt 73,a,0                    ;=>av  #104
+xor c,2                       ; bad luck - choose dir that left  #105
+jeq 73,a,a                    ;=>av  #106
+mov a,[42]                    ;<=rng  #107
+jeq 112,a,0                   ;=>do_xor  #108
+add a,a                       ; #109
+jeq 113,a,0                   ;=>no_xor  #110
+jlt 113,a,128                 ;=>no_xor  #111
+xor a,29                      ;<=do_xor  #112
+mov [42],a                    ;<=no_xor  #113
+add h, 1                      ;return  #114
+mov pc, [h]                   ; #115
+; Input: c = desired direction
+; Output: a = 0 - direction unavailable, a != 0 - available
+; Output: d = 0 - we tried vertical dir, d = 1 - horizontal
+mov a,[1]                     ; get current direction ;<=check_dir_avail   #116
+mov d,c                       ; dir we need  #117
+and d,1                       ; #118
+xor a,2                       ; check that c and a are not opposite directions  #119
+jeq 131,a,c                   ;=>not_avail  #120
+int 3                         ;get_cur_pos  #121
+int 5                         ;  #122
+jgt 127, d,0                  ; ; check for a wall in desired direction =>m02  #123
+add b,c                       ; #124
+dec b                         ; now we have future (a,b)  #125
+jeq 129,a,a                   ;=>join  #126
+sub a,c                       ;<=m02  #127
+add a,2                       ; #128
+int 7                         ; get map value at new (a,b) <=join  #129
+jgt 132,a,0                   ;=>avail  #130
+mov a,0                       ;<=not_avail  #131
+add h, 1                      ;return  #132
+mov pc, [h]                   ; #133
+int 3                         ;get_cur_pos  #134
+int 5                         ;  #135
+mov e,a                       ; keep a  #136
+mov c,0                       ; # of surrounding walls  #137
+dec b                         ; #138
+int 7                         ; get (a,b-1) value (zero is a wall)  #139
+jgt 142,a,0                   ;=>not_wall1  #140
+inc c                         ; wall found  #141
+add b,2                       ;<=not_wall1  #142
+mov a,e                       ; restore a  #143
+int 7                         ; get (a,b+1) value  #144
+jgt 147,a,0                   ;=>not_wall2  #145
+inc c                         ; wall found  #146
+dec b                         ; restore original b ;<=not_wall2  #147
+dec e                         ; #148
+mov a,e                       ; #149
+int 7                         ; get (a-1,b) value  #150
+jgt 153,a,0                   ;=>not_wall3  #151
+inc c                         ; wall found  #152
+add e,2                       ;<=not_wall3  #153
+mov a,e                       ; #154
+int 7                         ; get (a+1,b) value  #155
+jgt 158,a,0                   ;=>not_wall4  #156
+inc c                         ; wall found  #157
+mov a,c                       ;<=not_wall4  #158
+add h, 1                      ;return  #159
+mov pc, [h]                   ; #160
+mov a,[4]                     ;<=invert_if_panic  #161
+jeq 164,a,1                   ;=>panic  #162
+xor c,2                       ; inverse direction ; normal or invisible mode  #163
+xor c,2                       ; inverse direction <=panic  #164
+add h, 1                      ;return  #165
+mov pc, [h]                   ; #166
