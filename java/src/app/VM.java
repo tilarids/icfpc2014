@@ -71,6 +71,7 @@ public class VM {
     }
 
     public static void debug(Object o) {
+        if (o.toString().startsWith("89")) return;      // performance meters
         System.out.println("DEBUG: " + o.toString());
     }
 

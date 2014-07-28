@@ -569,7 +569,7 @@ public class Sample1 extends VMExtras {
                         allJunctions,
                         allJunctions2,
                         sorted_map_assoc(new SortedMap<>(null, 0), getPointKey(somePoint), somePoint), null);
-        return mapi(allNeighbourJunctionsPaths, 0, (p, ix) -> makeParsedEdge(ix, p, accessors));
+        return map(allNeighbourJunctionsPaths, p -> makeParsedEdge(0, p, accessors));
     }
 
     @Compiled
@@ -684,6 +684,7 @@ public class Sample1 extends VMExtras {
         SortedMap<Point> junctions = sorted_map_assoc_all(new SortedMap<Point>(null, 0),
                 addPointKeyAll(junctionsList));
         ListCons<ParsedEdge> allParsedEdges = concat(map(junctionsList, (j) -> findNeighbourJunctions(m, j, junctions, junctionsList, accessors)));
+        allParsedEdges = mapi(allParsedEdges, 0, (ParsedEdge pe, Integer ix) -> new ParsedEdge(ix, pe.edgeAccess, pe.opposingEdgeR, pe.precedingEdgesR, pe.markedW, pe.dangerA, pe.followingEdgesR, pe.a5, pe.a, pe.b));
 
         Function2<Integer, Point, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> edgesForPoint = emptyEdgesArrayForMap(length(m));
         Object ignore = map(allParsedEdges, (ParsedEdge e) -> map(e.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> ea) -> edgesForPoint.apply(VMExtras.GET_WRITER, ea.b).apply(lcons(e, edgesForPoint.apply(VMExtras.GET_READER, ea.b).apply(null)))));
@@ -814,7 +815,7 @@ public class Sample1 extends VMExtras {
 
 
     public static void main(String[] args) throws Exception {
-        //if (1 == 1) runInteractiveGCC();
+        // if (1 == 1) runInteractiveGCC();
 
 
         String theMap = map1;
