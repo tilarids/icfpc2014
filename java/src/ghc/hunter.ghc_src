@@ -1,6 +1,28 @@
 ; hunter bot - try to run towards lambdaman and avoid if needed
 ; takes desisions on intersections only
 
+        int 1       ; get lambdaman current coords in (a,b)
+
+        jeq chky,[2],a
+c0:     mov [5],[2] ; keep prev coords in [5],[6]
+        mov [6],[3]
+        mov [2],a
+        mov [3],b   ; keep new lambdaman coords in ([2],[3])
+chky:   jeq cont,[3],b
+        jeq c0,a,a
+cont:   ; calc projected lambdaman coords 3 turns ahead
+        mov a,[2]
+        sub a,[5]
+        mov [7],[2]
+        add [7],a
+        add [7],a
+        add [7],a
+        mov a,[3]
+        sub a,[6]
+        mov [8],[3]
+        add [8],a
+        add [8],a
+        add [8],a   ; ([7],[8]) contain projected lambdaman coords
         call get_surround_walls
         jlt node,a,2 ; 0 or 1 wall nearby - node found
         ; not a junction - we cannot change direction anyway
@@ -17,9 +39,8 @@ node:   ; a = walls count
         mov [1],b ; keep curr. direction
         mov [4],a   ; save our vitality
     ; find desired direction
-        int 1       ; get lambdaman current coords in (a,b)
-        mov [2],a
-        mov [3],b   ; keep lambdaman coords in ([2],[3])
+        mov a,[7]
+        mov b,[8]
         div a,2
         div b,2
         mov c,a     ; lambdaman scaled coords in (c,d) 0..127
