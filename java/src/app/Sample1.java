@@ -1,6 +1,7 @@
 package app;
 
 import java.util.ArrayList;
+import java.util.Random;
 
 import static app.SortedMap.*;
 
@@ -21,19 +22,19 @@ public class Sample1 extends VMExtras {
             "#.###.#.#######.#.###.#\n" +
             "#.....#....#....#.....#\n" +
             "#####.#### # ####.#####\n" +
-            "#   #.#    =    #.#   #\n" +
+            "#   #.#         #.#   #\n" +
             "#####.# ### ### #.#####\n" +
-            "#    .  # === #  .    #\n" +
+            "#    .  #     #  .    #\n" +
             "#####.# ####### #.#####\n" +
-            "#   #.#    %    #.#   #\n" +
+            "#   #.#=   %   =#.#   #\n" +
             "#####.# ####### #.#####\n" +
             "#..........#..........#\n" +
             "#.###.####.#.####.###.#\n" +
-            "#o..#......\\......#..o#\n" +
+            "#o..#=.....\\......#..o#\n" +
             "###.#.#.#######.#.#.###\n" +
             "#.....#....#....#.....#\n" +
             "#.########.#.########.#\n" +
-            "#.....................#\n" +
+            "#.......=.............#\n" +
             "#######################\n";
 
     public Sample1() {
@@ -98,7 +99,11 @@ public class Sample1 extends VMExtras {
     @Compiled
     private Integer countMyEdgePills(ParsedEdge edge, Point start) {
         ListCons<Tuple<Function1<Integer, Integer>, Point>> pathRemaining = dropWhile(edge.edgeAccess, (Tuple<Function1<Integer, Integer>, Point> t) -> ((Point) t.b).x != start.x || ((Point) t.b).y != start.y ? 1 : 0);
-        Tuple<Integer, Integer> rv = fold0(pathRemaining, new Tuple<Integer, Integer>(0, 100), (Tuple<Integer, Integer> acc, Tuple<Function1<Integer, Integer>, Point> t) -> new Tuple<>(acc.a + acc.b * (t.a.apply(0) == CT.PILL ? 1 : 0), max(acc.b * 100 / 20, 1)));
+        Tuple<Integer, Integer> rv = fold0(pathRemaining,
+                new Tuple<Integer, Integer>(0, 100),        // start
+                (Tuple<Integer, Integer> acc, Tuple<Function1<Integer, Integer>, Point> t) ->
+                        new Tuple<>(acc.a + acc.b * (t.a.apply(0) == CT.PILL ? 1 : 0),
+                                max(acc.b * 50 / 100, 1)));
         return rv.a;
     }
 
@@ -215,12 +220,14 @@ public class Sample1 extends VMExtras {
         // will be mostly proper all time (for straight corridors)
         // todo: make properly
         edgesForPoint = filter(edgesForPoint, (e) -> pointEquals3(head(remainingPath(e, gs.location)), nextPoint) == 1 || pointEquals3(head(remainingPath(e, gs.location)), gs.location) == 1 ? 1 : 0);
+        // these are edges along the bot direction
         debug(89002);
         debug(89001);
-        ListCons<Integer> __ = map(edgesForPoint, (ParsedEdge e) -> addEdgeDanger(e, initialDangerPercent(length(e.edgeAccess), length(remainingPath(e, gs.location)))));
+        // adding the danger to the contr-routes
+        ListCons<Integer> __ = map(edgesForPoint, (ParsedEdge e) -> addEdgeDanger(e.opposingEdgeR.apply(null), initialDangerPercent(length(e.edgeAccess), length(remainingPath(e, gs.location)))));
         debug(89002);
         debug(89001);
-        __ = map(edgesForPoint, (e) -> waveGhostDanger(aistate, new EdgeDangerWaveItem(e, 100, length(remainingPath(e, gs.location)))));
+        __ = map(edgesForPoint, (ParsedEdge e) -> waveGhostDanger(aistate, new EdgeDangerWaveItem(e.opposingEdgeR.apply(null), 100, length(remainingPath(e, gs.location)))));
         debug(89002);
         return 0;
     }
@@ -366,12 +373,12 @@ public class Sample1 extends VMExtras {
 
     @Compiled
     private Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>> calculateRouteScore(WorldState worldState, ListCons<ParsedEdge> r) {
-        Integer integer = countMyEdgePills(head(r), worldState.lambdaManState.location);
-        int i = countRoutePills(tail(r));
+        Integer myEdgePills = countMyEdgePills(head(r), worldState.lambdaManState.location);
+        int routePills = countRoutePills(tail(r));
         return new Triple<>(r,
-                ((10 * integer
-                        + 3 * i) * safetyPercent(r)) / 100,
-                new Triple<>(integer, i, safetyPercent(r))
+                ((10 * myEdgePills
+                        + 3 * routePills) * (safetyPercent(r))) / 100,
+                new Triple<>(myEdgePills, routePills, safetyPercent(r))
         );
     }
 
@@ -815,7 +822,7 @@ public class Sample1 extends VMExtras {
 
 
     public static void main(String[] args) throws Exception {
-        // if (1 == 1) runInteractiveGCC();
+        if (1 == 1) runInteractiveGCC();
 
 
         String theMap = map1;
@@ -901,20 +908,41 @@ public class Sample1 extends VMExtras {
                 printMap(theMap, worldState);
                 userTimer = 0;
             }
+            boolean movedGhost = false;
             for (int i = 0; i < ghostTimers.length; i++) {
                 ghostTimers[i]++;
                 if (ghostTimers[i] > ghostSpeed[i]) {
                     ghostTimers[i] = 0;
                     moveGhost(worldState, list_item(worldState.ghosts, i));
+                    movedGhost = true;
                 }
-
+            }
+            if (movedGhost){
+                printMap(theMap, worldState);
             }
         }
     }
 
+    static Random rand = new Random(12345);
+
     private static void moveGhost(WorldState ws, GhostState ghostState) {
         int gx = ghostState.location.x;
         int gy = ghostState.location.y;
+        int px = gx, py = gy;   // previous location
+        switch (ghostState.direction) {
+            case 0:
+                py++;
+                break;
+            case 1:
+                px--;
+                break;
+            case 2:
+                py--;
+                break;
+            case 3:
+                px++;
+                break;
+        }
 
         ArrayList<Point> possibleMoves = new ArrayList<>();
         if (isWalkable(getMapItem(ws.map, gy - 1, gx)) == 1) possibleMoves.add(new Point(gx, gy - 1));
@@ -943,12 +971,23 @@ public class Sample1 extends VMExtras {
                 // System.out.println("Ghost moved on: "+ghostState.location+" -> "+new Point(nx, ny));
                 ghostState.location.x = nx;
                 ghostState.location.y = ny;
-            } else shouldRecalc = true;
+            } else {
+                shouldRecalc = true;
+            }
         } else {
             shouldRecalc = true;
         }
         if (shouldRecalc) {
-            int nextPoint = ((int) (Math.random() * 256)) % possibleMoves.size();
+            if (possibleMoves.size() != 1) {
+                for (int i = 0; i < possibleMoves.size(); i++) {
+                    Point possibleMove = possibleMoves.get(i);
+                    if (possibleMove.x == px && possibleMove.y == py) {
+                        possibleMoves.remove(i);
+                        break;
+                    }
+                }
+            }
+            int nextPoint = rand.nextInt(possibleMoves.size());
             int nx = possibleMoves.get(nextPoint).x;
             int ny = possibleMoves.get(nextPoint).y;
             if (nx > gx) ghostState.direction = 1;
