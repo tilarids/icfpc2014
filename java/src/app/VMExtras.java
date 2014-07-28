@@ -135,26 +135,28 @@ public class VMExtras extends VM {
 
     @Compiled
     static class ParsedEdge {
+        int id;
         ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess;
-        Function2<Integer, Integer, Function1<Integer, Integer>> dangerA;
-        Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> precedingEdgesR;      // 0
         Function1<ParsedEdge, ParsedEdge> opposingEdgeR;                            // 1
+        Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> precedingEdgesR;      // 0
         Function1<Integer, Integer> markedW;                                        // 2
+        Function2<Integer, Integer, Function1<Integer, Integer>> dangerA;
         Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> followingEdgesR;      // 3
+        Function2<Integer, Integer, Function1<Integer, Integer>> a5;
         Point a;
         Point b;
-        Function2<Integer, Integer, Function1<Integer, Integer>> a5;
 
-        ParsedEdge(ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess, Function2<Integer, Integer, Function1<Integer, Integer>> dangerA, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> precedingEdgesR, Function1<ParsedEdge, ParsedEdge> opposingEdgeR, Function1<Integer, Integer> markedW, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> followingEdgesR, Point a, Point b, Function2<Integer, Integer, Function1<Integer, Integer>> a5) {
+        ParsedEdge(int id, ListCons<Tuple<Function1<Integer, Integer>, Point>> edgeAccess, Function1<ParsedEdge, ParsedEdge> opposingEdgeR, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> precedingEdgesR, Function1<Integer, Integer> markedW, Function2<Integer, Integer, Function1<Integer, Integer>> dangerA, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> followingEdgesR, Function2<Integer, Integer, Function1<Integer, Integer>> a5, Point a, Point b) {
+            this.id = id;
             this.edgeAccess = edgeAccess;
-            this.dangerA = dangerA;
-            this.precedingEdgesR = precedingEdgesR;
             this.opposingEdgeR = opposingEdgeR;
+            this.precedingEdgesR = precedingEdgesR;
             this.markedW = markedW;
+            this.dangerA = dangerA;
             this.followingEdgesR = followingEdgesR;
+            this.a5 = a5;
             this.a = a;
             this.b = b;
-            this.a5 = a5;
         }
 
         @Override

@@ -300,12 +300,6 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    private Point endingPointOfEdgeRoute(ListCons<ParsedEdge> lookingEdge) {
-        ParsedEdge lastEdge = head(lookingEdge);
-        return lastEdge.b;
-    }
-
-    @Compiled
     public int countRoutePills(ListCons<ParsedEdge> route) {
         return fold0(route, 0, (acc, pe) -> acc + countAnyEdgePills(pe));
     }
@@ -339,19 +333,18 @@ public class Sample1 extends VMExtras {
         q = fold0(currentEdges, q, (Queue<ListCons<ParsedEdge>> qq, ParsedEdge e) -> queue_enqueue(qq, cons(e, null)));
         debug(89002);
         debug(89001);
+        // 169k
         ListCons<Integer> ___ = map(aistate.parsedStaticMap.parsedEdges, (ParsedEdge pe) -> pe.markedW.apply(0));// clear visited flag
         ___ = map(currentEdges, (ParsedEdge pe) -> pe.markedW.apply(1));// mark starting visited
         ListCons<ListCons<ParsedEdge>> dests = waveFromEdgeToNearestEdges(aistate, worldState, q, null, 0);
         debug(89002);
         debug(89001);
+        // 11 006
         ListCons<ListCons<ParsedEdge>> directedRoutes = map(dests, (d) -> reverse(d));
         debug(89002);
         debug(89001);
-        ListCons<Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>>> scores = map(directedRoutes, (r) -> new Triple<>(r,
-                ((10 * countMyEdgePills(head(r), worldState.lambdaManState.location)
-                        + 3 * countRoutePills(tail(r))) * safetyPercent(r)) / 100,
-                new Triple<>(countMyEdgePills(head(r), worldState.lambdaManState.location), countRoutePills(tail(r)), safetyPercent(r))
-        ));
+        // 280k
+        ListCons<Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>>> scores = map(directedRoutes, (r) -> calculateRouteScore(worldState, r));
         debug(89002);
         debug(89001);
         Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>> winningRoute = maximum_by(scores, (Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>> t) -> t.b);
@@ -369,6 +362,17 @@ public class Sample1 extends VMExtras {
         ParsedEdge myStart = head(winningRoute.a);
         System.out.println("Chosen long way: " + winningRoute);
         return myStart;
+    }
+
+    @Compiled
+    private Triple<ListCons<ParsedEdge>, Integer, Triple<Integer, Integer, Integer>> calculateRouteScore(WorldState worldState, ListCons<ParsedEdge> r) {
+        Integer integer = countMyEdgePills(head(r), worldState.lambdaManState.location);
+        int i = countRoutePills(tail(r));
+        return new Triple<>(r,
+                ((10 * integer
+                        + 3 * i) * safetyPercent(r)) / 100,
+                new Triple<>(integer, i, safetyPercent(r))
+        );
     }
 
     private static int printList(Cons list) {
@@ -565,7 +569,7 @@ public class Sample1 extends VMExtras {
                         allJunctions,
                         allJunctions2,
                         sorted_map_assoc(new SortedMap<>(null, 0), getPointKey(somePoint), somePoint), null);
-        return map(allNeighbourJunctionsPaths, (p) -> makeParsedEdge(p, accessors));
+        return mapi(allNeighbourJunctionsPaths, 0, (p, ix) -> makeParsedEdge(ix, p, accessors));
     }
 
     @Compiled
@@ -579,18 +583,20 @@ public class Sample1 extends VMExtras {
     }
 
     @Compiled
-    private ParsedEdge makeParsedEdge(ListCons<Point> p, ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> accessors) {
+    private ParsedEdge makeParsedEdge(int id, ListCons<Point> p, ListCons<Function2<Integer, Integer, Function1<Integer, Integer>>> accessors) {
         Function2<Integer, Integer, Function1<Object, Object>> a5 = array_5();
         return new ParsedEdge(
+                id,
                 makeEdgeAccess(p, accessors),
-                eraseFunction2(array_1()),
-                eraseFunction1(a5.apply(VMExtras.GET_READER, 0)),
                 eraseFunction1(a5.apply(VMExtras.GET_READER, 1)),
+                eraseFunction1(a5.apply(VMExtras.GET_READER, 0)),
                 eraseFunction1(a5.apply(VMExtras.GET_WRITER, 2)),
+                eraseFunction2(array_1()),
                 eraseFunction1(a5.apply(VMExtras.GET_READER, 3)),
+                eraseFunction2(a5),
                 head(p),
-                last(p),
-                eraseFunction2(a5));
+                last(p)
+                );
     }
 
 
@@ -705,21 +711,6 @@ public class Sample1 extends VMExtras {
         return 0;
     }
 
-    @Compiled
-    private Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>> makeReadonlyPrecedingEdges(Function1<Point, ListCons<ParsedEdge>> readOnlyEdgesForPoint, ParsedEdge pe) {
-        ListCons<ParsedEdge> someEdges = readOnlyEdgesForPoint.apply(pe.a);
-        ListCons<ParsedEdge> precedings = filter(someEdges, (ParsedEdge ppe) -> pointEquals(pe.b, ppe.a));
-        Function2<Integer, Integer, Function1<ListCons<ParsedEdge>, ListCons<ParsedEdge>>> a1 = array_1();
-        ListCons<ParsedEdge> __ = a1.apply(VMExtras.GET_WRITER, 0).apply(precedings);
-        return a1.apply(VMExtras.GET_READER, 0);
-    }
-
-    @Compiled
-    private ParsedEdge findEdge(Point a, Point b, ListCons<ParsedEdge> edges) {
-        return head(filter(edges, (ParsedEdge e) -> pointEquals(e.a, a) * pointEquals(e.b, b)));
-
-    }
-
 
     @Compiled
     private ListCons<Point> my_cat_maybes(ListCons<Maybe<Point>> maybeListCons) {
@@ -823,7 +814,7 @@ public class Sample1 extends VMExtras {
 
 
     public static void main(String[] args) throws Exception {
-    //    if (1 == 1) runInteractiveGCC();
+        //if (1 == 1) runInteractiveGCC();
 
 
         String theMap = map1;
