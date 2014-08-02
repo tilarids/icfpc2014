@@ -1,6 +1,8 @@
 THIRTEEN's ICFPC 2014 source code
 =================================
 
+TL;DR; We enjoy writing compilers, emulators, preprocessors. That's why we wrote two GCC compilers, two (three?) GHC preprocessors and one emulator. Compilers = fun, writing actual game AI code = not that much.
+
 Subfolders:
 
 * GHCAsm - assembler for GHC written in C.
