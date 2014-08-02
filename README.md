@@ -14,4 +14,4 @@ Subfolders:
 
 Various files in the root folder represent our efforts to crack out the bkg2.png pic. :)
 
-Also, you can read a [post-mortem here](https://docs.google.com/document/d/1qYjmSkIH_BEGhd2j_3G_f-Xrkx8rrdr1M9TkGaBtxGI/pub).
+Also, you can read a [post-mortem here](https://docs.google.com/document/d/1qYjmSkIH_BEGhd2j_3G_f-Xrkx8rrdr1M9TkGaBtxGI/pub)(it is in Russian!).
